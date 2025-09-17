@@ -49,6 +49,17 @@ function createWindow() {
 
 import { dialog } from 'electron';
 
+
+// Création automatique du fichier config.json à la racine du projet si il n'existe pas
+const configPath = path.join(__dirname, '../../config.json');
+if (!fs.existsSync(configPath)) {
+  console.log('config.json non trouvé, création...');
+  fs.writeFileSync(configPath, JSON.stringify({ blenders: [] }, null, 2), 'utf-8');
+  console.log('config.json créé à', configPath);
+} else {
+  console.log('config.json déjà présent.');
+}
+
 app.whenReady().then(() => {
   console.log('App ready, creation de la fenetre...');
   createWindow();
