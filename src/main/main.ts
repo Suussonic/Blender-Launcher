@@ -45,19 +45,22 @@ function createWindow() {
 }
 
 
+
+import { dialog } from 'electron';
+
 app.whenReady().then(() => {
   console.log('App ready, creation de la fenetre...');
   createWindow();
 
   ipcMain.on('minimize-window', () => {
-  console.log('Recu : minimize-window');
+    console.log('Recu : minimize-window');
     if (mainWindow) {
       mainWindow.minimize();
     }
   });
 
   ipcMain.on('maximize-window', () => {
-  console.log('Recu : maximize-window');
+    console.log('Recu : maximize-window');
     if (mainWindow) {
       if (mainWindow.isMaximized()) {
         mainWindow.unmaximize();
@@ -68,9 +71,20 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on('close-window', () => {
-  console.log('Recu : close-window');
+    console.log('Recu : close-window');
     if (mainWindow) {
       mainWindow.close();
+    }
+  });
+
+  ipcMain.on('open-folder-dialog', async (event) => {
+    console.log('Recu : open-folder-dialog');
+    if (mainWindow) {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openDirectory']
+      });
+      // Tu peux traiter le résultat ici si besoin
+      console.log('Dossier choisi :', result.filePaths);
     }
   });
 });
