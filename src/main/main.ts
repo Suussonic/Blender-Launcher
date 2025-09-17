@@ -3,6 +3,7 @@ console.log('Chargement des modules Electron...');
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import extractIcon from 'extract-file-icon';
 console.log('Modules Electron charges.');
 
 
@@ -80,12 +81,50 @@ app.whenReady().then(() => {
   ipcMain.on('open-folder-dialog', async (event) => {
     console.log('Recu : open-folder-dialog');
     if (mainWindow) {
+      const filters: Electron.FileFilter[] =
+        process.platform === 'win32'
+          ? [{ name: 'Blender Executable', extensions: ['exe'] }]
+          : process.platform === 'linux'
+          ? [{ name: 'Blender Executable', extensions: ['AppImage', 'run', ''] }]
+          : [];
+      const properties: Array<'openFile'> = ['openFile'];
       const result = await dialog.showOpenDialog(mainWindow, {
-        properties: ['openDirectory']
+        properties,
+        filters
       });
-      // Tu peux traiter le résultat ici si besoin
-      console.log('Dossier choisi :', result.filePaths);
+      if (result.canceled || !result.filePaths[0]) return;
+      const exePath = result.filePaths[0];
+      let iconPath = '';
+      try {
+        // Extraction de l’icône (Windows uniquement)
+        if (process.platform === 'win32') {
+          const iconBuffer = extractIcon(exePath, 256) || extractIcon(exePath, 64) || extractIcon(exePath, 32) || extractIcon(exePath, 16);
+          if (iconBuffer) {
+            const iconsDir = path.join(__dirname, '../../dist/renderer/icons');
+            if (!fs.existsSync(iconsDir)) fs.mkdirSync(iconsDir, { recursive: true });
+            const iconFile = path.join(iconsDir, `icon_${Date.now()}.png`);
+            fs.writeFileSync(iconFile, iconBuffer);
+            // Chemin relatif pour le renderer (./icons/xxx.png)
+            iconPath = `./icons/${path.basename(iconFile)}`;
+          }
+        }
+      } catch (e) {
+        console.error('Erreur extraction icône :', e);
+      }
+      // Envoie le chemin du fichier sélectionné + icône au renderer
+      mainWindow.webContents.send('selected-blender-folder', { filePath: exePath, iconPath });
+      console.log('Fichier choisi :', exePath, 'Icone :', iconPath);
     }
+  });
+
+  ipcMain.on('launch-blender', (event, exePath) => {
+    console.log('Lancement de Blender :', exePath);
+    const { execFile } = require('child_process');
+    execFile(exePath, (error: any) => {
+      if (error) {
+        console.error('Erreur lors du lancement de Blender :', error);
+      }
+    });
   });
 });
 

@@ -4,11 +4,11 @@
   "description": "Blender Launcher est une application multiplateforme permettant de gérer facilement plusieurs versions de Blender",
   "main": "dist/main/main.js",
   "scripts": {
-  "clean": "rimraf dist",
-  "start": "electron .",
-  "dev": "npx tsc && cross-env BROWSER=none webpack --mode development && electron .",
-  "build": "npm run clean && webpack --mode production && npx tsc && electron-builder",
-  "pack": "webpack --mode production && electron-builder --dir",
+    "clean": "rimraf dist",
+    "start": "electron .",
+    "dev": "npx tsc && cross-env BROWSER=none webpack --mode development && electron .",
+    "build": "npm run clean && webpack --mode production && npx tsc && electron-builder",
+    "pack": "webpack --mode production && electron-builder --dir",
     "kill-electron": "taskkill /IM electron.exe /F || exit 0",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -37,6 +37,7 @@
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
+    "extract-file-icon": "^0.3.2",
     "html-webpack-plugin": "^5.6.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

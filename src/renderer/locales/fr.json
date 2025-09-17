@@ -3,5 +3,8 @@
   "subtitle": "Gérez toutes vos versions de Blender, add-ons et intégrations depuis une interface moderne.",
   "work_in_progress": "🚀 Interface inspirée des launchers gaming (work in progress)",
   "display": "Affichage",
-  "change_language": "Changer la langue"
+  "change_language": "Changer la langue",
+  "my_apps": "Mes applications",
+  "no_app": "Aucune application",
+  "folder": "Dossier"
 }

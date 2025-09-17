@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import { FiHome, FiDownload, FiSettings, FiMinus, FiMaximize2, FiX, FiGithub, FiFolder } from 'react-icons/fi';
 
 
@@ -42,6 +43,7 @@ type NavbarProps = {
 };
 
 const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings }) => {
+  const { t } = useTranslation();
   const navbarRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     if (navbarRef.current) {
@@ -242,7 +244,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings }) => {
                 }}
               >
                 <FiFolder size={80} />
-                <span style={{ marginTop: 24, fontSize: 24, fontWeight: 600 }}>Dossier</span>
+                <span style={{ marginTop: 24, fontSize: 24, fontWeight: 600 }}>{t('folder')}</span>
               </button>
               <button
                 style={{
