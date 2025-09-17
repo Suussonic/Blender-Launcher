@@ -34,7 +34,14 @@ const windowBtnStyle: React.CSSProperties = {
   borderRadius: 0
 };
 
-export default function Navbar() {
+
+// Ajout des props pour navigation
+type NavbarProps = {
+  onHome?: () => void;
+  onSettings?: () => void;
+};
+
+const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings }) => {
   const navbarRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     if (navbarRef.current) {
@@ -69,7 +76,7 @@ export default function Navbar() {
     >
       <img src={"./public/logo/png/Blender-Launcher-512x512.png"} alt="Logo" className="logo" style={{ width: 32, height: 32, marginLeft: 16, marginRight: 12 }} />
       <span style={{ fontWeight: 700, fontSize: 22, color: '#fff', marginRight: 24, letterSpacing: 1 }}>Blender Launcher</span>
-      <button style={iconBtnStyle} className="no-drag" title="Accueil">
+      <button style={iconBtnStyle} className="no-drag" title="Accueil" onClick={onHome}>
         <FiHome size={22} />
       </button>
       <input
@@ -96,7 +103,7 @@ export default function Navbar() {
         <FiFolder size={22} />
       </button>
       {/* Bouton paramètres (engrenage) */}
-      <button style={iconBtnStyle} className="no-drag" title="Paramètres">
+      <button style={iconBtnStyle} className="no-drag" title="Paramètres" onClick={onSettings}>
         <FiSettings size={22} />
       </button>
       {/* Séparateur vertical */}
@@ -144,3 +151,5 @@ export default function Navbar() {
     </div>
   );
 };
+
+export default Navbar;
