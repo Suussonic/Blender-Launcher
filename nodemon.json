@@ -1,0 +1,8 @@
+{
+  "watch": [
+    "dist/main/main.js",
+    "dist/preload.js"
+  ],
+  "delay": "500ms",
+  "ext": "js,json"
+}

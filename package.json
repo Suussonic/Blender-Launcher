@@ -1,0 +1,46 @@
+{
+  "name": "blender-launcher",
+  "version": "0.0.0",
+  "description": "Blender Launcher est une application multiplateforme permettant de gérer facilement plusieurs versions de Blender",
+  "main": "dist/main/main.js",
+  "scripts": {
+  "clean": "rimraf dist",
+  "start": "electron .",
+  "dev": "npx tsc && cross-env BROWSER=none webpack --mode development && electron .",
+  "build": "npm run clean && webpack --mode production && npx tsc && electron-builder",
+  "pack": "webpack --mode production && electron-builder --dir",
+    "kill-electron": "taskkill /IM electron.exe /F || exit 0",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/core": "^7.28.4",
+    "@babel/preset-env": "^7.28.3",
+    "@babel/preset-react": "^7.27.1",
+    "@types/i18next": "^13.0.0",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@types/react-i18next": "^8.1.0",
+    "babel-loader": "^10.0.0",
+    "concurrently": "^9.2.1",
+    "copy-webpack-plugin": "^13.0.1",
+    "cross-env": "^10.0.0",
+    "electron": "^38.1.0",
+    "electron-builder": "^26.0.12",
+    "nodemon": "^3.1.10",
+    "rimraf": "^6.0.1",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.2",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "html-webpack-plugin": "^5.6.4",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-icons": "^5.5.0",
+    "wait-on": "^9.0.0"
+  }
+}
