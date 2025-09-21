@@ -1,6 +1,8 @@
 interface ElectronAPI {
 	send: (channel: string, data?: any) => void;
-	on: (channel: string, func: (...args: any[]) => void) => void;
+	on: (channel: 'selected-blender-folder' | 'config-updated', func: (...args: any[]) => void) => void;
+	off: (channel: 'selected-blender-folder' | 'config-updated', func: (...args: any[]) => void) => void;
+	getBlenders: () => Promise<any[]>;
 }
 
 interface Window {

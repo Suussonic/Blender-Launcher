@@ -13,45 +13,58 @@ const Sidebar: React.FC = () => {
   const [blenders, setBlenders] = useState<BlenderExe[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Charge la liste depuis config.json au montage
   useEffect(() => {
-    // Handler pour recevoir le chemin du fichier sélectionné
+    const loadBlenders = async () => {
+      try {
+        if (window.electronAPI && window.electronAPI.getBlenders) {
+          console.log('[Sidebar] Chargement des applications depuis config.json');
+          const list = await window.electronAPI.getBlenders();
+          if (Array.isArray(list)) {
+            setBlenders(list as BlenderExe[]);
+            console.log('[Sidebar] Applications chargées:', list.length);
+          }
+        }
+      } catch (e) {
+        console.error('[Sidebar] Erreur lors du chargement:', e);
+      }
+    };
+    loadBlenders();
+  }, []);
+
+  useEffect(() => {
+    // Handler pour recevoir le chemin du fichier sélectionné lors d'un nouvel import
     if (window.electronAPI && window.electronAPI.on) {
       console.log('[Sidebar] Enregistrement du listener selected-blender-folder');
       window.electronAPI.on('selected-blender-folder', (event: any, payload: any) => {
         // payload = { filePath, iconPath }
         const filePath = payload?.filePath;
-        const iconPath = payload?.iconPath;
-        console.log('[Sidebar] Event selected-blender-folder reçu, filePath =', filePath, 'iconPath =', iconPath);
-        if (!filePath) {
-          console.log('[Sidebar] Aucun chemin reçu');
-          return;
+        console.log('[Sidebar] Event selected-blender-folder reçu, filePath =', filePath);
+        if (!filePath) return;
+        
+        // Vérifie si déjà présent pour afficher l'erreur
+        const exists = blenders.some(b => b.path === filePath);
+        if (exists) {
+          setError('Ce fichier est déjà importé !');
         }
+      });
+
+      // Handler pour recharger quand la config est mise à jour
+      window.electronAPI.on('config-updated', async () => {
+        console.log('[Sidebar] Config mise à jour, rechargement...');
         try {
-          const parts = filePath.split(/[\\/]/);
-          const exeName = parts[parts.length - 1];
-          setBlenders(list => {
-            const exists = list.some(b => b.path === filePath);
-            if (exists) {
-              setError('Ce fichier est déjà importé !');
-              return list;
-            }
-            return [
-              ...list,
-              {
-                path: filePath,
-                name: exeName,
-                icon: iconPath || '',
-              },
-            ];
-          });
+          const list = await window.electronAPI?.getBlenders();
+          if (Array.isArray(list)) {
+            setBlenders(list as BlenderExe[]);
+          }
         } catch (e) {
-          console.error('[Sidebar] Erreur lors du traitement du chemin :', e);
+          console.error('[Sidebar] Erreur lors du rechargement:', e);
         }
       });
     } else {
       console.log('[Sidebar] electronAPI.on non disponible');
     }
-  }, []);
+  }, [blenders]);
 
 
   // Efface l’erreur après 2,5s
