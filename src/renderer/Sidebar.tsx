@@ -7,8 +7,12 @@ type BlenderExe = {
   icon: string;
 };
 
+interface SidebarProps {
+  onSelectBlender: (blender: BlenderExe | null) => void;
+  selectedBlender: BlenderExe | null;
+}
 
-const Sidebar: React.FC = () => {
+const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) => {
   const { t } = useTranslation();
   const [blenders, setBlenders] = useState<BlenderExe[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +78,11 @@ const Sidebar: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [error]);
+
+  // Clic simple pour sélectionner
+  const handleClick = (exe: BlenderExe) => {
+    onSelectBlender(exe);
+  };
 
   // Double-clic pour lancer Blender
   const handleDoubleClick = (exe: BlenderExe) => {
@@ -148,7 +157,9 @@ const Sidebar: React.FC = () => {
                 alignItems: 'center',
                 gap: 12,
                 width: 180,
+                background: selectedBlender?.path === b.path ? '#2a2d36' : 'transparent',
               }}
+              onClick={() => handleClick(b)}
               onDoubleClick={() => handleDoubleClick(b)}
               title={b.path}
             >

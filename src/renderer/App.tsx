@@ -3,10 +3,18 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
+import ViewPages from './ViewPages';
+
+type BlenderExe = {
+  path: string;
+  name: string;
+  icon: string;
+};
 
 const App: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [page, setPage] = useState<'home' | 'settings'>('home');
+  const [selectedBlender, setSelectedBlender] = useState<BlenderExe | null>(null);
 
   // Page paramètres
   const SettingsPage = () => (
@@ -47,22 +55,7 @@ const App: React.FC = () => {
   );
 
   // Page d'accueil
-  const HomePage = () => (
-    <div style={{
-      flex: 1,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100%',
-      overflow: 'auto',
-    }}>
-      <h1 style={{ fontWeight: 700, fontSize: 48, marginBottom: 16 }}>{t('title')}</h1>
-      <p style={{ fontSize: 20, opacity: 0.8, marginBottom: 32 }}>
-        {t('subtitle')}
-      </p>
-    </div>
-  );
+  const HomePage = () => <ViewPages selectedBlender={selectedBlender} />;
 
   return (
     <div style={{
@@ -78,7 +71,10 @@ const App: React.FC = () => {
     }}>
       <Navbar onHome={() => setPage('home')} onSettings={() => setPage('settings')} />
       <div style={{ display: 'flex', flex: 1, minHeight: 0, paddingTop: 56, boxSizing: 'border-box', overflow: 'hidden' }}>
-        <Sidebar />
+        <Sidebar 
+          onSelectBlender={setSelectedBlender}
+          selectedBlender={selectedBlender}
+        />
         {page === 'settings' ? <SettingsPage /> : <HomePage />}
       </div>
     </div>
