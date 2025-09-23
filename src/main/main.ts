@@ -144,8 +144,8 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.on('open-folder-dialog', async (event) => {
-    console.log('Recu : open-folder-dialog');
+  ipcMain.on('open-folder-dialog', async (event, currentPath) => {
+    console.log('Recu : open-folder-dialog, currentPath =', currentPath);
     if (mainWindow) {
       const filters: Electron.FileFilter[] =
         process.platform === 'win32'
@@ -154,9 +154,18 @@ app.whenReady().then(() => {
           ? [{ name: 'Blender Executable', extensions: ['AppImage', 'run', ''] }]
           : [];
       const properties: Array<'openFile'> = ['openFile'];
+      
+      // Si un chemin est fourni, utiliser son dossier parent comme dossier par défaut
+      let defaultPath = undefined;
+      if (currentPath && typeof currentPath === 'string' && fs.existsSync(currentPath)) {
+        defaultPath = path.dirname(currentPath);
+        console.log('Ouverture du dialog dans le dossier :', defaultPath);
+      }
+      
       const result = await dialog.showOpenDialog(mainWindow, {
         properties,
-        filters
+        filters,
+        defaultPath
       });
       if (result.canceled || !result.filePaths[0]) return;
       const exePath = result.filePaths[0];
@@ -202,6 +211,86 @@ app.whenReady().then(() => {
       // Envoie le chemin du fichier sélectionné + icône au renderer (pour feedback immédiat)
       if (mainWindow) mainWindow.webContents.send('selected-blender-folder', { filePath: exePath, iconPath });
       console.log('Fichier choisi :', exePath, 'Icone :', iconPath);
+    }
+  });
+
+  ipcMain.on('change-executable', async (event, oldPath) => {
+    console.log('Recu : change-executable, oldPath =', oldPath);
+    if (mainWindow) {
+      const filters: Electron.FileFilter[] =
+        process.platform === 'win32'
+          ? [{ name: 'Blender Executable', extensions: ['exe'] }]
+          : process.platform === 'linux'
+          ? [{ name: 'Blender Executable', extensions: ['AppImage', 'run', ''] }]
+          : [];
+      const properties: Array<'openFile'> = ['openFile'];
+      
+      // Ouvrir l'explorateur dans le dossier de l'ancien exécutable
+      let defaultPath = undefined;
+      if (oldPath && typeof oldPath === 'string' && fs.existsSync(oldPath)) {
+        defaultPath = path.dirname(oldPath);
+        console.log('Ouverture du dialog dans le dossier :', defaultPath);
+      }
+      
+      const result = await dialog.showOpenDialog(mainWindow, {
+        properties,
+        filters,
+        defaultPath
+      });
+      
+      if (result.canceled || !result.filePaths[0]) return;
+      const newExePath = result.filePaths[0];
+      let iconPath = '';
+      
+      try {
+        // Extraction de l'icône du nouvel exécutable
+        if (process.platform === 'win32') {
+          const iconBuffer = extractIcon(newExePath, 256) || extractIcon(newExePath, 64) || extractIcon(newExePath, 32) || extractIcon(newExePath, 16);
+          if (iconBuffer) {
+            const iconsDir = path.join(app.getPath('userData'), 'icons');
+            if (!fs.existsSync(iconsDir)) fs.mkdirSync(iconsDir, { recursive: true });
+            const iconFile = path.join(iconsDir, `icon_${Date.now()}.png`);
+            fs.writeFileSync(iconFile, iconBuffer);
+            iconPath = pathToFileURL(iconFile).toString();
+          }
+        }
+      } catch (e) {
+        console.error('Erreur extraction icône :', e);
+      }
+      
+      // Mettre à jour l'exécutable existant dans config.json
+      try {
+        const raw = fs.readFileSync(configPath, 'utf-8');
+        const cfg = JSON.parse(raw || '{"blenders":[]}');
+        cfg.blenders = Array.isArray(cfg.blenders) ? cfg.blenders : [];
+        
+        // Trouver et mettre à jour l'ancien exécutable
+        const index = cfg.blenders.findIndex((b: any) => b.path === oldPath);
+        if (index !== -1) {
+          const parts = newExePath.split(/[\\/]/);
+          const exeName = parts[parts.length - 1];
+          cfg.blenders[index] = { 
+            path: newExePath, 
+            name: exeName, 
+            icon: iconPath || cfg.blenders[index].icon || '' 
+          };
+          fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8');
+          console.log('Config mise à jour - ancien:', oldPath, '-> nouveau:', newExePath);
+          // Informe le renderer avec les détails de la mise à jour
+          if (mainWindow) {
+            mainWindow.webContents.send('executable-updated', {
+              oldPath,
+              newExecutable: cfg.blenders[index]
+            });
+          }
+        } else {
+          console.warn('Ancien exécutable non trouvé dans la config:', oldPath);
+        }
+      } catch (e) {
+        console.error('Erreur lors de la mise à jour de config.json :', e);
+      }
+      
+      console.log('Exécutable changé :', oldPath, '->', newExePath, 'Icone :', iconPath);
     }
   });
 

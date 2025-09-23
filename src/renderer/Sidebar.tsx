@@ -65,6 +65,24 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
           console.error('[Sidebar] Erreur lors du rechargement:', e);
         }
       });
+
+      // Handler pour mise à jour d'un exécutable spécifique
+      window.electronAPI.on('executable-updated', async (event: any, payload: any) => {
+        console.log('[Sidebar] Exécutable mis à jour:', payload);
+        try {
+          const list = await window.electronAPI?.getBlenders();
+          if (Array.isArray(list)) {
+            setBlenders(list as BlenderExe[]);
+            
+            // Maintenir la sélection sur l'exécutable mis à jour
+            if (payload?.newExecutable && selectedBlender?.path === payload.oldPath) {
+              onSelectBlender(payload.newExecutable);
+            }
+          }
+        } catch (e) {
+          console.error('[Sidebar] Erreur lors de la mise à jour:', e);
+        }
+      });
     } else {
       console.log('[Sidebar] electronAPI.on non disponible');
     }

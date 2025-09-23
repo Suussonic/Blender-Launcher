@@ -14,24 +14,140 @@ interface ViewPagesProps {
 const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
   const { t } = useTranslation();
 
-  // Si un Blender est sélectionné, affiche sa page dédiée avec un style similaire à la homepage
+  const handleLaunch = () => {
+    if (selectedBlender && window.electronAPI && window.electronAPI.send) {
+      window.electronAPI.send('launch-blender', selectedBlender.path);
+    }
+  };
+
+  const handleChangeExecutable = () => {
+    if (selectedBlender && window.electronAPI && window.electronAPI.send) {
+      // Envoyer l'ancien chemin pour permettre la mise à jour
+      window.electronAPI.send('change-executable', selectedBlender.path);
+    }
+  };
+
+  // Si un Blender est sélectionné, affiche sa page dédiée
   if (selectedBlender) {
     return (
       <div style={{
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
         height: '100%',
         overflow: 'auto',
+        padding: '32px',
+        background: '#0F1419',
       }}>
-        <h1 style={{ fontWeight: 700, fontSize: 48, marginBottom: 16 }}>
-          {selectedBlender.name}
-        </h1>
-        <p style={{ fontSize: 20, opacity: 0.8, marginBottom: 32 }}>
-          Application Blender sélectionnée
-        </p>
+        {/* Section haute avec icône, titre, adresse et boutons */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '24px',
+          marginBottom: '32px',
+        }}>
+          {/* Icône */}
+          <img
+            src={selectedBlender.icon || require('../../public/logo/png/Blender-Launcher-64x64.png')}
+            alt="icon"
+            style={{ 
+              width: 80, 
+              height: 80, 
+              borderRadius: 12,
+              background: 'transparent',
+              flexShrink: 0,
+            }}
+            draggable={false}
+          />
+          
+          {/* Titre et adresse */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{
+              fontSize: 32,
+              fontWeight: 700,
+              margin: '0 0 8px 0',
+              color: '#fff',
+              wordBreak: 'break-word',
+            }}>
+              {selectedBlender.name}
+            </h1>
+            <p style={{
+              fontSize: 14,
+              color: '#888',
+              margin: '0 0 16px 0',
+              wordBreak: 'break-all',
+              lineHeight: 1.4,
+            }}>
+              {selectedBlender.path}
+            </p>
+          </div>
+
+          {/* Boutons à droite */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+            {/* Bouton Lancer */}
+            <button
+              onClick={handleLaunch}
+              style={{
+                background: '#22c55e',
+                border: 'none',
+                borderRadius: 8,
+                color: '#fff',
+                fontSize: 16,
+                fontWeight: 600,
+                padding: '10px 20px',
+                cursor: 'pointer',
+                transition: 'background 0.2s',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = '#16a34a'}
+              onMouseOut={(e) => e.currentTarget.style.background = '#22c55e'}
+            >
+              Lancer
+            </button>
+
+            {/* Bouton engrenage */}
+            <button
+              onClick={handleChangeExecutable}
+              style={{
+                background: '#374151',
+                border: 'none',
+                borderRadius: 8,
+                color: '#fff',
+                fontSize: 16,
+                padding: '10px 12px',
+                cursor: 'pointer',
+                transition: 'background 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = '#4b5563'}
+              onMouseOut={(e) => e.currentTarget.style.background = '#374151'}
+              title="Changer l'exécutable"
+            >
+            </button>
+          </div>
+        </div>
+
+        {/* Barre de séparation */}
+        <div style={{
+          width: '100%',
+          height: '2px',
+          background: 'linear-gradient(90deg, #374151 0%, #6b7280 50%, #374151 100%)',
+          marginBottom: '32px',
+          borderRadius: '1px',
+        }} />
+
+        {/* Section basse (pour plus tard) */}
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#6b7280',
+          fontSize: 16,
+        }}>
+          <p>Section à développer...</p>
+        </div>
       </div>
     );
   }

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
@@ -15,6 +15,33 @@ const App: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [page, setPage] = useState<'home' | 'settings'>('home');
   const [selectedBlender, setSelectedBlender] = useState<BlenderExe | null>(null);
+
+  // Écouter les changements de config pour mettre à jour la sélection
+  useEffect(() => {
+    const handleConfigUpdate = async () => {
+      if (selectedBlender && window.electronAPI && window.electronAPI.getBlenders) {
+        try {
+          const list = await window.electronAPI.getBlenders();
+          // Chercher l'exécutable mis à jour par son ancien chemin ou nom
+          const updated = list.find((b: BlenderExe) => 
+            b.name === selectedBlender.name || b.path === selectedBlender.path
+          );
+          if (updated) {
+            setSelectedBlender(updated);
+          } else {
+            // Si l'exécutable n'existe plus, déselectionner
+            setSelectedBlender(null);
+          }
+        } catch (e) {
+          console.error('[App] Erreur lors de la mise à jour de la sélection:', e);
+        }
+      }
+    };
+
+    if (window.electronAPI && window.electronAPI.on) {
+      window.electronAPI.on('config-updated', handleConfigUpdate);
+    }
+  }, [selectedBlender]);
 
   // Page paramètres
   const SettingsPage = () => (
