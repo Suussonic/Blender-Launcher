@@ -7,6 +7,18 @@ import extractIcon from 'extract-file-icon';
 import { pathToFileURL, fileURLToPath } from 'url';
 console.log('Modules Electron charges.');
 
+// Fonction utilitaire pour générer un title à partir du nom de fichier
+function generateTitle(fileName: string): string {
+  // Retire l'extension
+  const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
+  
+  // Capitalise la première lettre de chaque mot et remplace les tirets/underscores par des espaces
+  return nameWithoutExt
+    .replace(/[-_]/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
 
 let mainWindow: BrowserWindow | null = null;
 function createWindow() {
@@ -60,6 +72,34 @@ if (!fs.existsSync(configPath)) {
 } else {
   console.log('config.json déjà présent.');
 }
+
+// Migration: ajouter le champ 'title' aux entrées existantes qui n'en ont pas
+function migrateConfig() {
+  try {
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    const cfg = JSON.parse(raw || '{"blenders":[]}');
+    cfg.blenders = Array.isArray(cfg.blenders) ? cfg.blenders : [];
+    
+    let needsUpdate = false;
+    cfg.blenders.forEach((b: any) => {
+      if (!b.title && b.name) {
+        b.title = generateTitle(b.name);
+        needsUpdate = true;
+        console.log(`Migration: ajout du title "${b.title}" pour ${b.name}`);
+      }
+    });
+    
+    if (needsUpdate) {
+      fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8');
+      console.log('Config migrée avec succès');
+    }
+  } catch (e) {
+    console.error('Erreur lors de la migration du config:', e);
+  }
+}
+
+// Exécuter la migration
+migrateConfig();
 
 app.whenReady().then(() => {
   console.log('App ready, creation de la fenetre...');
@@ -197,7 +237,8 @@ app.whenReady().then(() => {
         if (!exists) {
           const parts = exePath.split(/[\\/]/);
           const exeName = parts[parts.length - 1];
-          cfg.blenders.push({ path: exePath, name: exeName, icon: iconPath || '' });
+          const title = generateTitle(exeName);
+          cfg.blenders.push({ path: exePath, name: exeName, title: title, icon: iconPath || '' });
           fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8');
           console.log('Config mise à jour avec un nouvel import');
           // Informe le renderer pour rafraîchir
@@ -269,9 +310,11 @@ app.whenReady().then(() => {
         if (index !== -1) {
           const parts = newExePath.split(/[\\/]/);
           const exeName = parts[parts.length - 1];
+          const title = generateTitle(exeName);
           cfg.blenders[index] = { 
             path: newExePath, 
             name: exeName, 
+            title: title,
             icon: iconPath || cfg.blenders[index].icon || '' 
           };
           fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8');

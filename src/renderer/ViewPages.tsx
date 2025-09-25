@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 type BlenderExe = {
   path: string;
   name: string;
+  title: string;
   icon: string;
 };
 
@@ -69,7 +70,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
               color: '#fff',
               wordBreak: 'break-word',
             }}>
-              {selectedBlender.name}
+              {selectedBlender.title || selectedBlender.name}
             </h1>
             <p style={{
               fontSize: 14,

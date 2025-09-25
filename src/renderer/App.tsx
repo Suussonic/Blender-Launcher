@@ -8,6 +8,7 @@ import ViewPages from './ViewPages';
 type BlenderExe = {
   path: string;
   name: string;
+  title: string;
   icon: string;
 };
 

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 type BlenderExe = {
   path: string;
   name: string;
+  title: string;
   icon: string;
 };
 
@@ -187,7 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
                 style={{ width: 36, height: 36, borderRadius: 7, marginRight: 2, background: 'transparent' }}
                 draggable={false}
               />
-              {b.name}
+              {b.title || b.name}
             </div>
           ))
         )}
