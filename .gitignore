@@ -1,3 +1,11 @@
 node_modules
 dist
 config.json
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.py[cod]
+*$py.class

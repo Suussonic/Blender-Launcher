@@ -104,6 +104,8 @@ migrateConfig();
 app.whenReady().then(() => {
   console.log('App ready, creation de la fenetre...');
   createWindow();
+  
+  console.log('[IPC] Enregistrement du handler update-executable-title...');
 
   ipcMain.on('minimize-window', () => {
     console.log('Recu : minimize-window');
@@ -129,6 +131,18 @@ app.whenReady().then(() => {
       mainWindow.close();
     }
   });
+
+  // Raccourci F12 pour ouvrir les DevTools
+  if (mainWindow) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12') {
+        console.log('F12 pressed, opening DevTools...');
+        if (mainWindow) {
+          mainWindow.webContents.openDevTools();
+        }
+      }
+    });
+  }
 
   // Extraction d'icône à la demande depuis un exécutable (comme dans l'ancien dossier)
   ipcMain.handle('get-exe-icon', async (_event, exePath: string) => {
@@ -344,6 +358,80 @@ app.whenReady().then(() => {
       if (error) {
         console.error('Erreur lors du lancement de Blender :', error);
       }
+    });
+  });
+
+  ipcMain.handle('update-executable-title', async (event, payload) => {
+    console.log('[IPC] update-executable-title reçu avec payload:', payload);
+    
+    const exePath = payload?.path;
+    const newTitle = payload?.title;
+    console.log('[IPC] Extraction - path:', exePath, 'title:', newTitle);
+    
+    if (!exePath || !newTitle) {
+      console.error('[IPC] Paramètres manquants - path:', exePath, 'title:', newTitle);
+      return { success: false, error: 'Paramètres manquants' };
+    }
+    
+    return new Promise((resolve, reject) => {
+      const pythonScript = path.join(__dirname, '../../update_title.py');
+      console.log('[IPC] Appel du script Python simple:', pythonScript);
+      
+      const { spawn } = require('child_process');
+      const python = spawn('python', [pythonScript, exePath, newTitle]);
+      
+      let output = '';
+      let errorOutput = '';
+      
+      python.stdout.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
+      
+      python.stderr.on('data', (data: Buffer) => {
+        errorOutput += data.toString();
+        console.warn('[IPC] Python stderr:', data.toString());
+      });
+      
+      python.on('close', (code: number) => {
+        console.log('[IPC] Python script terminé avec code:', code);
+        console.log('[IPC] Output Python:', output.trim());
+        
+        if (code !== 0) {
+          console.error('[IPC] Erreur Python:', errorOutput);
+          resolve({
+            success: false,
+            error: `Erreur Python (code ${code}): ${errorOutput}`
+          });
+          return;
+        }
+        
+        try {
+          const result = JSON.parse(output.trim());
+          console.log('[IPC] Résultat Python:', result);
+          
+          if (result.success && mainWindow) {
+            // Informe le renderer pour rafraîchir la liste
+            console.log('[IPC] Envoi de config-updated au renderer');
+            mainWindow.webContents.send('config-updated');
+          }
+          
+          resolve(result);
+        } catch (e) {
+          console.error('[IPC] Erreur parsing JSON:', e, 'Output:', output);
+          resolve({
+            success: false,
+            error: `Erreur parsing résultat Python: ${e}`
+          });
+        }
+      });
+      
+      python.on('error', (error: Error) => {
+        console.error('[IPC] Erreur lors du lancement Python:', error);
+        resolve({
+          success: false,
+          error: `Impossible de lancer Python: ${error.message}`
+        });
+      });
     });
   });
 

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import ViewSettings from './ViewSettings';
 
 type BlenderExe = {
   path: string;
@@ -14,6 +15,10 @@ interface ViewPagesProps {
 
 const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
   const { t } = useTranslation();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  console.log('[ViewPages] Rendu avec selectedBlender:', selectedBlender);
+  console.log('[ViewPages] isSettingsOpen:', isSettingsOpen);
 
   const handleLaunch = () => {
     if (selectedBlender && window.electronAPI && window.electronAPI.send) {
@@ -21,10 +26,41 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
     }
   };
 
-  const handleChangeExecutable = () => {
-    if (selectedBlender && window.electronAPI && window.electronAPI.send) {
-      // Envoyer l'ancien chemin pour permettre la mise à jour
-      window.electronAPI.send('change-executable', selectedBlender.path);
+  const handleOpenSettings = () => {
+    console.log('[ViewPages] Clic sur le bouton paramètres détecté!');
+    console.log('[ViewPages] selectedBlender:', selectedBlender);
+    setIsSettingsOpen(true);
+    console.log('[ViewPages] isSettingsOpen défini à true');
+  };
+
+  const handleSaveSettings = async (updatedBlender: BlenderExe) => {
+    console.log('[ViewPages] Envoi de la mise à jour du titre:', updatedBlender.title, 'pour', updatedBlender.path);
+    console.log('[ViewPages] window.electronAPI disponible:', !!window.electronAPI);
+    console.log('[ViewPages] window.electronAPI:', window.electronAPI);
+    console.log('[ViewPages] window.electronAPI.invoke existe:', !!window.electronAPI?.invoke);
+    
+    if (window.electronAPI && window.electronAPI.invoke) {
+      try {
+        const payload = {
+          path: updatedBlender.path,
+          title: updatedBlender.title
+        };
+        console.log('[ViewPages] Envoi IPC avec payload:', payload);
+        
+        const result = await window.electronAPI.invoke('update-executable-title', payload);
+        console.log('[ViewPages] Résultat reçu:', result);
+        
+        if (result.success) {
+          console.log('[ViewPages] Titre mis à jour avec succès:', result.message);
+        } else {
+          console.error('[ViewPages] Erreur lors de la mise à jour:', result.error);
+          // Ici on pourrait afficher une notification d'erreur à l'utilisateur
+        }
+      } catch (error) {
+        console.error('[ViewPages] Erreur lors de l\'appel IPC:', error);
+      }
+    } else {
+      console.error('[ViewPages] electronAPI.invoke non disponible!');
     }
   };
 
@@ -107,7 +143,12 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
 
             {/* Bouton engrenage */}
             <button
-              onClick={handleChangeExecutable}
+              onClick={(e) => {
+                console.log('[ViewPages] CLIC DETECTE sur le bouton paramètres!');
+                e.preventDefault();
+                e.stopPropagation();
+                handleOpenSettings();
+              }}
               style={{
                 background: 'transparent',
                 border: 'none',
@@ -162,6 +203,16 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
         }}>
           <p>Section à développer...</p>
         </div>
+        
+        {/* Popup de paramètres */}
+        {selectedBlender && (
+          <ViewSettings
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            selectedBlender={selectedBlender}
+            onSave={handleSaveSettings}
+          />
+        )}
       </div>
     );
   }

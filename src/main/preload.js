@@ -20,5 +20,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.off(channel, func);
     }
   },
+  invoke: (channel, ...args) => {
+    const validChannels = ['get-blenders', 'update-executable-title'];
+    if (validChannels.includes(channel)) {
+      return ipcRenderer.invoke(channel, ...args);
+    }
+    return Promise.reject(new Error(`Canal non autorisé: ${channel}`));
+  },
   getBlenders: () => ipcRenderer.invoke('get-blenders')
 });

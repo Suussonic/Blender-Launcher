@@ -17,6 +17,8 @@ const App: React.FC = () => {
   const [page, setPage] = useState<'home' | 'settings'>('home');
   const [selectedBlender, setSelectedBlender] = useState<BlenderExe | null>(null);
 
+  console.log('[App] Rendu - page:', page, 'selectedBlender:', selectedBlender);
+
   // Écouter les changements de config pour mettre à jour la sélection
   useEffect(() => {
     const handleConfigUpdate = async () => {
