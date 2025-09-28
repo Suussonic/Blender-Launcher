@@ -38,6 +38,12 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
     console.log('[ViewPages] window.electronAPI disponible:', !!window.electronAPI);
     console.log('[ViewPages] window.electronAPI:', window.electronAPI);
     console.log('[ViewPages] window.electronAPI.invoke existe:', !!window.electronAPI?.invoke);
+    if (window.electronAPI) {
+      // Affiche les clés réellement présentes pour debug
+      try {
+        console.log('[ViewPages] Clés electronAPI:', Object.keys(window.electronAPI as any));
+      } catch {}
+    }
     
     if (window.electronAPI && window.electronAPI.invoke) {
       try {
@@ -61,6 +67,11 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
       }
     } else {
       console.error('[ViewPages] electronAPI.invoke non disponible!');
+      // Fallback : mise à jour optimiste du titre uniquement en mémoire pour ne pas perdre l'action utilisateur
+      // (ne persiste pas dans config.json mais évite frustration visuelle)
+      if (selectedBlender) {
+        selectedBlender.title = updatedBlender.title;
+      }
     }
   };
 

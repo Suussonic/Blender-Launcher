@@ -373,66 +373,29 @@ app.whenReady().then(() => {
       return { success: false, error: 'Paramètres manquants' };
     }
     
-    return new Promise((resolve, reject) => {
-      const pythonScript = path.join(__dirname, '../../update_title.py');
-      console.log('[IPC] Appel du script Python simple:', pythonScript);
-      
-      const { spawn } = require('child_process');
-      const python = spawn('python', [pythonScript, exePath, newTitle]);
-      
-      let output = '';
-      let errorOutput = '';
-      
-      python.stdout.on('data', (data: Buffer) => {
-        output += data.toString();
-      });
-      
-      python.stderr.on('data', (data: Buffer) => {
-        errorOutput += data.toString();
-        console.warn('[IPC] Python stderr:', data.toString());
-      });
-      
-      python.on('close', (code: number) => {
-        console.log('[IPC] Python script terminé avec code:', code);
-        console.log('[IPC] Output Python:', output.trim());
-        
-        if (code !== 0) {
-          console.error('[IPC] Erreur Python:', errorOutput);
-          resolve({
-            success: false,
-            error: `Erreur Python (code ${code}): ${errorOutput}`
-          });
-          return;
+      try {
+        const raw = fs.readFileSync(configPath, 'utf-8');
+        const cfg = JSON.parse(raw || '{"blenders":[]}');
+        if (!Array.isArray(cfg.blenders)) cfg.blenders = [];
+        const idx = cfg.blenders.findIndex((b: any) => b.path === exePath);
+        if (idx === -1) {
+          console.warn('[IPC] update-executable-title: exécutable introuvable dans config:', exePath);
+          return { success: false, error: 'Exécutable introuvable' };
         }
-        
-        try {
-          const result = JSON.parse(output.trim());
-          console.log('[IPC] Résultat Python:', result);
-          
-          if (result.success && mainWindow) {
-            // Informe le renderer pour rafraîchir la liste
-            console.log('[IPC] Envoi de config-updated au renderer');
-            mainWindow.webContents.send('config-updated');
-          }
-          
-          resolve(result);
-        } catch (e) {
-          console.error('[IPC] Erreur parsing JSON:', e, 'Output:', output);
-          resolve({
-            success: false,
-            error: `Erreur parsing résultat Python: ${e}`
-          });
+        const old = { ...cfg.blenders[idx] };
+        cfg.blenders[idx].title = newTitle;
+        fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8');
+        console.log('[IPC] Titre mis à jour dans config.json:', old.title, '->', newTitle);
+        if (mainWindow) {
+          // notifier liste globale et élément individuel
+          mainWindow.webContents.send('config-updated');
+          mainWindow.webContents.send('executable-updated', { oldPath: exePath, newExecutable: cfg.blenders[idx] });
         }
-      });
-      
-      python.on('error', (error: Error) => {
-        console.error('[IPC] Erreur lors du lancement Python:', error);
-        resolve({
-          success: false,
-          error: `Impossible de lancer Python: ${error.message}`
-        });
-      });
-    });
+        return { success: true, message: 'Titre sauvegardé', updated: cfg.blenders[idx] };
+      } catch (e) {
+        console.error('[IPC] Erreur update-executable-title:', e);
+        return { success: false, error: String(e) };
+      }
   });
 
   // Répond à la requête du renderer pour obtenir la liste des applications
