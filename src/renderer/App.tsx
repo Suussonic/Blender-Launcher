@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Navbar from './Navbar';
@@ -25,14 +24,10 @@ const App: React.FC = () => {
       if (selectedBlender && window.electronAPI && window.electronAPI.getBlenders) {
         try {
           const list = await window.electronAPI.getBlenders();
-          // Chercher l'exécutable mis à jour par son ancien chemin ou nom
-          const updated = list.find((b: BlenderExe) => 
-            b.name === selectedBlender.name || b.path === selectedBlender.path
-          );
+          const updated = list.find((b: BlenderExe) => b.path === selectedBlender.path || b.name === selectedBlender.name);
           if (updated) {
             setSelectedBlender(updated);
           } else {
-            // Si l'exécutable n'existe plus, déselectionner
             setSelectedBlender(null);
           }
         } catch (e) {
@@ -41,8 +36,17 @@ const App: React.FC = () => {
       }
     };
 
+    const handleExecutableUpdated = async (_event: any, payload: any) => {
+      if (!payload?.newExecutable) return;
+      // Si l'exécutable mis à jour correspond à celui sélectionné (par ancien chemin ou titre préservé), mettre à jour immédiatement
+      if (selectedBlender && (payload.oldPath === selectedBlender.path || payload.newExecutable.title === selectedBlender.title)) {
+        setSelectedBlender(payload.newExecutable);
+      }
+    };
+
     if (window.electronAPI && window.electronAPI.on) {
       window.electronAPI.on('config-updated', handleConfigUpdate);
+      window.electronAPI.on('executable-updated', handleExecutableUpdated);
     }
   }, [selectedBlender]);
 

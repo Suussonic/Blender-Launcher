@@ -324,13 +324,17 @@ app.whenReady().then(() => {
         if (index !== -1) {
           const parts = newExePath.split(/[\\/]/);
           const exeName = parts[parts.length - 1];
-          const title = generateTitle(exeName);
-          cfg.blenders[index] = { 
-            path: newExePath, 
-            name: exeName, 
-            title: title,
-            icon: iconPath || cfg.blenders[index].icon || '' 
+          // Conserver l'ancien titre personnalisé (ne pas le régénérer)
+          const previous = cfg.blenders[index];
+          const preservedTitle = previous.title || previous.name || generateTitle(exeName);
+          cfg.blenders[index] = {
+            ...previous,               // préserve d'autres champs éventuels
+            path: newExePath,
+            name: exeName,
+            title: preservedTitle,     // garde l'ancien titre
+            icon: iconPath || previous.icon || ''
           };
+          console.log('Titre conservé lors du changement d\'exécutable :', preservedTitle);
           fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8');
           console.log('Config mise à jour - ancien:', oldPath, '-> nouveau:', newExePath);
           // Informe le renderer avec les détails de la mise à jour
@@ -339,6 +343,8 @@ app.whenReady().then(() => {
               oldPath,
               newExecutable: cfg.blenders[index]
             });
+            // Notifier aussi que la config globale a changé pour déclencher les rechargements éventuels
+            mainWindow.webContents.send('config-updated');
           }
         } else {
           console.warn('Ancien exécutable non trouvé dans la config:', oldPath);
