@@ -108,6 +108,21 @@ const App: React.FC = () => {
   // Page d'accueil
   const HomePage = () => <ViewPages selectedBlender={selectedBlender} />;
 
+  // Gestion centralisée de la sélection d'un Blender :
+  // - Si on est dans la page settings, bascule automatiquement sur home pour afficher la vue de l'app.
+  const handleSelectBlender = (b: BlenderExe | null) => {
+    if (b && page === 'settings') {
+      setPage('home');
+    }
+    setSelectedBlender(b);
+  };
+
+  // Clic sur Home : on revient sur page d'accueil réelle (donc on efface la sélection)
+  const handleHome = () => {
+    setSelectedBlender(null);
+    setPage('home');
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -120,7 +135,7 @@ const App: React.FC = () => {
       alignItems: 'stretch',
       overflow: 'hidden',
     }}>
-      <Navbar onHome={() => setPage('home')} onSettings={() => setPage('settings')} />
+  <Navbar onHome={handleHome} onSettings={() => setPage('settings')} />
       {toast && (
         <div style={{
           position: 'fixed',
@@ -141,7 +156,7 @@ const App: React.FC = () => {
       )}
       <div style={{ display: 'flex', flex: 1, minHeight: 0, paddingTop: 56, boxSizing: 'border-box', overflow: 'hidden' }}>
         <Sidebar 
-          onSelectBlender={setSelectedBlender}
+          onSelectBlender={handleSelectBlender}
           selectedBlender={selectedBlender}
         />
         <div style={{ flex: 1, display: 'flex' }}>
