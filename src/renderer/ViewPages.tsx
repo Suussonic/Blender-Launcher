@@ -156,6 +156,8 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
     }
   };
 
+  // (Global scrollbar styles now injected in index.html)
+
   // Si un Blender est sélectionné, affiche sa page dédiée
   if (selectedBlender) {
     return (
@@ -164,39 +166,17 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        overflow: 'auto',
-        padding: '0 32px 32px 32px',
-        overflowX: 'hidden',
-        background: '#0F1419',
-        scrollbarWidth: 'none', // Firefox
-        msOverflowStyle: 'none', // IE/Edge Legacy
-      }}
-        // Masquage scrollbar webkit via pseudo-element CSS injecté dynamiquement
-        ref={(el) => {
-          if (el) {
-            const styleId = 'hide-scroll-style';
-            if (!document.getElementById(styleId)) {
-              const s = document.createElement('style');
-              s.id = styleId;
-              s.textContent = `div[style*="hide-scroll"]::-webkit-scrollbar{display:none;width:0;height:0}`;
-              // Alternative ciblée : utiliser un attribut data-no-scrollbar si besoin
-              document.head.appendChild(s);
-            }
-            // Marquer l'élément pour le sélecteur (hack léger)
-            el.setAttribute('style', el.getAttribute('style') + '; hide-scroll:1;');
-          }
-        }}
-      >
-        {/* Wrapper sticky englobant le header pour supprimer tout espace parasite */}
-        <div style={{ position: 'sticky', top: 0, zIndex: 30, marginLeft: '-32px', marginRight: '-32px' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '24px',
-            padding: '20px 32px 14px 32px',
-            background: '#0F1419',
-            boxShadow: '0 4px 8px -4px rgba(0,0,0,0.55)'
-          }}>
+        background: '#0F1419'
+      }}>
+        {/* Header non scrollable */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '24px',
+          padding: '20px 32px 14px 32px',
+          background: '#0F1419',
+          boxShadow: '0 4px 8px -4px rgba(0,0,0,0.55)'
+        }}>
             {/* Icône */}
             <img
             src={selectedBlender.icon || require('../../public/logo/png/Blender-Launcher-64x64.png')}
@@ -277,12 +257,10 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
               </button>
             </div>
           </div>
-          {/* Barre décor pleine largeur */}
-          <div style={{ height: 2, background: 'linear-gradient(90deg, #374151 0%, #6b7280 50%, #374151 100%)' }} />
-        </div>
-
-        {/* Section basse : fichiers récents */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 24 }}>
+        {/* Barre décor pleine largeur */}
+        <div style={{ height: 2, background: 'linear-gradient(90deg, #374151 0%, #6b7280 50%, #374151 100%)' }} />
+        {/* Contenu scrollable (la scrollbar ne dépasse plus le header) */}
+  <div className="hide-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24, padding: '24px 32px 32px 32px', overflowY: 'auto', overflowX: 'hidden' }}>
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#f1f5f9' }}>
             Fichiers récents
           </h2>

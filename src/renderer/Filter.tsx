@@ -103,7 +103,7 @@ const Filter: React.FC<FilterProps> = ({ files, onSorted }) => {
           <span>Date d'utilisation</span>{arrow(active('order'), sortDir)}
         </div>
         <div style={{...cellBase, color: active('size') ? '#e2e8f0' : '#94a3b8'}} onClick={() => toggle('size')}>
-          <span>Poids</span>{arrow(active('size'), sortDir)}
+          <span>Taille</span>{arrow(active('size'), sortDir)}
         </div>
         <div />
       </div>

@@ -112,6 +112,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
 
   // Log pour debug du rendu
   console.log('[Sidebar] Render, blenders =', blenders);
+  // (Global scrollbar styles now injected in index.html) 
+
   return (
     <div style={{
       width: 220,
@@ -122,8 +124,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
       display: 'flex',
       flexDirection: 'column',
       zIndex: 99,
-      overflow: 'hidden',
       position: 'relative',
+      overflow: 'hidden'
     }}>
       {/* Popup erreur */}
       {error && (
@@ -152,11 +154,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
       )}
       {/* Titre Mes applications (affiché seulement si au moins une version) */}
       {blenders.length > 0 && (
-        <div style={{ width: '100%', padding: '24px 0 8px 0', textAlign: 'center', fontWeight: 700, fontSize: 18, color: '#fff', letterSpacing: 0.5, opacity: 0.95 }}>
-          {t('my_apps')}
-        </div>
+        <>
+          <div style={{ width: '100%', padding: '24px 0 24px 0', textAlign: 'center', fontWeight: 700, fontSize: 18, color: '#fff', letterSpacing: 0.5, opacity: 0.95 }}>
+            {t('my_apps')}
+          </div>
+          <div style={{ height: 2, width: '100%', background: 'linear-gradient(90deg, #374151 0%, #6b7280 50%, #374151 100%)', margin: '0 0 24px 0' }} />
+        </>
       )}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: blenders.length === 0 ? 'center' : 'flex-start', alignItems: 'center' }}>
+  <div className="hide-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: blenders.length === 0 ? 'center' : 'flex-start', alignItems: 'center', overflowY: 'auto', paddingBottom: 24 }}>
         {blenders.length === 0 ? (
           <span style={{ color: '#888', fontSize: 16, opacity: 0.7, textAlign: 'center', marginTop: 0 }}>{t('no_app')}</span>
         ) : (

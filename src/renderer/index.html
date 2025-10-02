@@ -7,6 +7,42 @@
     <title>Blender Launcher</title>
     <style>
       body { margin: 0; background: #181A20; }
+      /* Global scrollbar style (Discord-like) applied everywhere */
+      * { scrollbar-width: thin; scrollbar-color: #46515b transparent; }
+      *::-webkit-scrollbar { width: 8px; height: 8px; }
+      /* Hide ALL arrow/buttons (start/end, increment/decrement) */
+      /* Hide every possible scrollbar button variant (Chrome/Electron) */
+      *::-webkit-scrollbar-button,
+      *::-webkit-scrollbar-button:single-button,
+      *::-webkit-scrollbar-button:start,
+      *::-webkit-scrollbar-button:end,
+      *::-webkit-scrollbar-button:vertical:increment,
+      *::-webkit-scrollbar-button:vertical:decrement,
+      *::-webkit-scrollbar-button:horizontal:increment,
+      *::-webkit-scrollbar-button:horizontal:decrement { display:none !important; width:0 !important; height:0 !important; background:transparent !important; }
+      *::-webkit-scrollbar-track { background: transparent; }
+      *::-webkit-scrollbar-thumb { background:#2c343c; border-radius:4px; border:1px solid #1e252b; }
+      *::-webkit-scrollbar-thumb:hover { background:#364049; }
+      /* Extra explicit selectors (some Chromium builds still render a tiny glyph if not all are covered) */
+      *::-webkit-scrollbar-button,
+      *::-webkit-scrollbar-button:single-button,
+      *::-webkit-scrollbar-button:single-button:start,
+      *::-webkit-scrollbar-button:single-button:end,
+      *::-webkit-scrollbar-button:single-button:start:decrement,
+      *::-webkit-scrollbar-button:single-button:end:increment,
+      *::-webkit-scrollbar-button:single-button:vertical:decrement,
+      *::-webkit-scrollbar-button:single-button:vertical:increment,
+      *::-webkit-scrollbar-button:single-button:horizontal:decrement,
+      *::-webkit-scrollbar-button:single-button:horizontal:increment {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        background: transparent !important;
+        content: "" !important;
+      }
+      /* Utility class to hide scrollbar entirely while keeping scroll */
+      .hide-scrollbar { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+      .hide-scrollbar::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
     </style>
   </head>
   <body>
