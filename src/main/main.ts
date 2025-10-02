@@ -26,8 +26,15 @@ function createWindow() {
   try {
     const iconPath = path.join(__dirname, '../../public/logo/ico/Blender-Launcher-256x256.ico');
   console.log('Chemin icone :', iconPath, fs.existsSync(iconPath) ? 'OK' : 'NON TROUVE');
-  const preloadPath = path.join(__dirname, '../../dist/preload.js');
-  console.log('Chemin preload :', preloadPath, fs.existsSync(preloadPath) ? 'OK' : 'NON TROUVE');
+  // Détermination dynamique du preload (dev : src, prod : dist)
+  let preloadPath = path.join(__dirname, '../../dist/preload.js');
+  const devPreloadCandidate = path.join(__dirname, '../../src/main/preload.js');
+  if (!app.isPackaged && fs.existsSync(devPreloadCandidate)) {
+    preloadPath = devPreloadCandidate;
+    console.log('Mode dev: utilisation du preload source:', preloadPath);
+  } else {
+    console.log('Utilisation du preload dist:', preloadPath, fs.existsSync(preloadPath) ? 'OK' : 'NON TROUVE');
+  }
     const htmlPath = path.join(__dirname, '../../dist/renderer/index.html');
   console.log('Chemin index.html :', htmlPath, fs.existsSync(htmlPath) ? 'OK' : 'NON TROUVE');
 
@@ -355,6 +362,116 @@ app.whenReady().then(() => {
       
       console.log('Exécutable changé :', oldPath, '->', newExePath, 'Icone :', iconPath);
     }
+  });
+
+  // Suppression d'un exécutable de la config (handle pour obtenir un résultat direct)
+  ipcMain.handle('delete-executable', async (_event, payload) => {
+    try {
+      const targetPathRaw = typeof payload === 'string' ? payload : payload?.path;
+      if (!targetPathRaw) {
+        console.warn('[IPC] delete-executable: chemin manquant');
+        return { success: false, reason: 'missing-path' };
+      }
+      // Normalisation chemin (Windows: insensibilité à la casse + backslashes)
+      const normalize = (p: string) => {
+        try {
+          let r = path.resolve(p);
+          if (process.platform === 'win32') r = r.toLowerCase();
+          return r;
+        } catch { return p; }
+      };
+      const targetPath = normalize(targetPathRaw);
+      const raw = fs.readFileSync(configPath, 'utf-8');
+      const cfg = JSON.parse(raw || '{"blenders":[]}');
+      if (!Array.isArray(cfg.blenders)) cfg.blenders = [];
+      const before = cfg.blenders.length;
+      console.log('[IPC] delete-executable: tentative suppression', targetPathRaw, 'normalisé =', targetPath, 'total entrées =', before);
+      cfg.blenders.forEach((b:any,i:number)=>{
+        console.log('  >> entrée', i, 'path=', b.path, 'norm=', normalize(b.path));
+      });
+      // Tentatives de correspondance avancées
+      const targetFileName = path.basename(targetPathRaw).toLowerCase();
+      let matchedIndex = cfg.blenders.findIndex((b:any) => normalize(b.path) === targetPath);
+      if (matchedIndex === -1) {
+        matchedIndex = cfg.blenders.findIndex((b:any) => path.basename(b.path).toLowerCase() === targetFileName);
+        if (matchedIndex !== -1) console.log('[IPC] delete-executable: correspondance par nom de fichier');
+      }
+      if (matchedIndex === -1) {
+        // Essai realpath
+        try {
+          const realTarget = fs.realpathSync.native ? fs.realpathSync.native(targetPathRaw) : fs.realpathSync(targetPathRaw);
+          const realNorm = normalize(realTarget);
+          matchedIndex = cfg.blenders.findIndex((b:any)=>{
+            try { return normalize(fs.realpathSync(b.path)) === realNorm; } catch { return false; }
+          });
+          if (matchedIndex !== -1) console.log('[IPC] delete-executable: correspondance par realpath');
+        } catch {}
+      }
+      if (matchedIndex === -1) {
+        console.log('[IPC] delete-executable: aucune entrée correspondante trouvée');
+        if (mainWindow) mainWindow.webContents.send('executable-deleted', { path: targetPathRaw, found: false });
+        return { success: false, reason: 'not-found' };
+      }
+      const removed = cfg.blenders.splice(matchedIndex, 1)[0];
+      fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8');
+      console.log('[IPC] delete-executable: supprimé index', matchedIndex, '->', removed.path);
+      if (mainWindow) {
+        mainWindow.webContents.send('config-updated');
+        mainWindow.webContents.send('executable-deleted', { path: removed.path, found: true });
+      }
+      return { success: true };
+    } catch (e) {
+      console.error('[IPC] delete-executable erreur:', e);
+      return { success: false, reason: 'exception', error: String(e) };
+    }
+  });
+
+  // Listener legacy pour compatibilité avec send('delete-executable', ...) si le preload n'a pas encore la whitelist invoke mise à jour
+  ipcMain.on('delete-executable', async (event, payload) => {
+    console.log('[IPC] delete-executable (legacy on) déclenché - configPath =', configPath);
+    const res = await (async () => {
+      try {
+        const targetPathRaw = typeof payload === 'string' ? payload : payload?.path;
+        if (!targetPathRaw) {
+          console.warn('[IPC] delete-executable legacy: chemin manquant');
+          event.sender.send('executable-deleted', { path: payload?.path, found: false });
+          return { success: false };
+        }
+        const normalize = (p: string) => {
+          try { let r = path.resolve(p); if (process.platform === 'win32') r = r.toLowerCase(); return r; } catch { return p; }
+        };
+        const targetPath = normalize(targetPathRaw);
+        const raw = fs.readFileSync(configPath, 'utf-8');
+        const cfg = JSON.parse(raw || '{"blenders":[]}');
+        if (!Array.isArray(cfg.blenders)) cfg.blenders = [];
+        const targetFileName = path.basename(targetPathRaw).toLowerCase();
+        let matchedIndex = cfg.blenders.findIndex((b:any) => normalize(b.path) === targetPath);
+        if (matchedIndex === -1) matchedIndex = cfg.blenders.findIndex((b:any)=> path.basename(b.path).toLowerCase() === targetFileName);
+        if (matchedIndex === -1) {
+          try {
+            const realTarget = fs.realpathSync.native ? fs.realpathSync.native(targetPathRaw) : fs.realpathSync(targetPathRaw);
+            const realNorm = normalize(realTarget);
+            matchedIndex = cfg.blenders.findIndex((b:any)=>{ try { return normalize(fs.realpathSync(b.path)) === realNorm; } catch { return false; } });
+          } catch {}
+        }
+        if (matchedIndex === -1) {
+          console.log('[IPC] delete-executable legacy: not found');
+          event.sender.send('executable-deleted', { path: targetPathRaw, found: false });
+          return { success: false };
+        }
+        const removed = cfg.blenders.splice(matchedIndex,1)[0];
+        fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8');
+        console.log('[IPC] delete-executable legacy: supprimé', removed.path);
+        event.sender.send('config-updated');
+        event.sender.send('executable-deleted', { path: removed.path, found: true });
+        return { success: true };
+      } catch (e) {
+        console.error('[IPC] delete-executable legacy erreur:', e);
+        return { success: false };
+      }
+    })();
+    // Optionnel: renvoyer un résultat direct via canal séparé si nécessaire
+    event.sender.send('delete-executable-result', res);
   });
 
   ipcMain.on('launch-blender', (event, exePath) => {

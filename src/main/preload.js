@@ -4,7 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Ajout de logs de debug pour diagnostiquer l'absence de invoke côté renderer
 const api = {
   send: (channel, ...args) => {
-    const validChannels = ['minimize-window', 'maximize-window', 'close-window', 'open-folder-dialog', 'launch-blender', 'change-executable'];
+    const validChannels = ['minimize-window', 'maximize-window', 'close-window', 'open-folder-dialog', 'launch-blender', 'change-executable', 'delete-executable'];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, ...args);
     } else {
@@ -12,7 +12,7 @@ const api = {
     }
   },
   on: (channel, func) => {
-    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated'];
+    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result'];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, func);
     } else {
@@ -20,7 +20,7 @@ const api = {
     }
   },
   off: (channel, func) => {
-    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated'];
+    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result'];
     if (validChannels.includes(channel)) {
       ipcRenderer.off(channel, func);
     } else {
@@ -28,7 +28,7 @@ const api = {
     }
   },
   invoke: (channel, ...args) => {
-    const validChannels = ['get-blenders', 'update-executable-title'];
+    const validChannels = ['get-blenders', 'update-executable-title', 'delete-executable'];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
     }

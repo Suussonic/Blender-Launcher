@@ -15,6 +15,7 @@ const App: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [page, setPage] = useState<'home' | 'settings'>('home');
   const [selectedBlender, setSelectedBlender] = useState<BlenderExe | null>(null);
+  const [toast, setToast] = useState<{ msg: string; type: 'info' | 'error'; } | null>(null);
 
   console.log('[App] Rendu - page:', page, 'selectedBlender:', selectedBlender);
 
@@ -44,9 +45,25 @@ const App: React.FC = () => {
       }
     };
 
+    const handleExecutableDeleted = (payload: any) => {
+      if (selectedBlender && payload?.path === selectedBlender.path) {
+        setSelectedBlender(null);
+      }
+    };
+
     if (window.electronAPI && window.electronAPI.on) {
       window.electronAPI.on('config-updated', handleConfigUpdate);
       window.electronAPI.on('executable-updated', handleExecutableUpdated);
+      window.electronAPI.on('executable-deleted', handleExecutableDeleted);
+      window.electronAPI.on('delete-executable-result', (payload: any) => {
+        if (!payload) return;
+        if (payload.success) {
+          setToast({ msg: 'Exécutable supprimé', type: 'info' });
+        } else {
+          setToast({ msg: 'Suppression impossible', type: 'error' });
+        }
+        setTimeout(()=> setToast(null), 2500);
+      });
     }
   }, [selectedBlender]);
 
@@ -104,6 +121,24 @@ const App: React.FC = () => {
       overflow: 'hidden',
     }}>
       <Navbar onHome={() => setPage('home')} onSettings={() => setPage('settings')} />
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: 70,
+          right: 24,
+          background: toast.type === 'error' ? '#dc2626' : '#2563eb',
+          color: '#fff',
+          padding: '12px 18px',
+          borderRadius: 8,
+          fontSize: 14,
+          fontWeight: 500,
+          boxShadow: '0 4px 18px rgba(0,0,0,0.35)',
+          zIndex: 5000,
+          transition: 'opacity .2s'
+        }}>
+          {toast.msg}
+        </div>
+      )}
       <div style={{ display: 'flex', flex: 1, minHeight: 0, paddingTop: 56, boxSizing: 'border-box', overflow: 'hidden' }}>
         <Sidebar 
           onSelectBlender={setSelectedBlender}
