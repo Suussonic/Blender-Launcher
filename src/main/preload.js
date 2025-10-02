@@ -4,7 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Ajout de logs de debug pour diagnostiquer l'absence de invoke côté renderer
 const api = {
   send: (channel, ...args) => {
-    const validChannels = ['minimize-window', 'maximize-window', 'close-window', 'open-folder-dialog', 'launch-blender', 'change-executable', 'delete-executable'];
+    const validChannels = ['minimize-window', 'maximize-window', 'close-window', 'open-folder-dialog', 'launch-blender', 'change-executable', 'delete-executable', 'open-blend-file', 'reveal-in-folder'];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, ...args);
     } else {
@@ -28,7 +28,7 @@ const api = {
     }
   },
   invoke: (channel, ...args) => {
-    const validChannels = ['get-blenders', 'update-executable-title', 'delete-executable'];
+    const validChannels = ['get-blenders', 'update-executable-title', 'delete-executable', 'get-recent-blend-files', 'remove-recent-blend-file'];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
     }

@@ -1,6 +1,6 @@
 
 console.log('Chargement des modules Electron...');
-import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, nativeImage, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import extractIcon from 'extract-file-icon';
@@ -637,6 +637,203 @@ app.whenReady().then(() => {
     console.error('Erreur lors de la lecture de config.json :', e);
     return [];
   }
+  });
+
+  // Récupération des fichiers récents Blender pour un exécutable donné
+  ipcMain.handle('get-recent-blend-files', async (_event, payload) => {
+    try {
+      const exePath: string | undefined = payload?.exePath;
+      if (!exePath || !fs.existsSync(exePath)) {
+        return { version: null, files: [], error: 'invalid-exe' };
+      }
+
+      // 1. Tenter de récupérer la version via --version (timeout court)
+      const getVersion = (): Promise<string | null> => {
+        return new Promise((resolve) => {
+          try {
+            const { execFile } = require('child_process');
+            const proc = execFile(exePath, ['--version'], { timeout: 1500 }, (err: any, stdout: string, stderr: string) => {
+              if (err) return resolve(null);
+              const out = (stdout || stderr || '').trim();
+              // Exemple: "Blender 4.2.0" -> extraire 4.2
+              const match = out.match(/Blender\s+(\d+\.\d+)/i);
+              if (match) return resolve(match[1]);
+              // Sinon tenter version complète 4.2.0
+              const matchFull = out.match(/Blender\s+(\d+\.\d+\.\d+)/i);
+              if (matchFull) {
+                const parts = matchFull[1].split('.');
+                if (parts.length >= 2) return resolve(parts[0] + '.' + parts[1]);
+              }
+              resolve(null);
+            });
+            // Sécurité: timeout manuel si option timeout ne fonctionne pas
+            setTimeout(() => {
+              try { proc.kill('SIGKILL'); } catch {}
+              resolve(null);
+            }, 1800);
+          } catch {
+            resolve(null);
+          }
+        });
+      };
+
+      let version = await getVersion();
+      if (!version) {
+        // Fallback: essayer de deviner depuis le chemin du binaire
+        const lower = exePath.toLowerCase();
+        const guess = lower.match(/(\d+\.\d+)/); // capture 4.2, 3.6, 2.93 etc.
+        if (guess) version = guess[1];
+      }
+
+      // 2. Construire chemin recent-files.txt (Windows principalement)
+      let recentFilePath: string | null = null;
+      if (process.platform === 'win32' && version) {
+        const appData = process.env.APPDATA; // C:\Users\User\AppData\Roaming
+        if (appData) {
+          recentFilePath = path.join(appData, 'Blender Foundation', 'Blender', version, 'config', 'recent-files.txt');
+        }
+      }
+      // TODO: Linux/Mac support (peut être ajouté plus tard)
+
+      if (!recentFilePath || !fs.existsSync(recentFilePath)) {
+        return { version: version || null, files: [] };
+      }
+
+      // 3. Lire et parser recent-files.txt
+      let content = '';
+      try { content = fs.readFileSync(recentFilePath, 'utf-8'); } catch {}
+      const lines = content.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      // Blender met généralement un nombre limité, mais on tronque par prudence
+      const MAX_FILES = 40;
+      const selected = lines.slice(0, MAX_FILES);
+
+      const files = selected.map(p => {
+        let exists = false; let size: number | undefined; let mtime: number | undefined; let name = path.basename(p);
+        try {
+          const st = fs.statSync(p);
+          exists = true;
+          size = st.size;
+          mtime = st.mtimeMs;
+        } catch { exists = false; }
+        return { path: p, name, exists, size, mtime };
+      });
+
+      return { version: version || null, files };
+    } catch (e) {
+      console.error('[IPC] get-recent-blend-files erreur:', e);
+      return { version: null, files: [], error: String(e) };
+    }
+  });
+
+  // Suppression d'un fichier spécifique de recent-files.txt pour un exécutable donné
+  ipcMain.handle('remove-recent-blend-file', async (_event, payload) => {
+    try {
+      const exePath: string | undefined = payload?.exePath;
+      const targetPath: string | undefined = payload?.blendPath;
+      if (!exePath || !targetPath || !fs.existsSync(exePath)) {
+        return { success: false, reason: 'invalid-args' };
+      }
+
+      // Reprendre la logique de détermination de version (courte)
+      const getVersion = (): Promise<string | null> => {
+        return new Promise((resolve) => {
+          try {
+            const { execFile } = require('child_process');
+            const proc = execFile(exePath, ['--version'], { timeout: 1500 }, (err: any, stdout: string, stderr: string) => {
+              if (err) return resolve(null);
+              const out = (stdout || stderr || '').trim();
+              const match = out.match(/Blender\s+(\d+\.\d+)/i);
+              if (match) return resolve(match[1]);
+              const matchFull = out.match(/Blender\s+(\d+\.\d+\.\d+)/i);
+              if (matchFull) {
+                const parts = matchFull[1].split('.');
+                if (parts.length >= 2) return resolve(parts[0] + '.' + parts[1]);
+              }
+              resolve(null);
+            });
+            setTimeout(() => { try { proc.kill('SIGKILL'); } catch {} resolve(null); }, 1800);
+          } catch { resolve(null); }
+        });
+      };
+
+      let version = await getVersion();
+      if (!version) {
+        const guess = exePath.toLowerCase().match(/(\d+\.\d+)/);
+        if (guess) version = guess[1];
+      }
+      if (!version) return { success: false, reason: 'version-not-found' };
+
+      if (process.platform !== 'win32') {
+        // Pour l'instant seulement Windows supporté
+        return { success: false, reason: 'unsupported-platform' };
+      }
+      const appData = process.env.APPDATA;
+      if (!appData) return { success: false, reason: 'appdata-missing' };
+      const recentFilePath = path.join(appData, 'Blender Foundation', 'Blender', version, 'config', 'recent-files.txt');
+      if (!fs.existsSync(recentFilePath)) {
+        return { success: false, reason: 'recent-file-missing' };
+      }
+
+      let content = '';
+      try { content = fs.readFileSync(recentFilePath, 'utf-8'); } catch {
+        return { success: false, reason: 'read-failed' };
+      }
+      const linesRaw = content.split(/\r?\n/);
+      const targetNorm = path.normalize(targetPath).toLowerCase();
+      let removed = false;
+      const filtered = linesRaw.filter(l => {
+        const trimmed = l.trim();
+        if (!trimmed) return false; // ignore/vire les lignes vides
+        const norm = path.normalize(trimmed).toLowerCase();
+        if (norm === targetNorm) {
+          removed = true;
+          return false; // ne garde pas
+        }
+        return true;
+      });
+
+      if (!removed) {
+        return { success: false, reason: 'entry-not-found' };
+      }
+
+      try {
+        fs.writeFileSync(recentFilePath, filtered.join('\n') + '\n', 'utf-8');
+      } catch {
+        return { success: false, reason: 'write-failed' };
+      }
+
+      return { success: true };
+    } catch (e) {
+      console.error('[IPC] remove-recent-blend-file erreur:', e);
+      return { success: false, reason: 'exception', error: String(e) };
+    }
+  });
+
+  // Ouvrir un fichier .blend via l'exécutable choisi
+  ipcMain.on('open-blend-file', (event, payload) => {
+    try {
+      const exePath: string | undefined = payload?.exePath;
+      const blendPath: string | undefined = payload?.blendPath;
+      if (!exePath || !blendPath) return;
+      if (!fs.existsSync(exePath) || !fs.existsSync(blendPath)) return;
+      const { execFile } = require('child_process');
+      execFile(exePath, [blendPath], (err: any) => {
+        if (err) console.error('[IPC] open-blend-file erreur lancement:', err);
+      });
+    } catch (e) {
+      console.error('[IPC] open-blend-file exception:', e);
+    }
+  });
+
+  // Révéler un fichier ou dossier dans l'explorateur
+  ipcMain.on('reveal-in-folder', (event, payload) => {
+    try {
+      const target: string | undefined = payload?.path;
+      if (!target) return;
+      shell.showItemInFolder(target);
+    } catch (e) {
+      console.error('[IPC] reveal-in-folder erreur:', e);
+    }
   });
 });
 

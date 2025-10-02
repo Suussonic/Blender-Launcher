@@ -144,7 +144,9 @@ const App: React.FC = () => {
           onSelectBlender={setSelectedBlender}
           selectedBlender={selectedBlender}
         />
-        {page === 'settings' ? <SettingsPage /> : <HomePage />}
+        <div style={{ flex: 1, display: 'flex' }}>
+          {page === 'settings' ? <SettingsPage /> : <HomePage />}
+        </div>
       </div>
     </div>
   );

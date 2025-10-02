@@ -1,0 +1,17 @@
+/* Masque les scrollbars mais garde le scroll */
+.scroll-hide {
+  scrollbar-width: none; /* Firefox */
+}
+.scroll-hide::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
+.scroll-hide::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+/* Optionnel: lisser le scroll */
+html, body, .scroll-hide {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
