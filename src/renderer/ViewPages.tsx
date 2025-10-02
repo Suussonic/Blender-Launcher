@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import ViewSettings from './ViewSettings';
+import ViewOpenWith from './ViewOpenWith';
 
 type BlenderExe = {
   path: string;
@@ -21,6 +22,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
   const [recentError, setRecentError] = useState<string | null>(null);
   const [recentFiles, setRecentFiles] = useState<Array<{ path: string; name: string; exists: boolean; size?: number; mtime?: number }>>([]);
   const [recentVersion, setRecentVersion] = useState<string | null>(null);
+  const [openWithFile, setOpenWithFile] = useState<string | null>(null);
 
   // Chargement des fichiers récents quand l'exécutable change
   useEffect(() => {
@@ -278,9 +280,9 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
         </div>
 
         {/* Section basse : fichiers récents */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24, paddingTop: 24 }}>
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#f1f5f9' }}>
-            Fichiers récents {recentVersion ? `(v${recentVersion})` : ''}
+            Fichiers récents
           </h2>
           {recentLoading && (
             <div style={{ color: '#94a3b8', fontSize: 14 }}>Chargement...</div>
@@ -291,7 +293,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
           {!recentLoading && !recentError && recentFiles.length === 0 && (
             <div style={{ color: '#64748b', fontSize: 14 }}>Aucun fichier récent disponible pour ce build.</div>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
             {recentFiles.map((f, idx) => {
               const dateStr = f.mtime ? new Date(f.mtime).toLocaleString() : '';
               return (
@@ -336,6 +338,36 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <button
+                      onClick={() => f.exists && setOpenWithFile(f.path)}
+                      disabled={!f.exists}
+                      style={{
+                        background: '#1e2530',
+                        border: 'none',
+                        color: '#94a3b8',
+                        width: 34,
+                        height: 34,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 8,
+                        cursor: f.exists ? 'pointer' : 'default',
+                        opacity: f.exists ? 1 : 0.5
+                      }}
+                      title="Ouvrir avec une autre version"
+                    >
+                      {/* Icône expand (4 flèches vers l'extérieur) */}
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="15 3 21 3 21 9" />
+                        <polyline points="9 21 3 21 3 15" />
+                        <line x1="21" y1="3" x2="14" y2="10" />
+                        <line x1="3" y1="21" x2="10" y2="14" />
+                        <polyline points="3 9 3 3 9 3" />
+                        <polyline points="21 15 21 21 15 21" />
+                        <line x1="3" y1="3" x2="10" y2="10" />
+                        <line x1="21" y1="21" x2="14" y2="14" />
+                      </svg>
+                    </button>
                     <button
                       onClick={() => revealRecent(f.path)}
                       style={{
@@ -396,6 +428,11 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
             onSave={handleSaveSettings}
           />
         )}
+        <ViewOpenWith
+          isOpen={!!openWithFile}
+          filePath={openWithFile}
+          onClose={() => setOpenWithFile(null)}
+        />
       </div>
     );
   }
