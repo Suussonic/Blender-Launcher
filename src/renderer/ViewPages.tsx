@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import ViewSettings from './ViewSettings';
 import ViewOpenWith from './ViewOpenWith';
+import Filter, { RecentBlendFile } from './Filter';
 
 type BlenderExe = {
   path: string;
@@ -20,7 +21,8 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
   // Etat fichiers récents
   const [recentLoading, setRecentLoading] = useState(false);
   const [recentError, setRecentError] = useState<string | null>(null);
-  const [recentFiles, setRecentFiles] = useState<Array<{ path: string; name: string; exists: boolean; size?: number; mtime?: number }>>([]);
+  const [recentFiles, setRecentFiles] = useState<RecentBlendFile[]>([]);
+  const [displayFiles, setDisplayFiles] = useState<RecentBlendFile[]>([]);
   const [recentVersion, setRecentVersion] = useState<string | null>(null);
   const [openWithFile, setOpenWithFile] = useState<string | null>(null);
 
@@ -293,12 +295,17 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
           {!recentLoading && !recentError && recentFiles.length === 0 && (
             <div style={{ color: '#64748b', fontSize: 14 }}>Aucun fichier récent disponible pour ce build.</div>
           )}
+          <Filter files={recentFiles} onSorted={(sorted) => setDisplayFiles(sorted)} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
-            {recentFiles.map((f, idx) => {
+            {(displayFiles.length ? displayFiles : recentFiles).map((f, idx) => {
               const dateStr = f.mtime ? new Date(f.mtime).toLocaleString() : '';
               return (
                 <div
                   key={f.path + idx}
+                  role={f.exists ? 'button' : undefined}
+                  tabIndex={f.exists ? 0 : -1}
+                  onKeyDown={(e) => { if (f.exists && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openRecent(f.path); }}}
+                  onClick={() => { if (f.exists) openRecent(f.path); }}
                   style={{
                     background: '#131a20',
                     border: '1px solid #1e2530',
@@ -309,37 +316,34 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
                     gap: 14,
                     position: 'relative',
                     opacity: f.exists ? 1 : 0.55,
+                    cursor: f.exists ? 'pointer' : 'default',
+                    transition: 'background 0.15s, border-color 0.15s'
                   }}
+                  onMouseOver={e => { if (f.exists) { e.currentTarget.style.background = '#182129'; e.currentTarget.style.borderColor = '#26303b'; }}}
+                  onMouseOut={e => { e.currentTarget.style.background = '#131a20'; e.currentTarget.style.borderColor = '#1e2530'; }}
                 >
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                    <button
-                      onClick={() => f.exists && openRecent(f.path)}
-                      disabled={!f.exists}
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span
                       style={{
-                        textAlign: 'left',
-                        background: 'transparent',
-                        border: 'none',
-                        padding: 0,
-                        margin: 0,
                         fontSize: 15,
                         fontWeight: 500,
                         color: f.exists ? '#e2e8f0' : '#f87171',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        cursor: f.exists ? 'pointer' : 'default'
+                        textOverflow: 'ellipsis'
                       }}
                       title={f.path + (f.exists ? '' : ' (fichier introuvable)')}
                     >
                       {f.name}{!f.exists && ' (manquant)'}
-                    </button>
-                    <span style={{ color: '#64748b', fontSize: 12 }}>
-                      {dateStr} {f.size ? `• ${(f.size/1024).toFixed(1)} Ko` : ''}
                     </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, color: '#64748b', fontSize: 12 }}>
+                      <span>{dateStr} {f.size ? `• ${(f.size/1024).toFixed(1)} Ko` : ''}</span>
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: 0.85 }} title={f.path}>{f.path}</span>
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <button
-                      onClick={() => f.exists && setOpenWithFile(f.path)}
+                      onClick={(e) => { e.stopPropagation(); if (f.exists) setOpenWithFile(f.path); }}
                       disabled={!f.exists}
                       style={{
                         background: '#1e2530',
@@ -369,7 +373,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
                       </svg>
                     </button>
                     <button
-                      onClick={() => revealRecent(f.path)}
+                      onClick={(e) => { e.stopPropagation(); revealRecent(f.path); }}
                       style={{
                         background: '#1e2530',
                         border: 'none',
@@ -391,7 +395,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
                       </svg>
                     </button>
                     <button
-                      onClick={() => removeRecentPersistent(f.path)}
+                      onClick={(e) => { e.stopPropagation(); removeRecentPersistent(f.path); }}
                       style={{
                         background: '#31141b',
                         border: '1px solid #842b3b',

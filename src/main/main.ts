@@ -707,15 +707,17 @@ app.whenReady().then(() => {
       const MAX_FILES = 40;
       const selected = lines.slice(0, MAX_FILES);
 
-      const files = selected.map(p => {
-        let exists = false; let size: number | undefined; let mtime: number | undefined; let name = path.basename(p);
+      const files = selected.map((p, idx) => {
+        let exists = false; let size: number | undefined; let mtime: number | undefined; let ctime: number | undefined; let name = path.basename(p);
         try {
           const st = fs.statSync(p);
           exists = true;
           size = st.size;
           mtime = st.mtimeMs;
+          // birthtime peut être 0 sur certains FS, fallback ctime
+          ctime = (st as any).birthtimeMs && (st as any).birthtimeMs > 0 ? (st as any).birthtimeMs : st.ctimeMs;
         } catch { exists = false; }
-        return { path: p, name, exists, size, mtime };
+        return { path: p, name, exists, size, mtime, ctime, order: idx }; // order = position dans recent-files.txt (0 = plus récent)
       });
 
       return { version: version || null, files };
