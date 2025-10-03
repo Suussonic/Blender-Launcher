@@ -35,6 +35,123 @@ const windowBtnStyle: React.CSSProperties = {
   borderRadius: 0
 };
 
+// Modal d'import GitHub (inline pour limiter la dispersion)
+interface GitHubImportModalProps { value:string; onChange:(v:string)=>void; onClose:()=>void; onValidate:(url:string)=>{ok?:boolean; error?:string}; }
+
+const GitHubImportModal: React.FC<GitHubImportModalProps> = ({ value, onChange, onClose, onValidate }) => {
+  const [error,setError] = React.useState<string|null>(null);
+  const canSubmit = value.trim()!=='';
+
+  const submit = () => {
+    if(!canSubmit) return;
+    const r = onValidate(value.trim());
+    if(r?.error) setError(r.error);
+  };
+
+  return (
+    <div style={{
+      position:'fixed',
+      top:0,
+      left:0,
+      width:'100vw',
+      height:'100vh',
+      display:'flex',
+      alignItems:'center',
+      justifyContent:'center',
+      background:'rgba(0,0,0,0.55)'
+    }}
+      onClick={onClose}
+    >
+      <div onClick={e=>e.stopPropagation()} style={{
+        position:'relative',
+        width:420,
+        maxWidth:'90vw',
+        padding:'36px 34px 34px',
+        background:'#1F2328',
+        border:'1px solid #30363d',
+        borderRadius:24,
+        display:'flex',
+        flexDirection:'column',
+        alignItems:'center',
+        boxShadow:'0 8px 28px -8px rgba(0,0,0,0.55), 0 4px 14px -6px rgba(0,0,0,0.45)',
+        animation:'modalPop .28s cubic-bezier(.4,.12,.25,1)'
+      }}>
+        <button onClick={onClose} title='Fermer' style={{
+          position:'absolute',
+          top:10,
+          right:10,
+          background:'transparent',
+          border:'none',
+          color:'#d1d5db',
+          width:34,
+          height:34,
+          display:'flex',
+          alignItems:'center',
+          justifyContent:'center',
+          borderRadius:10,
+          cursor:'pointer'
+        }}
+          onMouseOver={e=>{ e.currentTarget.style.background='#262c33'; }}
+          onMouseOut={e=>{ e.currentTarget.style.background='transparent'; }}
+        >
+          <FiX size={18} />
+        </button>
+        <h3 style={{
+          margin:0,
+          fontSize:15,
+          fontWeight:600,
+          letterSpacing:.6,
+          color:'#f1f5f9',
+          textTransform:'uppercase'
+        }}>Importer un dépôt GitHub</h3>
+        <div style={{width:'100%', marginTop:18, display:'flex', justifyContent:'center'}}>
+          <input
+            type='text'
+            autoFocus
+            value={value}
+            placeholder='ex: https://github.com/blender/blender'
+            onChange={e=>{ setError(null); onChange(e.target.value); }}
+            onKeyDown={e=>{ if(e.key==='Enter') submit(); if(e.key==='Escape') onClose(); }}
+            style={{
+              width:'90%',
+              background:'#0f1419',
+              border:'1px solid '+(error?'#b91c1c':'#30363d'),
+              color:'#e2e8f0',
+              fontSize:15,
+              padding:'12px 14px',
+              borderRadius:14,
+              outline:'none',
+              boxShadow: error? '0 0 0 1px #b91c1c' : '0 2px 4px rgba(0,0,0,0.25)',
+              transition:'border-color .18s, background .18s, box-shadow .18s'
+            }}
+            onFocus={e=>{ e.currentTarget.style.borderColor= error? '#b91c1c':'#3d4650'; }}
+            onBlur={e=>{ e.currentTarget.style.borderColor= error? '#b91c1c':'#30363d'; }}
+          />
+        </div>
+        {error && <div style={{color:'#ef4444', fontSize:12, fontWeight:500, marginTop:6}}>{error}</div>}
+        <button onClick={submit} disabled={!canSubmit} style={{
+          marginTop:24,
+          minWidth:170,
+          background: canSubmit ? 'linear-gradient(90deg,#334155,#475569)' : '#2a3138',
+          border:'1px solid #3a454f',
+          color:'#fff',
+          fontSize:14,
+          fontWeight:600,
+          letterSpacing:.5,
+          padding:'11px 0',
+          borderRadius:14,
+          cursor: canSubmit ? 'pointer':'not-allowed',
+          boxShadow: canSubmit ? '0 4px 14px -6px rgba(0,0,0,0.55)' : 'none',
+          transition:'background .22s, transform .15s'
+        }}
+          onMouseOver={e=>{ if(canSubmit) e.currentTarget.style.background='linear-gradient(90deg,#3b4a5a,#526174)'; }}
+          onMouseOut={e=>{ if(canSubmit) e.currentTarget.style.background='linear-gradient(90deg,#334155,#475569)'; }}
+        >Valider</button>
+      </div>
+    </div>
+  );
+};
+
 
 // Ajout des props pour navigation
 type NavbarProps = {
@@ -318,95 +435,23 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo }) => 
           )}
           {/* Mode GitHub : barre de recherche */}
           {importMode === 'github' && (
-            <div style={{
-              background: '#23272F',
-              borderRadius: 24,
-              boxShadow: '0 4px 32px rgba(0,0,0,0.25)',
-              width: '420px',
-              minWidth: 320,
-              minHeight: 180,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              position: 'relative',
-              padding: '40px 32px 32px 32px',
-              gap: 24,
-            }}
-              onClick={e => e.stopPropagation()}
-            >
-              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-                <input
-                  type="text"
-                  placeholder="Collez un lien GitHub..."
-                  value={githubUrl}
-                  onChange={e => setGithubUrl(e.target.value)}
-                  style={{
-                    width: '100%',
-                    fontSize: 20,
-                    padding: '14px 22px',
-                    borderRadius: 12,
-                    border: '1.5px solid #23272F',
-                    background: '#181A20',
-                    color: '#fff',
-                    outline: 'none',
-                    marginBottom: 0,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.10)'
-                  }}
-                  autoFocus
-                />
-                <button
-                  style={{
-                    background: githubUrl.trim() ? '#3b82f6' : '#334155',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: 10,
-                    fontSize: 20,
-                    fontWeight: 600,
-                    padding: '12px 0',
-                    width: '100%',
-                    cursor: githubUrl.trim() ? 'pointer' : 'not-allowed',
-                    marginTop: 0,
-                    transition: 'background 0.2s',
-                    boxShadow: githubUrl.trim() ? '0 2px 8px #3b82f655' : 'none',
-                  }}
-                  onClick={() => {
-                    // Ici tu peux gérer l'import GitHub avec githubUrl
-                    setShowImport(false);
-                    setImportMode('main');
-                    setGithubUrl('');
-                  }}
-                  disabled={!githubUrl.trim()}
-                >Valider</button>
-              </div>
-              <button
-                style={{
-                  position: 'absolute',
-                  top: 16,
-                  right: 16,
-                  background: 'none',
-                  border: 'none',
-                  color: '#fff',
-                  fontSize: 28,
-                  cursor: 'pointer',
-                  borderRadius: 20,
-                  width: 40,
-                  height: 40,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  zIndex: 2,
-                }}
-                onClick={() => {
-                  setShowImport(false);
-                  setImportMode('main');
-                  setGithubUrl('');
-                }}
-                title="Fermer"
-              >
-                <FiX size={28} />
-              </button>
-            </div>
+            <GitHubImportModal
+              value={githubUrl}
+              onChange={setGithubUrl}
+              onClose={() => { setShowImport(false); setImportMode('main'); setGithubUrl(''); }}
+              onValidate={(url) => {
+                // Validation + extraction owner/name
+                const match = url.trim().match(/https?:\/\/github.com\/(?:#!\/)?([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(?:\/.+)?$/);
+                if (!match) return { error: 'Lien GitHub invalide' };
+                const owner = match[1];
+                const name = match[2];
+                if (onSelectRepo) onSelectRepo({ name: `${owner}/${name}`, link: `https://github.com/${owner}/${name}` });
+                setShowImport(false);
+                setImportMode('main');
+                setGithubUrl('');
+                return { ok:true };
+              }}
+            />
           )}
         </div>
       )}
