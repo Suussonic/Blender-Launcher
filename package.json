@@ -32,6 +32,8 @@
     "nodemon": "^3.1.10",
     "rimraf": "^6.0.1",
     "ts-loader": "^9.5.4",
+    "style-loader": "^4.0.0",
+    "css-loader": "^7.1.2",
     "typescript": "^5.9.2",
     "webpack": "^5.101.3",
     "webpack-cli": "^6.0.1"
@@ -43,6 +45,7 @@
     "react-dom": "^19.1.1",
     "react-icons": "^5.5.0",
     "wait-on": "^9.0.0",
-    "discord-rpc": "^4.0.1"
+    "discord-rpc": "^4.0.1",
+    "marked": "^12.0.2"
   }
 }

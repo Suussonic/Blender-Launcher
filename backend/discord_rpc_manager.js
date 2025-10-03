@@ -114,8 +114,21 @@ class DiscordRPCManager {
     try { if (this.reconnectTimer) clearTimeout(this.reconnectTimer); } catch {}
     this.reconnectTimer = null;
     if (this.client) {
-      try { this.client.clearActivity(); } catch {}
-      try { this.client.destroy(); } catch {}
+      // Eviter les promesses rejetées si la connexion n'a jamais été établie
+      try {
+        if (this.ready && this.client.clearActivity) {
+          const maybePromise = this.client.clearActivity();
+          if (maybePromise && typeof maybePromise.then === 'function') {
+            maybePromise.catch(()=>{});
+          }
+        }
+      } catch {}
+      try {
+        const maybe = this.client.destroy?.();
+        if (maybe && typeof maybe.then === 'function') {
+          maybe.catch(()=>{});
+        }
+      } catch {}
     }
     this.client = null;
     this.ready = false;

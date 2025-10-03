@@ -40,9 +40,10 @@ const windowBtnStyle: React.CSSProperties = {
 type NavbarProps = {
   onHome?: () => void;
   onSettings?: () => void;
+  onSelectRepo?: (repo:{ name:string; link:string }) => void;
 };
 
-const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings }) => {
+const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo }) => {
   const { t } = useTranslation();
   const navbarRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -59,6 +60,26 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings }) => {
   const [showImport, setShowImport] = React.useState(false);
   const [importMode, setImportMode] = React.useState<'main' | 'github'>('main');
   const [githubUrl, setGithubUrl] = React.useState('');
+
+  // Repo search state
+  const [repoQuery, setRepoQuery] = React.useState('');
+  const [repoList, setRepoList] = React.useState<{ name:string; link:string; avatar?:string }[]>([]);
+  React.useEffect(()=>{
+    try {
+      const data = require('./locales/link.json');
+      if (data?.repository) {
+        setRepoList(data.repository);
+        // prefetch avatars
+        data.repository.forEach((r:any)=>{
+          const m = r.link.match(/github.com\/(.+?)\//); if(m){
+            fetch(`https://api.github.com/users/${m[1]}`).then(res=>res.json()).then(j=>{
+              setRepoList(prev=> prev.map(p=> p.link===r.link ? { ...p, avatar:j.avatar_url }:p));
+            }).catch(()=>{});
+          }
+        });
+      }
+    } catch(e){ console.warn('Chargement link.json échoué', e); }
+  },[]);
 
   return (
     <>
@@ -82,30 +103,51 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings }) => {
           borderTopRightRadius: 0,
         }}
       >
-        <img src={"./public/logo/png/Blender-Launcher-512x512.png"} alt="Logo" className="logo" style={{ width: 32, height: 32, marginLeft: 16, marginRight: 12 }} />
-        <span style={{ fontWeight: 700, fontSize: 22, color: '#fff', marginRight: 24, letterSpacing: 1 }}>Blender Launcher</span>
-        <button style={iconBtnStyle} className="no-drag" title="Accueil" onClick={onHome}>
-          <FiHome size={22} />
-        </button>
-        <input
-          type="text"
-          placeholder="Rechercher"
-          style={{
-            flex: 1,
-            minWidth: 120,
-            margin: '0 24px 0 0',
-            height: 36,
-            borderRadius: 18,
-            border: 'none',
-            background: '#23272F',
-            color: '#fff',
-            fontSize: 16,
-            padding: '0 20px',
-            outline: 'none',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
-          }}
-          disabled
-        />
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginLeft:16, marginRight:20, flexShrink:0 }} className='no-drag'>
+          <img src={"./public/logo/png/Blender-Launcher-512x512.png"} alt="Logo" style={{ width:32, height:32 }} />
+          <span style={{ fontWeight:700, fontSize:22, color:'#fff', letterSpacing:1, whiteSpace:'nowrap' }}>Blender Launcher</span>
+          <button style={{ ...iconBtnStyle, width:38, height:38 }} title="Accueil" onClick={onHome}>
+            <FiHome size={22} />
+          </button>
+        </div>
+  <div style={{ position:'relative', flex:1, margin:'0 24px', minWidth:260, display:'flex' }} className="no-drag">
+          <input
+            type="text"
+            placeholder="Rechercher un repository..."
+            value={repoQuery}
+            onChange={e=> setRepoQuery(e.target.value)}
+            style={{
+              width:'100%',
+              height:36,
+              borderRadius:18,
+              border:'1px solid #23272F',
+              background:'#23272F',
+              color:'#fff',
+              fontSize:15,
+              padding:'0 18px',
+              outline:'none',
+              transition:'border-color .15s, background .15s'
+            }}
+            onFocus={e=>{ e.currentTarget.style.borderColor='#3c4652'; e.currentTarget.style.background='#262d34'; }}
+            onBlur={e=>{ e.currentTarget.style.borderColor='#23272F'; e.currentTarget.style.background='#23272F'; }}
+          />
+          {repoQuery && (
+            <div style={{ position:'absolute', top:40, left:0, right:0, background:'#1f242b', border:'1px solid #2a3036', borderRadius:12, padding:8, display:'flex', flexDirection:'column', gap:6, maxHeight:300, overflowY:'auto', zIndex:500 }}>
+              {repoList.filter(r=> r.name.toLowerCase().includes(repoQuery.toLowerCase())).map(r=> (
+                <div key={r.link} onClick={()=>{ setRepoQuery(''); onSelectRepo && onSelectRepo(r); }}
+                  style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 10px', background:'#232a31', border:'1px solid #2a3036', borderRadius:8, cursor:'pointer', fontSize:14, color:'#fff' }}
+                  onMouseOver={e=>{ e.currentTarget.style.background='#2b333b'; }}
+                  onMouseOut={e=>{ e.currentTarget.style.background='#232a31'; }}>
+                    {r.avatar ? <img src={r.avatar} style={{ width:26, height:26, borderRadius:'50%', display:'block' }} /> : <span style={{ width:26, height:26, borderRadius:'50%', background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12 }}>{r.name.charAt(0)}</span>}
+                    <span style={{ fontWeight:500 }}>{r.name}</span>
+                </div>
+              ))}
+              {repoList.filter(r=> r.name.toLowerCase().includes(repoQuery.toLowerCase())).length===0 && (
+                <div style={{ fontSize:12, color:'#94a3b8', padding:'4px 2px' }}>Aucun résultat</div>
+              )}
+            </div>
+          )}
+        </div>
         {/* Bouton import */}
         <button style={iconBtnStyle} className="no-drag" title="Importer" onClick={() => setShowImport(true)}>
           <FiDownload size={22} />

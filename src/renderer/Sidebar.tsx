@@ -37,6 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
     loadBlenders();
   }, []);
 
+
   useEffect(() => {
     // Handler pour recevoir le chemin du fichier sélectionné lors d'un nouvel import
     if (window.electronAPI && window.electronAPI.on) {

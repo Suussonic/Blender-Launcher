@@ -28,6 +28,10 @@ module.exports = {
         test: /\.(png|jpe?g|gif|ico)$/i,
         type: 'asset/resource',
       },
+      {
+        test: /\.css$/i,
+        use: ['style-loader','css-loader']
+      }
     ],
   },
   plugins: [

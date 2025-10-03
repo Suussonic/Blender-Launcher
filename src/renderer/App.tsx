@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import ViewPages from './ViewPages';
+import ViewRepo, { SimpleRepoRef } from './ViewRepo';
 
 type BlenderExe = {
   path: string;
@@ -16,6 +17,7 @@ const App: React.FC = () => {
   const [page, setPage] = useState<'home' | 'settings'>('home');
   const [selectedBlender, setSelectedBlender] = useState<BlenderExe | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'info' | 'error'; } | null>(null);
+  const [selectedRepo, setSelectedRepo] = useState<SimpleRepoRef | null>(null);
 
   console.log('[App] Rendu - page:', page, 'selectedBlender:', selectedBlender);
 
@@ -224,6 +226,7 @@ const App: React.FC = () => {
   // Gestion centralisée de la sélection d'un Blender :
   // - Si on est dans la page settings, bascule automatiquement sur home pour afficher la vue de l'app.
   const handleSelectBlender = (b: BlenderExe | null) => {
+    setSelectedRepo(null);
     setSelectedBlender(b);
     if (b && page === 'settings') setPage('home');
   };
@@ -231,6 +234,7 @@ const App: React.FC = () => {
   // Clic sur Home : on revient sur page d'accueil réelle (donc on efface la sélection)
   const handleHome = () => {
     setSelectedBlender(null);
+    setSelectedRepo(null);
     setPage('home');
   };
 
@@ -246,7 +250,7 @@ const App: React.FC = () => {
       alignItems: 'stretch',
       overflow: 'hidden',
     }}>
-  <Navbar onHome={handleHome} onSettings={() => setPage('settings')} />
+  <Navbar onHome={handleHome} onSettings={() => setPage('settings')} onSelectRepo={(r)=> { setSelectedRepo(r); setSelectedBlender(null); setPage('home'); }} />
       {toast && (
         <div style={{
           position: 'fixed',
@@ -271,7 +275,7 @@ const App: React.FC = () => {
           selectedBlender={selectedBlender}
         />
         <div style={{ flex: 1, display: 'flex' }}>
-          {page === 'settings' ? <SettingsPage /> : <HomePage />}
+          {page === 'settings' ? <SettingsPage /> : selectedRepo ? <ViewRepo repo={selectedRepo} onBack={()=> setSelectedRepo(null)} /> : <HomePage />}
         </div>
       </div>
     </div>
