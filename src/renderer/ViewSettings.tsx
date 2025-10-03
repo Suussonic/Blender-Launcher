@@ -131,15 +131,6 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
 
         {/* Champ titre */}
         <div style={{ marginBottom: '24px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: 14,
-            fontWeight: 500,
-            color: '#ddd',
-            marginBottom: '8px',
-          }}>
-            Titre
-          </label>
           <input
             type="text"
             value={title}
@@ -163,17 +154,8 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
           />
         </div>
 
-        {/* Section relocalisation + suppression */}
-        <div style={{ marginBottom: '32px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: 14,
-            fontWeight: 500,
-            color: '#ddd',
-            marginBottom: '8px',
-          }}>
-            Emplacement
-          </label>
+  {/* Section relocalisation + suppression (espacement uniformisé à 24px) */}
+  <div style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <button
               onClick={handleRelocate}

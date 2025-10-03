@@ -58,3 +58,21 @@ Le build final se trouvera dans le dossier `dist/` ou `release/` selon la config
 - **Nodemon** : https://www.npmjs.com/package/nodemon
 -- **Electron Builder** : https://www.electron.build/
 -- **rimraf** : https://www.npmjs.com/package/rimraf (nettoyage du dossier dist avant build)
+
+## Discord Rich Presence
+
+L'intégration Discord Rich Presence est incluse.
+
+Étapes pour l'activer :
+1. Créez une application sur https://discord.com/developers/applications
+2. Copiez votre Application ID.
+3. Dans le launcher, ouvrez Paramètres > Discord et collez l'ID dans le champ prévu.
+4. Cochez "Afficher l'activité".
+5. (Optionnel) Dans le portail Discord, ajoutez un asset d'image nommé `blender` pour l'icône grande.
+
+Options disponibles :
+- Nom du fichier .blend
+- Titre du build
+- Temps écoulé
+
+Le gestionnaire est implémenté dans `backend/discord_rpc_manager.js`.

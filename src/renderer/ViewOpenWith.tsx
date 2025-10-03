@@ -93,7 +93,11 @@ const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose }
 							onMouseOver={(e) => { e.currentTarget.style.background = '#23313c'; e.currentTarget.style.borderColor = '#2f3e4a'; }}
 							onMouseOut={(e) => { e.currentTarget.style.background = '#1a232b'; e.currentTarget.style.borderColor = '#24303a'; }}
 						>
-							<img src={b.icon || require('../../public/logo/png/Blender-Launcher-64x64.png')} alt='' style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', background: '#0f1419' }} />
+							<img
+								src={b.icon || require('../../public/logo/png/Blender-Launcher-64x64.png')}
+								alt=''
+								style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', background: 'transparent', boxShadow: 'none' }}
+							/>
 							<div style={{ flex: 1, minWidth: 0 }}>
 								<div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.title || b.name}</div>
 								<div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.path}</div>

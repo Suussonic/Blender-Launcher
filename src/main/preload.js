@@ -28,7 +28,16 @@ const api = {
     }
   },
   invoke: (channel, ...args) => {
-    const validChannels = ['get-blenders', 'update-executable-title', 'delete-executable', 'get-recent-blend-files', 'remove-recent-blend-file'];
+    const validChannels = [
+      'get-blenders',
+      'update-executable-title',
+      'delete-executable',
+      'get-recent-blend-files',
+      'remove-recent-blend-file',
+      'get-discord-config',
+      'update-discord-config',
+      'update-discord-presence'
+    ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);
     }

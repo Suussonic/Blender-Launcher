@@ -68,10 +68,18 @@ function createWindow() {
 
 
 import { dialog } from 'electron';
+// Discord RPC manager (JS module)
+// @ts-ignore - pas de declarations TS fournies
+import { DiscordRPCManager } from '../../backend/discord_rpc_manager';
+// ID d'application Discord intégré (Rich Presence). Ne pas mettre de secret ici.
+const DISCORD_APP_ID = '1423463152669954128';
 
 
 // Création automatique du fichier config.json à la racine du projet si il n'existe pas
 const configPath = path.join(__dirname, '../../config.json');
+// Initialisation tardive du manager Discord (apres configPath)
+// @ts-ignore
+const discordManager = new DiscordRPCManager(configPath);
 if (!fs.existsSync(configPath)) {
   console.log('config.json non trouvé, création...');
   fs.writeFileSync(configPath, JSON.stringify({ blenders: [] }, null, 2), 'utf-8');
@@ -80,12 +88,24 @@ if (!fs.existsSync(configPath)) {
   console.log('config.json déjà présent.');
 }
 
-// Migration: ajouter le champ 'title' aux entrées existantes qui n'en ont pas
+// Migration: ajouter le champ 'title' aux entrées existantes qui n'en ont pas et bloc discord par defaut
 function migrateConfig() {
   try {
     const raw = fs.readFileSync(configPath, 'utf-8');
     const cfg = JSON.parse(raw || '{"blenders":[]}');
     cfg.blenders = Array.isArray(cfg.blenders) ? cfg.blenders : [];
+    if (!cfg.discord) {
+      cfg.discord = { enabled: false, showFile: true, showTitle: true, showTime: false, appId: DISCORD_APP_ID };
+      console.log('Migration: ajout bloc discord par defaut + appId intégré');
+    } else {
+      if (typeof cfg.discord.enabled !== 'boolean') cfg.discord.enabled = false;
+      if (typeof cfg.discord.showFile !== 'boolean') cfg.discord.showFile = true;
+      if (typeof cfg.discord.showTitle !== 'boolean') cfg.discord.showTitle = true;
+      // showTime est désormais forcé à false (option supprimée)
+      cfg.discord.showTime = false;
+      // Remplace si placeholder différent de notre ID intégré
+      if (!cfg.discord.appId || cfg.discord.appId === '0000000000000000000') cfg.discord.appId = DISCORD_APP_ID;
+    }
     
     let needsUpdate = false;
     cfg.blenders.forEach((b: any) => {
@@ -98,7 +118,7 @@ function migrateConfig() {
     
     if (needsUpdate) {
       fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8');
-      console.log('Config migrée avec succès');
+      console.log('Config migrée avec succès (titles + discord)');
     }
   } catch (e) {
     console.error('Erreur lors de la migration du config:', e);
@@ -136,6 +156,52 @@ app.whenReady().then(() => {
     console.log('Recu : close-window');
     if (mainWindow) {
       mainWindow.close();
+    }
+  });
+
+  // --- Discord IPC ---
+  ipcMain.handle('get-discord-config', async () => {
+    try {
+      const raw = fs.readFileSync(configPath, 'utf-8');
+      const cfg = JSON.parse(raw || '{}');
+      return cfg.discord || null;
+    } catch (e) {
+      console.error('[DiscordRPC] get-discord-config erreur:', e);
+      return null;
+    }
+  });
+
+  ipcMain.handle('update-discord-config', async (_event, partial) => {
+    try {
+      const raw = fs.readFileSync(configPath, 'utf-8');
+      const cfg = JSON.parse(raw || '{}');
+      const prevEnabled = cfg.discord?.enabled;
+      cfg.discord = { ...(cfg.discord || {}), ...(partial || {}) };
+      // Toujours imposer l'appId interne
+      cfg.discord.appId = DISCORD_APP_ID;
+      fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8');
+      console.log('[DiscordRPC] Config mise a jour');
+      if (prevEnabled !== cfg.discord.enabled) {
+        discordManager.init(true);
+      }
+      return { success: true, discord: cfg.discord };
+    } catch (e) {
+      console.error('[DiscordRPC] update-discord-config erreur:', e);
+      return { success: false, error: String(e) };
+    }
+  });
+
+  ipcMain.handle('update-discord-presence', async (_event, params) => {
+    try {
+      discordManager.setActivity({
+        blenderTitle: params?.blenderTitle || 'Blender',
+        fileName: params?.fileName || null
+      });
+      discordManager.init();
+      return { success: true };
+    } catch (e) {
+      console.error('[DiscordRPC] update-discord-presence erreur:', e);
+      return { success: false, error: String(e) };
     }
   });
 
@@ -482,6 +548,20 @@ app.whenReady().then(() => {
         console.error('Erreur lors du lancement de Blender :', error);
       }
     });
+    // Mise à jour presence Discord si actif
+    try {
+      if (exePath) {
+        const raw = fs.readFileSync(configPath, 'utf-8');
+        const cfg = JSON.parse(raw || '{"blenders":[]}');
+        const entry = (cfg.blenders||[]).find((b:any)=> b.path === exePath);
+        // Essai extraction version (ex: Blender 4.1, 4.2, etc.)
+        let version = null;
+        const m = exePath.match(/(\d+\.\d+)/);
+        if (m) version = m[1].replace('.', ''); // 4.1 -> 41
+        discordManager.setActivity({ blenderTitle: entry?.title || entry?.name || 'Blender', fileName: null, version });
+        discordManager.init();
+      }
+    } catch(e) { console.warn('[DiscordRPC] Maj presence launch erreur:', e); }
   });
 
   ipcMain.handle('update-executable-title', async (event, payload) => {
@@ -822,6 +902,18 @@ app.whenReady().then(() => {
       execFile(exePath, [blendPath], (err: any) => {
         if (err) console.error('[IPC] open-blend-file erreur lancement:', err);
       });
+      // Update Discord presence
+      try {
+        const raw = fs.readFileSync(configPath, 'utf-8');
+        const cfg = JSON.parse(raw || '{"blenders":[]}');
+        const entry = (cfg.blenders||[]).find((b:any)=> b.path === exePath);
+        const fileName = path.basename(blendPath);
+        let version = null;
+        const m = exePath.match(/(\d+\.\d+)/);
+        if (m) version = m[1].replace('.', '');
+        discordManager.setActivity({ blenderTitle: entry?.title || entry?.name || 'Blender', fileName, version });
+        discordManager.init();
+      } catch(e) { console.warn('[DiscordRPC] presence open file erreur:', e); }
     } catch (e) {
       console.error('[IPC] open-blend-file exception:', e);
     }

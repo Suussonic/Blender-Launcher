@@ -13,9 +13,10 @@ type BlenderExe = {
 
 interface ViewPagesProps {
   selectedBlender: BlenderExe | null;
+  onLaunch?: (b: BlenderExe) => void;
 }
 
-const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
+const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
   const { t } = useTranslation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   // Etat fichiers récents
@@ -104,6 +105,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender }) => {
   const handleLaunch = () => {
     if (selectedBlender && window.electronAPI && window.electronAPI.send) {
       window.electronAPI.send('launch-blender', selectedBlender.path);
+      if (onLaunch) onLaunch(selectedBlender);
     }
   };
 
