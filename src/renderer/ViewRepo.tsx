@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { marked } from 'marked';
 import './markdown.css';
+import { loadRepoCache, saveRepoCache, needsMeta, needsReadme, needsLicense, needsExtra } from './githubCache';
 
 export interface SimpleRepoRef { name: string; link: string; }
 interface ViewRepoProps { repo: SimpleRepoRef; onBack?: () => void; }
@@ -18,95 +19,117 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo }) => {
 
   useEffect(() => {
     let cancelled = false;
-    const load = async () => {
+    (async () => {
       setLoading(true); setError(null);
       try {
-        // Parse owner/name from link like https://github.com/owner/name
         const m = repo.link.match(/github.com\/(.+?)\/(.+?)(?:$|\?|#|\/)/i);
-        if (!m) throw new Error('Lien GitHub invalide');
-        const owner = m[1];
-        const name = m[2];
-        const metaResp = await fetch(`https://api.github.com/repos/${owner}/${name}`);
-        if (!metaResp.ok) throw new Error('Impossible de charger les métadonnées');
-        const metaJson = await metaResp.json();
-        if (cancelled) return;
-        setMeta(metaJson);
-        // Stats supplémentaires
-        try {
-          const [branchesRes, commitsRes, tagsRes] = await Promise.all([
-            fetch(`https://api.github.com/repos/${owner}/${name}/branches?per_page=1`),
-            fetch(`https://api.github.com/repos/${owner}/${name}/commits?per_page=1`),
-            fetch(`https://api.github.com/repos/${owner}/${name}/tags?per_page=1`)
-          ]);
-          // Pour obtenir les totaux exacts sans authentification, on lit le header 'Link' (pagination) sinon approximation
-          const parseTotal = (res:Response) => {
-            const link = res.headers.get('Link');
-            if (link) {
-              const m2 = link.match(/&page=(\d+)>; rel="last"/);
-              if (m2) return parseInt(m2[1]);
-            }
-            return 1; // au moins 1 si ok
-          };
-          setExtraStats({ branches: branchesRes.ok?parseTotal(branchesRes):0, commits: commitsRes.ok?parseTotal(commitsRes):0, tags: tagsRes.ok?parseTotal(tagsRes):0 });
-        } catch {}
+        if(!m) throw new Error('Lien GitHub invalide');
+        const owner = m[1]; const name = m[2];
+        const full = owner+"/"+name;
 
-        // README (essaie direct raw)
-        const readmeResp = await fetch(`https://raw.githubusercontent.com/${owner}/${name}/HEAD/README.md`);
-        if (readmeResp.ok) {
-          const md = await readmeResp.text();
-          const html1 = await marked.parse(md);
-          if (!cancelled) setReadmeHtml(html1 as string);
-        } else {
-          // fallback via API contenu
-          const apiReadme = await fetch(`https://api.github.com/repos/${owner}/${name}/readme`);
-          if (apiReadme.ok) {
-            const jr:any = await apiReadme.json();
-            if (jr.content) {
-              const decoded = atob(jr.content.replace(/\n/g,''));
-              const html2 = await marked.parse(decoded);
-              if (!cancelled) setReadmeHtml(html2 as string);
-            }
+        const cache = loadRepoCache(full);
+        if (cache) {
+          if (cache.meta) setMeta(cache.meta);
+          if (cache.readmeHtml) setReadmeHtml(cache.readmeHtml);
+            if (cache.licenseHtml) setLicenseHtml(cache.licenseHtml);
+          if (cache.extraStats) setExtraStats(cache.extraStats);
+          // If everything fresh, we can early exit updating loading state later
+          if (!needsMeta(cache) && !needsReadme(cache) && !needsLicense(cache) && !needsExtra(cache)) {
+            setLoading(false);
+            return;
           }
         }
-        // LICENSE / COPYING detection (several common filenames)
-        try {
-          const candidates = ['LICENSE','LICENSE.txt','LICENSE.md','COPYING','COPYING.txt','COPYING.md'];
-          let found = '';
-          for (const file of candidates) {
-            if (found) break;
+
+        // Prepare fetch promises conditionally
+        const tasks: Promise<void>[] = [];
+
+        if (!cache || needsMeta(cache)) {
+          tasks.push((async()=>{
+            const resp = await fetch(`https://api.github.com/repos/${owner}/${name}`);
+            if (!resp.ok) throw new Error('Impossible de charger les métadonnées');
+            const js = await resp.json();
+            if(cancelled) return; setMeta(js); saveRepoCache(full,{ meta:js, tsMeta:Date.now() });
+          })());
+        }
+
+        if (!cache || needsExtra(cache)) {
+          tasks.push((async()=>{
             try {
-              const resp = await fetch(`https://raw.githubusercontent.com/${owner}/${name}/HEAD/${file}`);
-              if (resp.ok) {
-                found = await resp.text();
-                break;
-              }
+              const [branchesRes, commitsRes, tagsRes] = await Promise.all([
+                fetch(`https://api.github.com/repos/${owner}/${name}/branches?per_page=1`),
+                fetch(`https://api.github.com/repos/${owner}/${name}/commits?per_page=1`),
+                fetch(`https://api.github.com/repos/${owner}/${name}/tags?per_page=1`)
+              ]);
+              const parseTotal = (res:Response) => {
+                const link = res.headers.get('Link');
+                if (link) { const m2 = link.match(/&page=(\d+)>; rel="last"/); if (m2) return parseInt(m2[1]); }
+                return res.ok ? 1 : 0;
+              };
+              const stats = { branches:parseTotal(branchesRes), commits:parseTotal(commitsRes), tags:parseTotal(tagsRes)};
+              if(!cancelled){ setExtraStats(stats); saveRepoCache(full,{ extraStats:stats, tsExtra:Date.now() }); }
             } catch {}
-          }
-          if (!found) {
-            // fallback GitHub license API (returns meta + content base64)
+          })());
+        }
+
+        if (!cache || needsReadme(cache)) {
+          tasks.push((async()=>{
             try {
-              const apiLic = await fetch(`https://api.github.com/repos/${owner}/${name}/license`);
-              if (apiLic.ok) {
-                const jr:any = await apiLic.json();
-                if (jr?.content) {
-                  const decoded = atob(jr.content.replace(/\n/g,''));
-                  found = decoded;
+              const readmeResp = await fetch(`https://raw.githubusercontent.com/${owner}/${name}/HEAD/README.md`);
+              if (readmeResp.ok) {
+                const md = await readmeResp.text();
+                const html = await marked.parse(md);
+                if(!cancelled){ setReadmeHtml(html as string); saveRepoCache(full,{ readmeHtml: html as string, tsReadme:Date.now() }); }
+              } else {
+                const apiReadme = await fetch(`https://api.github.com/repos/${owner}/${name}/readme`);
+                if (apiReadme.ok) {
+                  const jr:any = await apiReadme.json();
+                  if (jr.content) {
+                    const decoded = atob(jr.content.replace(/\n/g,''));
+                    const html = await marked.parse(decoded);
+                    if(!cancelled){ setReadmeHtml(html as string); saveRepoCache(full,{ readmeHtml: html as string, tsReadme:Date.now() }); }
+                  }
                 }
               }
             } catch {}
-          }
-          if (found && !cancelled) {
-            const licHtml = await marked.parse('```\n'+found+'\n```');
-            setLicenseHtml(licHtml as string);
-          }
-        } catch {}
-      } catch(e:any) {
-        if (!cancelled) setError(e.message || 'Erreur inconnue');
+          })());
+        }
+
+        if (!cache || needsLicense(cache)) {
+          tasks.push((async()=>{
+            try {
+              const candidates = ['LICENSE','LICENSE.txt','LICENSE.md','COPYING','COPYING.txt','COPYING.md'];
+              let found='';
+              for (const file of candidates) {
+                if (found) break;
+                try {
+                  const resp = await fetch(`https://raw.githubusercontent.com/${owner}/${name}/HEAD/${file}`);
+                  if (resp.ok) { found = await resp.text(); break; }
+                } catch {}
+              }
+              if(!found){
+                try {
+                  const apiLic = await fetch(`https://api.github.com/repos/${owner}/${name}/license`);
+                  if (apiLic.ok) {
+                    const jr:any = await apiLic.json();
+                    if (jr?.content) found = atob(jr.content.replace(/\n/g,''));
+                  }
+                } catch {}
+              }
+              if(found && !cancelled){
+                const licHtml = await marked.parse('```\n'+found+'\n```');
+                setLicenseHtml(licHtml as string); saveRepoCache(full,{ licenseHtml: licHtml as string, tsLicense:Date.now() });
+              }
+            } catch {}
+          })());
+        }
+
+        await Promise.all(tasks);
+      } catch(e:any){
+        if(!cancelled) setError(e.message || 'Erreur inconnue');
       } finally {
-        if (!cancelled) setLoading(false);
+        if(!cancelled) setLoading(false);
       }
-    };
-    load();
+    })();
     return () => { cancelled = true; };
   }, [repo.link]);
 

@@ -185,15 +185,13 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo }) => 
     try {
       const data = require('./locales/link.json');
       if (data?.repository) {
-        setRepoList(data.repository);
-        // prefetch avatars
-        data.repository.forEach((r:any)=>{
-          const m = r.link.match(/github.com\/(.+?)\//); if(m){
-            fetch(`https://api.github.com/users/${m[1]}`).then(res=>res.json()).then(j=>{
-              setRepoList(prev=> prev.map(p=> p.link===r.link ? { ...p, avatar:j.avatar_url }:p));
-            }).catch(()=>{});
-          }
+        // Derive avatar URL without hitting API (pattern github.com/<user>.png) to save rate limit.
+        const enriched = data.repository.map((r:any)=>{
+          const ownerMatch = r.link.match(/github.com\/([^/]+)/);
+            const owner = ownerMatch? ownerMatch[1]:'';
+            return { ...r, avatar: owner ? `https://github.com/${owner}.png?size=64` : undefined };
         });
+        setRepoList(enriched);
       }
     } catch(e){ console.warn('Chargement link.json échoué', e); }
   },[]);
