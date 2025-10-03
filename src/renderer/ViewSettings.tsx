@@ -82,13 +82,13 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
       onClick={handleOverlayClick}
     >
       <div style={{
-        backgroundColor: '#1a1a1a',
-        borderRadius: 12,
+        backgroundColor: '#181A20',
+        borderRadius: 14,
         padding: '32px',
-        minWidth: '400px',
-        maxWidth: '500px',
-        border: '1px solid #333',
-        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+        minWidth: '420px',
+        maxWidth: '520px',
+        border: '1px solid #23272F',
+        boxShadow: '0 24px 64px -8px rgba(0,0,0,0.55)',
       }}>
         {/* En-tête */}
         <div style={{
@@ -129,8 +129,8 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
           </div>
         </div>
 
-        {/* Champ titre */}
-        <div style={{ marginBottom: '24px' }}>
+        {/* Bloc champs + actions avec espacement homogène */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
           <input
             type="text"
             value={title}
@@ -139,33 +139,29 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
             style={{
               width: '100%',
               padding: '12px 16px',
-              backgroundColor: '#2a2a2a',
-              border: '1px solid #444',
-              borderRadius: 8,
+              backgroundColor: '#20242B',
+              border: '1px solid #2d3239',
+              borderRadius: 10,
               color: '#fff',
               fontSize: 14,
               outline: 'none',
-              transition: 'border-color 0.2s',
+              transition: 'border-color 0.2s, background-color 0.2s',
               boxSizing: 'border-box',
               height: '44px',
             }}
-            onFocus={(e) => e.target.style.borderColor = '#666'}
-            onBlur={(e) => e.target.style.borderColor = '#444'}
+            onFocus={(e) => { e.target.style.borderColor = '#3d4752'; e.target.style.backgroundColor = '#242a32'; }}
+            onBlur={(e) => { e.target.style.borderColor = '#2d3239'; e.target.style.backgroundColor = '#20242B'; }}
           />
-        </div>
-
-  {/* Section relocalisation + suppression (espacement uniformisé à 24px) */}
-  <div style={{ marginBottom: '24px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <button
               onClick={handleRelocate}
               disabled={isRelocating}
               style={{
                 width: '100%',
                 padding: '12px 16px',
-                backgroundColor: '#374151',
-                border: '1px solid #4b5563',
-                borderRadius: 8,
+                backgroundColor: '#303842',
+                border: '1px solid #3d4752',
+                borderRadius: 10,
                 color: '#fff',
                 fontSize: 14,
                 cursor: isRelocating ? 'not-allowed' : 'pointer',
@@ -177,10 +173,10 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
                 height: '44px',
               }}
               onMouseOver={(e) => {
-                if (!isRelocating) e.currentTarget.style.backgroundColor = '#4b5563';
+                if (!isRelocating) e.currentTarget.style.backgroundColor = '#3b4652';
               }}
               onMouseOut={(e) => {
-                if (!isRelocating) e.currentTarget.style.backgroundColor = '#374151';
+                if (!isRelocating) e.currentTarget.style.backgroundColor = '#303842';
               }}
             >
               <svg 
@@ -204,9 +200,9 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
               style={{
                 width: '100%',
                 padding: '12px 16px',
-                background: 'linear-gradient(135deg,#5a1d1d,#912626)',
-                border: '1px solid #672c2c',
-                borderRadius: 8,
+                background: 'linear-gradient(135deg,#7a2323,#b02c2c)',
+                border: '1px solid #8c2424',
+                borderRadius: 10,
                 color: '#fff',
                 fontSize: 14,
                 cursor: 'pointer',
