@@ -4,6 +4,7 @@ import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import ViewPages from './ViewPages';
 import ViewRepo, { SimpleRepoRef } from './ViewRepo';
+import Loading from './Loading';
 
 type BlenderExe = {
   path: string;
@@ -20,6 +21,10 @@ const App: React.FC = () => {
   const [selectedRepo, setSelectedRepo] = useState<SimpleRepoRef | null>(null);
 
   console.log('[App] Rendu - page:', page, 'selectedBlender:', selectedBlender);
+
+  // Écran de chargement au démarrage
+  const [isBootLoading, setIsBootLoading] = useState<boolean>(true);
+  const [bootStatus, setBootStatus] = useState<string>('Préparation…');
 
   // Écouter les changements de config pour mettre à jour la sélection
   useEffect(() => {
@@ -79,11 +84,12 @@ const App: React.FC = () => {
   const [steamEnabled, setSteamEnabled] = useState(false);
   const [steamAvailable, setSteamAvailable] = useState<boolean | null>(null);
 
-  // Charger la config discord au montage
+  // Charger la config + checks au montage avec progress texte
   useEffect(() => {
     const load = async () => {
       if (!window.electronAPI?.invoke) return;
       try {
+        setBootStatus('Chargement de la configuration Discord…');
         const cfg = await window.electronAPI.invoke('get-discord-config');
         if (cfg) {
           setDiscordEnabled(!!cfg.enabled);
@@ -93,17 +99,32 @@ const App: React.FC = () => {
           // setDiscordShowTime(false);
         }
         try {
+          setBootStatus('Vérification de la disponibilité Discord…');
           const avail = await window.electronAPI.invoke('get-discord-availability');
           setDiscordAvailable(!!avail?.available);
           if (!avail?.available) setDiscordEnabled(false);
         } catch {}
+        setBootStatus('Chargement de la configuration Steam…');
         const steamCfg = await window.electronAPI.invoke('get-steam-config');
         if (steamCfg) setSteamEnabled(!!steamCfg.enabled);
         try {
+          setBootStatus('Vérification de la disponibilité Steam…');
           const avail = await window.electronAPI.invoke('get-steam-availability');
           setSteamAvailable(!!avail?.available);
           if (!avail?.available) setSteamEnabled(false);
         } catch {}
+
+  // Scanner le système pour trouver les Blender installés et les fusionner dans config
+  setBootStatus('Scan des installations Blender…');
+  try { await window.electronAPI.invoke('scan-and-merge-blenders'); } catch {}
+
+  // Précharger la liste des fichiers récents (pour affichage rapide)
+        setBootStatus('Récupération des fichiers récents…');
+        try { await window.electronAPI.invoke('get-recent-blend-files'); } catch {}
+
+        // Finaliser
+        setBootStatus('Préparation de l’interface…');
+        setTimeout(() => setIsBootLoading(false), 250);
       } catch (e) { console.warn('[DiscordUI] load config erreur:', e); }
     };
     load();
@@ -283,6 +304,10 @@ const App: React.FC = () => {
     setPage('home');
   };
 
+  if (isBootLoading) {
+    return <Loading status={bootStatus} />;
+  }
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -319,7 +344,7 @@ const App: React.FC = () => {
           onSelectBlender={handleSelectBlender}
           selectedBlender={selectedBlender}
         />
-        <div style={{ flex: 1, display: 'flex' }}>
+        <div style={{ flex: 1, display: 'flex', minWidth: 0 }}>
           {page === 'settings' ? <SettingsPage /> : selectedRepo ? <ViewRepo repo={selectedRepo} onBack={()=> setSelectedRepo(null)} /> : <HomePage />}
         </div>
       </div>

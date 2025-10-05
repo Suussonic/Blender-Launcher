@@ -116,7 +116,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
     console.log('[ViewPages] isSettingsOpen défini à true');
   };
 
-  const handleSaveSettings = async (updatedBlender: BlenderExe) => {
+  const handleSaveSettings = (updatedBlender: BlenderExe) => {
     console.log('[ViewPages] Envoi de la mise à jour du titre:', updatedBlender.title, 'pour', updatedBlender.path);
     console.log('[ViewPages] window.electronAPI disponible:', !!window.electronAPI);
     console.log('[ViewPages] window.electronAPI:', window.electronAPI);
@@ -129,25 +129,17 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
     }
     
     if (window.electronAPI && window.electronAPI.invoke) {
-      try {
-        const payload = {
-          path: updatedBlender.path,
-          title: updatedBlender.title
-        };
-        console.log('[ViewPages] Envoi IPC avec payload:', payload);
-        
-        const result = await window.electronAPI.invoke('update-executable-title', payload);
-        console.log('[ViewPages] Résultat reçu:', result);
-        
-        if (result.success) {
-          console.log('[ViewPages] Titre mis à jour avec succès:', result.message);
-        } else {
-          console.error('[ViewPages] Erreur lors de la mise à jour:', result.error);
-          // Ici on pourrait afficher une notification d'erreur à l'utilisateur
-        }
-      } catch (error) {
-        console.error('[ViewPages] Erreur lors de l\'appel IPC:', error);
-      }
+      const payload = { path: updatedBlender.path, title: updatedBlender.title };
+      console.log('[ViewPages] Envoi IPC avec payload:', payload);
+      // Fire-and-forget; UI already reflects the input
+      window.electronAPI.invoke('update-executable-title', payload)
+        .then((result: any) => {
+          console.log('[ViewPages] Résultat reçu:', result);
+          if (!result?.success) {
+            console.error('[ViewPages] Erreur lors de la mise à jour:', result?.error);
+          }
+        })
+        .catch((error: any) => console.error('[ViewPages] Erreur lors de l\'appel IPC:', error));
     } else {
       console.error('[ViewPages] electronAPI.invoke non disponible!');
       // Fallback : mise à jour optimiste du titre uniquement en mémoire pour ne pas perdre l'action utilisateur
@@ -177,7 +169,8 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
           gap: '24px',
           padding: '20px 32px 14px 32px',
           background: '#0F1419',
-          boxShadow: '0 4px 8px -4px rgba(0,0,0,0.55)'
+          boxShadow: '0 4px 8px -4px rgba(0,0,0,0.55)',
+          minWidth: 0
         }}>
             {/* Icône */}
             <img
@@ -189,6 +182,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
               borderRadius: 12,
               background: 'transparent',
               flexShrink: 0,
+              flexGrow: 0
             }}
             draggable={false}
             />
@@ -197,18 +191,47 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
               <h1 style={{
                 fontSize: 32,
                 fontWeight: 700,
-                margin: '0 0 8px 0',
+                margin: '0 0 6px 0',
                 color: '#fff',
-                wordBreak: 'break-word',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                minWidth: 0
               }}>
-                {selectedBlender.title || selectedBlender.name}
+                <span style={{
+                  minWidth: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>
+                  {selectedBlender.title || selectedBlender.name}
+                </span>
+                {selectedBlender.path.toLowerCase().includes('steamapps') && (
+                  <span style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: '#93c5fd',
+                    background: 'rgba(59,130,246,0.15)',
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    flexShrink: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    lineHeight: 1,
+                    transform: 'translateY(2px)'
+                  }}>
+                    Steam
+                  </span>
+                )}
               </h1>
               <p style={{
                 fontSize: 14,
                 color: '#888',
-                margin: '0 0 16px 0',
-                wordBreak: 'break-all',
-                lineHeight: 1.4,
+                margin: '0 0 12px 0',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                lineHeight: 1.35,
               }}>
                 {selectedBlender.path}
               </p>
@@ -262,7 +285,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
         {/* Barre décor pleine largeur */}
         <div style={{ height: 2, background: 'linear-gradient(90deg, #374151 0%, #6b7280 50%, #374151 100%)' }} />
         {/* Contenu scrollable (la scrollbar ne dépasse plus le header) */}
-  <div className="hide-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24, padding: '24px 32px 32px 32px', overflowY: 'auto', overflowX: 'hidden' }}>
+  <div className="hide-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24, padding: '24px 32px 32px 32px', overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#f1f5f9' }}>
             Fichiers récents
           </h2>
@@ -278,7 +301,9 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
           <Filter files={recentFiles} onSorted={(sorted) => setDisplayFiles(sorted)} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
             {(displayFiles.length ? displayFiles : recentFiles).map((f, idx) => {
-              const dateStr = f.mtime ? new Date(f.mtime).toLocaleString() : '';
+              const createdStr = f.ctime ? new Date(f.ctime).toLocaleString() : '';
+              const usedStr = f.mtime ? new Date(f.mtime).toLocaleString() : '';
+              const sizeStr = f.size ? `${(f.size/1024).toFixed(1)} Ko` : '';
               return (
                 <div
                   key={f.path + idx}
@@ -291,18 +316,21 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                     border: '1px solid #1e2530',
                     borderRadius: 10,
                     padding: '10px 14px',
-                    display: 'flex',
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(160px, 1fr) 170px 170px 110px 140px',
+                    gap: 12,
                     alignItems: 'center',
-                    gap: 14,
                     position: 'relative',
                     opacity: f.exists ? 1 : 0.55,
                     cursor: f.exists ? 'pointer' : 'default',
-                    transition: 'background 0.15s, border-color 0.15s'
+                    transition: 'background 0.15s, border-color 0.15s',
+                    minWidth: 0
                   }}
                   onMouseOver={e => { if (f.exists) { e.currentTarget.style.background = '#182129'; e.currentTarget.style.borderColor = '#26303b'; }}}
                   onMouseOut={e => { e.currentTarget.style.background = '#131a20'; e.currentTarget.style.borderColor = '#1e2530'; }}
                 >
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {/* Col 1: Nom + meta + chemin */}
+                  <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <span
                       style={{
                         fontSize: 15,
@@ -317,11 +345,37 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                       {f.name}{!f.exists && ' (manquant)'}
                     </span>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, color: '#64748b', fontSize: 12 }}>
-                      <span>{dateStr} {f.size ? `• ${(f.size/1024).toFixed(1)} Ko` : ''}</span>
-                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: 0.85 }} title={f.path}>{f.path}</span>
+                      <span
+                        style={{
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          opacity: 0.85,
+                          // Keep the end of the path visible (start-ellipsis)
+                          display: 'inline-block',
+                          direction: 'rtl',
+                          textAlign: 'left'
+                        }}
+                        title={f.path}
+                      >
+                        {f.path}
+                      </span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {/* Col 2: Date de création */}
+                  <div style={{ color: '#94a3b8', fontSize: 12 }}>
+                    {createdStr}
+                  </div>
+                  {/* Col 3: Date d'utilisation */}
+                  <div style={{ color: '#94a3b8', fontSize: 12 }}>
+                    {usedStr}
+                  </div>
+                  {/* Col 4: Taille */}
+                  <div style={{ color: '#94a3b8', fontSize: 12 }}>
+                    {sizeStr}
+                  </div>
+                  {/* Col 5: Actions */}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: 140, justifyContent: 'flex-end', flexShrink: 0 }}>
                     <button
                       onClick={(e) => { e.stopPropagation(); if (f.exists) setOpenWithFile(f.path); }}
                       disabled={!f.exists}

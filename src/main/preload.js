@@ -41,6 +41,7 @@ const api = {
       'get-steam-config',
       'update-steam-config',
       'get-steam-availability'
+      , 'scan-and-merge-blenders'
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);

@@ -33,6 +33,7 @@ function requireBackend(modBaseName: string) {
 }
 // Charge le warp backend via le résolveur
 const steamWarp = requireBackend('steam_warp');
+const blenderScanner = require('../../backend/blender_scanner');
 
 // Résolution minimale du chemin de steam.exe sans dépendre d'un module backend
 function getSteamExePathFallback(): string | null {
@@ -915,6 +916,20 @@ app.whenReady().then(() => {
     console.error('Erreur lors de la lecture de config.json :', e);
     return [];
   }
+  });
+
+  // Scanner et fusionner les installations Blender (Program Files, Registre, Steam)
+  ipcMain.handle('scan-and-merge-blenders', async () => {
+    try {
+      const res = await blenderScanner.scanAndMerge(configPath);
+      if (res?.success) {
+        // Notifier UI que la config a été mise à jour
+        try { mainWindow?.webContents.send('config-updated'); } catch {}
+      }
+      return res;
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
   });
 
   // Récupération des fichiers récents Blender pour un exécutable donné
