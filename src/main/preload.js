@@ -36,7 +36,11 @@ const api = {
       'remove-recent-blend-file',
       'get-discord-config',
       'update-discord-config',
-      'update-discord-presence'
+      'update-discord-presence',
+      'get-discord-availability',
+      'get-steam-config',
+      'update-steam-config',
+      'get-steam-availability'
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);

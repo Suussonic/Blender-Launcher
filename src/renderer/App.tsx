@@ -71,9 +71,13 @@ const App: React.FC = () => {
   const [discordEnabled, setDiscordEnabled] = useState(false);
   const [discordShowFile, setDiscordShowFile] = useState(true);
   const [discordShowTitleOpt, setDiscordShowTitleOpt] = useState(true);
+  const [discordAvailable, setDiscordAvailable] = useState<boolean | null>(null);
   // Suppression de l'option d'affichage du temps (toujours désactivé maintenant)
   const [discordShowTime] = useState(false);
   const [lastLaunched, setLastLaunched] = useState<BlenderExe | null>(null);
+  // Steam
+  const [steamEnabled, setSteamEnabled] = useState(false);
+  const [steamAvailable, setSteamAvailable] = useState<boolean | null>(null);
 
   // Charger la config discord au montage
   useEffect(() => {
@@ -88,6 +92,18 @@ const App: React.FC = () => {
           // On force showTime à false désormais (suppression de l'option)
           // setDiscordShowTime(false);
         }
+        try {
+          const avail = await window.electronAPI.invoke('get-discord-availability');
+          setDiscordAvailable(!!avail?.available);
+          if (!avail?.available) setDiscordEnabled(false);
+        } catch {}
+        const steamCfg = await window.electronAPI.invoke('get-steam-config');
+        if (steamCfg) setSteamEnabled(!!steamCfg.enabled);
+        try {
+          const avail = await window.electronAPI.invoke('get-steam-availability');
+          setSteamAvailable(!!avail?.available);
+          if (!avail?.available) setSteamEnabled(false);
+        } catch {}
       } catch (e) { console.warn('[DiscordUI] load config erreur:', e); }
     };
     load();
@@ -104,12 +120,13 @@ const App: React.FC = () => {
           showTitle: discordShowTitleOpt,
           showTime: false
         });
+        await window.electronAPI.invoke('update-steam-config', { enabled: steamEnabled });
       } catch (e) { console.warn('[DiscordUI] save config erreur:', e); }
     };
     // debounce simple
     const h = setTimeout(save, 400);
     return () => clearTimeout(h);
-  }, [discordEnabled, discordShowFile, discordShowTitleOpt]);
+  }, [discordEnabled, discordShowFile, discordShowTitleOpt, steamEnabled]);
 
   // Mise a jour presence a chaque launch (si enabled)
   useEffect(() => {
@@ -190,8 +207,8 @@ const App: React.FC = () => {
           <h2 style={{ fontWeight: 700, fontSize: 32, margin: '0 0 8px 0' }}>Discord</h2>
           <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
           <div style={{ width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
-              <input type="checkbox" checked={discordEnabled} onChange={e => setDiscordEnabled(e.target.checked)} style={{ width: 20, height: 20 }} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: discordAvailable === false ? 'not-allowed' : 'pointer', userSelect: 'none', opacity: discordAvailable === false ? 0.6 : 1 }}>
+              <input type="checkbox" checked={discordEnabled} disabled={discordAvailable === false} onChange={e => setDiscordEnabled(e.target.checked)} style={{ width: 20, height: 20 }} />
               <span style={{ fontSize: 16, fontWeight: 500 }}>Afficher l'activité</span>
               {lastLaunched && (
                 <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#94a3b8' }}>
@@ -200,6 +217,11 @@ const App: React.FC = () => {
                 </span>
               )}
             </label>
+            {discordAvailable === false && (
+              <div style={{ marginTop: 8, color: '#ef4444', fontSize: 13 }}>
+                Discord Rich Presence indisponible (Discord non installé ou configuration invalide).
+              </div>
+            )}
             {/* Texte explicatif supprimé selon demande utilisateur */}
             {discordEnabled && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingLeft: 4 }}>
@@ -212,6 +234,29 @@ const App: React.FC = () => {
                   <span style={{ fontSize: 14 }}>Titre du build</span>
                 </label>
                 {/* Option temps écoulé et texte final supprimés */}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section Steam */}
+        <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <h2 style={{ fontWeight: 700, fontSize: 32, margin: '0 0 8px 0' }}>Steam</h2>
+          <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
+          <div style={{ width: '100%', maxWidth: 520 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: steamAvailable === false ? 'not-allowed' : 'pointer', userSelect: 'none', opacity: steamAvailable === false ? 0.6 : 1 }}>
+              <input type="checkbox" checked={steamEnabled} disabled={steamAvailable === false} onChange={e => setSteamEnabled(e.target.checked)} style={{ width: 20, height: 20 }} />
+              <span style={{ fontSize: 16, fontWeight: 500 }}>Lancer via Steam</span>
+              {lastLaunched && (
+                <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#94a3b8' }}>
+                  <img src={lastLaunched.icon || require('../../public/logo/png/Blender-Launcher-64x64.png')} alt="icon" style={{ width: 28, height: 28, borderRadius: 6 }} />
+                  {lastLaunched.title || lastLaunched.name}
+                </span>
+              )}
+            </label>
+            {steamAvailable === false && (
+              <div style={{ marginTop: 8, color: '#ef4444', fontSize: 13 }}>
+                La version de Blender via Steam est introuvable. Installez Blender dans Steam pour activer cette option.
               </div>
             )}
           </div>

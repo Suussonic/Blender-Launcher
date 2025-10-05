@@ -5,6 +5,9 @@ interface ElectronAPI {
   invoke: (channel: string, data?: any) => Promise<any>;
   getBlenders: () => Promise<any[]>;
   // Discord
+  // Steam
+  // get-steam-config -> { enabled:boolean }
+  // update-steam-config -> { success:boolean; steam?:object }
   // get-discord-config -> { enabled:boolean; showFile:boolean; showTitle:boolean; appId:string } (showTime supprimé)
   // update-discord-config -> { success:boolean; discord?:object }
   // update-discord-presence -> { success:boolean }

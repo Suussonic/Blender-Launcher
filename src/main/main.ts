@@ -6,6 +6,90 @@ import * as fs from 'fs';
 import extractIcon from 'extract-file-icon';
 import { pathToFileURL, fileURLToPath } from 'url';
 console.log('Modules Electron charges.');
+// Résolveur robuste pour modules backend (évite les soucis de chemins en dist/dev)
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const nodePath = require('path');
+function requireBackend(modBaseName: string) {
+  const candidates = [
+    // dev: src/main -> ../../backend
+    nodePath.resolve(__dirname, '../../backend', modBaseName + '.js'),
+    nodePath.resolve(__dirname, '../../backend', modBaseName),
+    // dist: dist/main -> ../../backend
+    nodePath.resolve(__dirname, '..', '..', 'backend', modBaseName + '.js'),
+    nodePath.resolve(__dirname, '..', '..', 'backend', modBaseName),
+    // cwd fallback
+    nodePath.resolve(process.cwd(), 'backend', modBaseName + '.js'),
+    nodePath.resolve(process.cwd(), 'backend', modBaseName),
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) return require(p);
+    } catch {}
+  }
+  // Dernier recours: require relatif classique (peut échouer selon contexte)
+  try { return require('../../backend/' + modBaseName); } catch {}
+  try { return require('../../../backend/' + modBaseName); } catch {}
+  throw new Error('Backend module introuvable: ' + modBaseName);
+}
+// Charge le warp backend via le résolveur
+const steamWarp = requireBackend('steam_warp');
+
+// Résolution minimale du chemin de steam.exe sans dépendre d'un module backend
+function getSteamExePathFallback(): string | null {
+  try {
+    const cp = require('child_process');
+    // HKCU puis HKLM (incl. WOW6432Node)
+    const keys = [
+      'HKCU\\Software\\Valve\\Steam',
+      'HKLM\\Software\\Valve\\Steam',
+      'HKLM\\Software\\WOW6432Node\\Valve\\Steam'
+    ];
+    for (const k of keys) {
+      try {
+        const out = cp.execSync(`reg query ${k} /v SteamPath`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+        const m = out.match(/SteamPath\s+REG_\w+\s+(.+)$/mi);
+        if (m && m[1]) {
+          const base = m[1].trim();
+          const exe = nodePath.join(base, 'steam.exe');
+          if (fs.existsSync(exe)) return exe;
+        }
+      } catch {}
+    }
+  } catch {}
+  const candidates = [
+    'C:/Program Files (x86)/Steam/steam.exe',
+    'C:/Program Files/Steam/steam.exe'
+  ];
+  for (const p of candidates) { if (fs.existsSync(p)) return p; }
+  return null;
+}
+
+// Détection simple de l'installation de Discord (Stable/PTB/Canary)
+function findDiscordInstall(): { variant: string; baseDir: string; updateExe?: string; discordExe?: string } | null {
+  try {
+    const local = process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || '', 'AppData', 'Local');
+    if (!local || !fs.existsSync(local)) return null;
+    const variants = ['Discord', 'DiscordPTB', 'DiscordCanary'];
+    for (const name of variants) {
+      const baseDir = path.join(local, name);
+      if (!fs.existsSync(baseDir)) continue;
+      const updateExe = path.join(baseDir, 'Update.exe');
+      let discordExe: string | undefined;
+      try {
+        const entries = fs.readdirSync(baseDir, { withFileTypes: true });
+        const appDirs = entries.filter(e => e.isDirectory() && /^app-/i.test(e.name));
+        for (const d of appDirs) {
+          const p = path.join(baseDir, d.name, 'Discord.exe');
+          if (fs.existsSync(p)) { discordExe = p; break; }
+        }
+      } catch {}
+      if (fs.existsSync(updateExe) || discordExe) {
+        return { variant: name, baseDir, updateExe: fs.existsSync(updateExe) ? updateExe : undefined, discordExe };
+      }
+    }
+  } catch {}
+  return null;
+}
 
 // Fonction utilitaire pour générer un title à partir du nom de fichier
 function generateTitle(fileName: string): string {
@@ -146,6 +230,13 @@ migrateConfig();
 app.whenReady().then(() => {
   console.log('App ready, creation de la fenetre...');
   createWindow();
+  // Au démarrage: tenter une restauration de warp laissée en plan
+  try {
+    const userDataDir = app.getPath('userData');
+    steamWarp.startupRestore(userDataDir).then((res: any)=>{
+      if (res?.restored) console.log('[SteamWarp] Restauration au démarrage effectuée');
+    }).catch(()=>{});
+  } catch(e) { console.warn('[SteamWarp] startup restore erreur:', e); }
   
   console.log('[IPC] Enregistrement du handler update-executable-title...');
 
@@ -186,6 +277,25 @@ app.whenReady().then(() => {
     }
   });
 
+  // Disponibilité Discord (module + appId)
+  ipcMain.handle('get-discord-availability', async () => {
+    try {
+      // Vérifie module discord-rpc et appId valide
+      let hasModule = false;
+      try { require.resolve('discord-rpc'); hasModule = true; } catch {}
+      const hasAppId = typeof DISCORD_APP_ID === 'string' && !!DISCORD_APP_ID.trim() && DISCORD_APP_ID !== '0000000000000000000';
+      const install = findDiscordInstall();
+      if (!install) {
+        return { available: false, reason: 'not-installed' };
+      }
+      const available = !!install && hasModule && hasAppId;
+      const reason = available ? undefined : (!hasModule ? 'module-missing' : (!hasAppId ? 'appId-missing' : undefined));
+      return { available, appId: DISCORD_APP_ID, reason, install };
+    } catch (e) {
+      return { available: false, reason: String(e) };
+    }
+  });
+
   ipcMain.handle('update-discord-config', async (_event, partial) => {
     try {
       const raw = fs.readFileSync(configPath, 'utf-8');
@@ -216,6 +326,32 @@ app.whenReady().then(() => {
       return { success: true };
     } catch (e) {
       console.error('[DiscordRPC] update-discord-presence erreur:', e);
+      return { success: false, error: String(e) };
+    }
+  });
+
+  // --- Steam IPC ---
+  ipcMain.handle('get-steam-config', async () => {
+    try {
+      const raw = fs.readFileSync(configPath, 'utf-8');
+      const cfg = JSON.parse(raw || '{}');
+      return cfg.steam || { enabled: false };
+    } catch (e) {
+      console.error('[Steam] get-steam-config erreur:', e);
+      return { enabled: false };
+    }
+  });
+
+  ipcMain.handle('update-steam-config', async (_event, partial) => {
+    try {
+      const raw = fs.readFileSync(configPath, 'utf-8');
+      const cfg = JSON.parse(raw || '{}');
+      cfg.steam = { ...(cfg.steam || {}), ...(partial || {}) };
+      fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2), 'utf-8');
+      if (mainWindow) mainWindow.webContents.send('config-updated');
+      return { success: true, steam: cfg.steam };
+    } catch (e) {
+      console.error('[Steam] update-steam-config erreur:', e);
       return { success: false, error: String(e) };
     }
   });
@@ -555,14 +691,48 @@ app.whenReady().then(() => {
     event.sender.send('delete-executable-result', res);
   });
 
-  ipcMain.on('launch-blender', (event, exePath) => {
-    console.log('Lancement de Blender :', exePath);
-    const { execFile } = require('child_process');
-    execFile(exePath, (error: any) => {
-      if (error) {
-        console.error('Erreur lors du lancement de Blender :', error);
+  ipcMain.on('launch-blender', async (event, exePath) => {
+    try {
+      const rawCfg = fs.readFileSync(configPath, 'utf-8');
+      const cfg = JSON.parse(rawCfg || '{}');
+      const steamEnabled = !!(cfg.steam && cfg.steam.enabled);
+        if (steamEnabled) {
+          const userDataDir = app.getPath('userData');
+          const res = await steamWarp.warpToBlender(exePath, userDataDir, []);
+          if (!res?.success) {
+            console.warn('[SteamWarp] Warp échoué, lancement direct sans Steam:', res?.error);
+            const { spawn } = require('child_process');
+            try { const p = spawn(exePath, [], { detached: true, stdio: 'ignore' }); p.unref(); } catch (e2) { console.error('[launch] spawn erreur:', e2); }
+          } else {
+            // Lancer via Steam si possible (steam.exe sinon protocole steam://)
+            const cp = require('child_process');
+            let launchedViaSteam = false;
+            const steamExe = getSteamExePathFallback();
+            if (steamExe && fs.existsSync(steamExe)) {
+              try { cp.spawn(steamExe, ['-applaunch', '365670'], { detached: true, stdio: 'ignore' }).unref(); launchedViaSteam = true; } catch {}
+            }
+            if (!launchedViaSteam) {
+              try { cp.spawn('cmd.exe', ['/c', 'start', 'steam://rungameid/365670'], { detached: true, stdio: 'ignore' }).unref(); launchedViaSteam = true; } catch {}
+              if (!launchedViaSteam) {
+                try { cp.spawn('powershell.exe', ['Start-Process', '"steam://rungameid/365670"'], { detached: true, stdio: 'ignore' }).unref(); launchedViaSteam = true; } catch {}
+              }
+            }
+            if (!launchedViaSteam) {
+              console.warn('[SteamWarp] Impossible de lancer via Steam, fallback direct');
+              const { spawn } = require('child_process');
+              try { const p = spawn(exePath, [], { detached: true, stdio: 'ignore' }); p.unref(); } catch (e2) { console.error('[launch] spawn erreur:', e2); }
+            }
+            try { steamWarp.startAutoRestore(userDataDir, 2500); } catch {}
+        }
+      } else {
+  const { spawn } = require('child_process');
+  try { const p = spawn(exePath, [], { detached: true, stdio: 'ignore' }); p.unref(); } catch (e2) { console.error('Erreur lors du lancement de Blender :', e2); }
       }
-    });
+    } catch (e) {
+      console.error('[IPC] launch-blender erreur:', e);
+  const { spawn } = require('child_process');
+  try { const p = spawn(exePath, [], { detached: true, stdio: 'ignore' }); p.unref(); } catch (e2) { console.error('Erreur lors du lancement de Blender :', e2); }
+    }
     // Mise à jour presence Discord si actif
     try {
       if (exePath) {
@@ -614,6 +784,19 @@ app.whenReady().then(() => {
         console.error('[IPC] Erreur update-executable-title:', e);
         return { success: false, error: String(e) };
       }
+  });
+
+  // Disponibilité de Blender via Steam pour les Settings
+  ipcMain.handle('get-steam-availability', async () => {
+    try {
+      const dir = steamWarp.findBlenderSteamDir && steamWarp.findBlenderSteamDir();
+      if (dir && fs.existsSync(dir)) {
+        return { available: true, path: dir };
+      }
+      return { available: false };
+    } catch (e) {
+      return { available: false, error: String(e) };
+    }
   });
 
   // Répond à la requête du renderer pour obtenir la liste des applications
@@ -907,16 +1090,50 @@ app.whenReady().then(() => {
   });
 
   // Ouvrir un fichier .blend via l'exécutable choisi
-  ipcMain.on('open-blend-file', (event, payload) => {
+  ipcMain.on('open-blend-file', async (event, payload) => {
     try {
       const exePath: string | undefined = payload?.exePath;
       const blendPath: string | undefined = payload?.blendPath;
       if (!exePath || !blendPath) return;
       if (!fs.existsSync(exePath) || !fs.existsSync(blendPath)) return;
-      const { execFile } = require('child_process');
-      execFile(exePath, [blendPath], (err: any) => {
-        if (err) console.error('[IPC] open-blend-file erreur lancement:', err);
-      });
+      try {
+        const rawCfg = fs.readFileSync(configPath, 'utf-8');
+        const cfg = JSON.parse(rawCfg || '{}');
+        const steamEnabled = !!(cfg.steam && cfg.steam.enabled);
+        if (steamEnabled) {
+          const userDataDir = app.getPath('userData');
+          const res = await steamWarp.warpToBlender(exePath, userDataDir, [blendPath]);
+          if (res?.success) {
+            const cp = require('child_process');
+            let launchedViaSteam = false;
+            const steamExe = getSteamExePathFallback();
+            if (steamExe && fs.existsSync(steamExe)) {
+              try { cp.spawn(steamExe, ['-applaunch', '365670', blendPath], { detached: true, stdio: 'ignore' }).unref(); launchedViaSteam = true; } catch {}
+            }
+            if (!launchedViaSteam) {
+              try { cp.spawn('cmd.exe', ['/c', 'start', 'steam://rungameid/365670'], { detached: true, stdio: 'ignore' }).unref(); launchedViaSteam = true; } catch {}
+              if (!launchedViaSteam) {
+                try { cp.spawn('powershell.exe', ['Start-Process', '"steam://rungameid/365670"'], { detached: true, stdio: 'ignore' }).unref(); launchedViaSteam = true; } catch {}
+              }
+            }
+            if (!launchedViaSteam) {
+              const { spawn } = require('child_process');
+              try { const p = spawn(exePath, [blendPath], { detached: true, stdio: 'ignore' }); p.unref(); } catch (e2) { console.error('[IPC] open-blend-file spawn erreur:', e2); }
+            } else {
+              try { steamWarp.startAutoRestore(userDataDir, 2500); } catch {}
+            }
+          } else {
+            const { spawn } = require('child_process');
+            try { const p = spawn(exePath, [blendPath], { detached: true, stdio: 'ignore' }); p.unref(); } catch (e2) { console.error('[IPC] open-blend-file spawn erreur:', e2); }
+          }
+        } else {
+          const { spawn } = require('child_process');
+          try { const p = spawn(exePath, [blendPath], { detached: true, stdio: 'ignore' }); p.unref(); } catch (e2) { console.error('[IPC] open-blend-file spawn erreur:', e2); }
+        }
+      } catch (e) {
+  const { spawn } = require('child_process');
+  try { const p = spawn(exePath, [blendPath], { detached: true, stdio: 'ignore' }); p.unref(); } catch (e2) { console.error('[IPC] open-blend-file spawn erreur:', e2); }
+      }
       // Update Discord presence
       try {
         const raw = fs.readFileSync(configPath, 'utf-8');
@@ -951,6 +1168,10 @@ app.on('window-all-closed', () => {
   console.log('Toutes les fenetres sont fermees');
   if (process.platform !== 'darwin') {
   console.log('Fermeture de l application');
+    try {
+      const userDataDir = app.getPath('userData');
+      steamWarp.startupRestore(userDataDir);
+    } catch {}
     app.quit();
   }
 });
