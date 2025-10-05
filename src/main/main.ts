@@ -71,8 +71,23 @@ import { dialog } from 'electron';
 // Discord RPC manager (JS module)
 // @ts-ignore - pas de declarations TS fournies
 import { DiscordRPCManager } from '../../backend/discord_rpc_manager';
-// ID d'application Discord intégré (Rich Presence). Ne pas mettre de secret ici.
-const DISCORD_APP_ID = '1423463152669954128';
+// Charger l'appId Discord depuis link.json (packagé via webpack dans dist/renderer)
+function loadDiscordAppId(): string {
+  try {
+    // En dev: lire le fichier source; en prod: lire depuis dist
+    const devPath = path.join(__dirname, '../renderer/locales/link.json');
+    const prodPath = path.join(__dirname, '../renderer/public/locales/link.json');
+    let raw: string | null = null;
+    if (fs.existsSync(devPath)) raw = fs.readFileSync(devPath, 'utf-8');
+    else if (fs.existsSync(prodPath)) raw = fs.readFileSync(prodPath, 'utf-8');
+    if (raw) {
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj.discordAppId === 'string' && obj.discordAppId.trim()) return obj.discordAppId.trim();
+    }
+  } catch(e) { console.warn('Discord appId: lecture link.json échouée:', e); }
+  return '1423463152669954128'; // fallback intégré
+}
+const DISCORD_APP_ID = loadDiscordAppId();
 
 
 // Création automatique du fichier config.json à la racine du projet si il n'existe pas
@@ -95,7 +110,7 @@ function migrateConfig() {
     const cfg = JSON.parse(raw || '{"blenders":[]}');
     cfg.blenders = Array.isArray(cfg.blenders) ? cfg.blenders : [];
     if (!cfg.discord) {
-      cfg.discord = { enabled: false, showFile: true, showTitle: true, showTime: false, appId: DISCORD_APP_ID };
+  cfg.discord = { enabled: false, showFile: true, showTitle: true, showTime: false, appId: DISCORD_APP_ID };
       console.log('Migration: ajout bloc discord par defaut + appId intégré');
     } else {
       if (typeof cfg.discord.enabled !== 'boolean') cfg.discord.enabled = false;
