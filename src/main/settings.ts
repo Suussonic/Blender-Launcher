@@ -41,6 +41,13 @@ function migrateConfig() {
     const raw = fs.existsSync(CONFIG_PATH) ? fs.readFileSync(CONFIG_PATH, 'utf-8') : '';
     const cfg = JSON.parse(raw || '{"blenders":[]}');
     cfg.blenders = Array.isArray(cfg.blenders) ? cfg.blenders : [];
+    // Ensure general section exists first in the file (schema-wise)
+    if (!cfg.general || typeof cfg.general !== 'object') {
+      cfg.general = { scanOnStartup: false };
+      console.log('Migration: ajout bloc general par defaut');
+    } else {
+      if (typeof cfg.general.scanOnStartup !== 'boolean') cfg.general.scanOnStartup = false;
+    }
     if (!cfg.discord) {
       cfg.discord = { enabled: false, showFile: true, showTitle: true, showTime: false, appId: DISCORD_APP_ID };
       console.log('Migration: ajout bloc discord par defaut + appId intégré');
@@ -91,6 +98,37 @@ export function initSettings(opts: {
   migrateConfig();
   // @ts-ignore
   discordManager = new DiscordRPCManager(CONFIG_PATH);
+
+  // --- Discord IPC ---
+  // --- General IPC ---
+  ipcMain.handle('get-general-config', async () => {
+    try {
+      const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
+      const cfg = JSON.parse(raw || '{}');
+      if (!cfg.general || typeof cfg.general !== 'object') return { scanOnStartup: false };
+      return { scanOnStartup: cfg.general.scanOnStartup === true };
+    } catch (e) {
+      console.error('[General] get-general-config erreur:', e);
+      return { scanOnStartup: false };
+    }
+  });
+
+  ipcMain.handle('update-general-config', async (_event, partial) => {
+    try {
+      const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
+      const cfg = JSON.parse(raw || '{}');
+      if (!cfg.general || typeof cfg.general !== 'object') cfg.general = { scanOnStartup: false };
+      cfg.general = { ...cfg.general, ...(partial || {}) };
+      cfg.general.scanOnStartup = cfg.general.scanOnStartup === true; // normalize boolean
+      fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf-8');
+      const win = opts.getMainWindow();
+      if (win) win.webContents.send('config-updated');
+      return { success: true, general: cfg.general };
+    } catch (e) {
+      console.error('[General] update-general-config erreur:', e);
+      return { success: false, error: String(e) };
+    }
+  });
 
   // --- Discord IPC ---
   ipcMain.handle('get-discord-config', async () => {
@@ -591,7 +629,12 @@ export function initSettings(opts: {
       const mapped: any[] = [];
       for (const b of list) { mapped.push(await ensureIcon(b)); }
       if (updated) {
-        try { fs.writeFileSync(CONFIG_PATH, JSON.stringify({ blenders: mapped }, null, 2), 'utf-8'); console.log('[IPC] config.json mis à jour avec des icônes normalisées'); } catch (e) { console.warn('Impossible d\'écrire config.json après normalisation des icônes:', e); }
+        try {
+          const cfg2 = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8') || '{"blenders":[]}');
+          cfg2.blenders = mapped;
+          fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg2, null, 2), 'utf-8');
+          console.log('[IPC] config.json mis à jour avec des icônes normalisées (config préservée)');
+        } catch (e) { console.warn('Impossible d\'écrire config.json après normalisation des icônes:', e); }
       }
       console.log('[IPC] get-blenders retourne', mapped.length, 'élément(s)');
       return mapped;

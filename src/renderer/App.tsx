@@ -83,6 +83,8 @@ const App: React.FC = () => {
   // Steam
   const [steamEnabled, setSteamEnabled] = useState(false);
   const [steamAvailable, setSteamAvailable] = useState<boolean | null>(null);
+  // General settings
+  const [scanOnStartup, setScanOnStartup] = useState<boolean>(false);
   // Render progress bar (global)
   const [renderState, setRenderState] = useState<{ active: boolean; done: number; total: number; label?: string; stats?: string }|null>(null);
 
@@ -106,6 +108,15 @@ const App: React.FC = () => {
           setDiscordAvailable(!!avail?.available);
           if (!avail?.available) setDiscordEnabled(false);
         } catch {}
+        // General config
+        setBootStatus('Chargement de la configuration générale…');
+        let generalScan = false;
+        try {
+          const general = await window.electronAPI.invoke('get-general-config');
+          generalScan = !!general?.scanOnStartup;
+          setScanOnStartup(generalScan);
+        } catch {}
+
         setBootStatus('Chargement de la configuration Steam…');
         const steamCfg = await window.electronAPI.invoke('get-steam-config');
         if (steamCfg) setSteamEnabled(!!steamCfg.enabled);
@@ -115,10 +126,11 @@ const App: React.FC = () => {
           setSteamAvailable(!!avail?.available);
           if (!avail?.available) setSteamEnabled(false);
         } catch {}
-
-  // Scanner le système pour trouver les Blender installés et les fusionner dans config
-  setBootStatus('Scan des installations Blender…');
-  try { await window.electronAPI.invoke('scan-and-merge-blenders'); } catch {}
+        // Scanner le système pour trouver les Blender installés et les fusionner dans config (conditionnel)
+        if (generalScan) {
+          setBootStatus('Scan des installations Blender…');
+          try { await window.electronAPI.invoke('scan-and-merge-blenders'); } catch {}
+        }
 
   // Précharger la liste des fichiers récents (pour affichage rapide)
         setBootStatus('Récupération des fichiers récents…');
@@ -132,7 +144,7 @@ const App: React.FC = () => {
     load();
   }, []);
 
-  // Persister la config discord sur changement
+  // Persister la config discord/steam sur changement
   useEffect(() => {
     const save = async () => {
       if (!window.electronAPI?.invoke) return;
@@ -150,6 +162,18 @@ const App: React.FC = () => {
     const h = setTimeout(save, 400);
     return () => clearTimeout(h);
   }, [discordEnabled, discordShowFile, discordShowTitleOpt, steamEnabled]);
+
+  // Persister la config générale
+  useEffect(() => {
+    const saveGeneral = async () => {
+      if (!window.electronAPI?.invoke) return;
+      try {
+        await window.electronAPI.invoke('update-general-config', { scanOnStartup });
+      } catch (e) { console.warn('[GeneralUI] save config erreur:', e); }
+    };
+    const h = setTimeout(saveGeneral, 300);
+    return () => clearTimeout(h);
+  }, [scanOnStartup]);
 
   // Mise a jour presence a chaque launch (si enabled)
   useEffect(() => {
@@ -186,8 +210,38 @@ const App: React.FC = () => {
   }, [discordEnabled, lastLaunched]);
 
   const SettingsPage = () => {
+    const [scanning, setScanning] = useState(false);
+    const [scanMsg, setScanMsg] = useState<string | null>(null);
+
+    const runScanNow = async () => {
+      if (!window.electronAPI?.invoke || scanning) return;
+      setScanning(true);
+      setScanMsg(null);
+      try {
+        const res = await window.electronAPI.invoke('scan-and-merge-blenders');
+        if (res?.success) {
+          const msg = `Scan terminé: ${res.added || 0} ajouté(s). Total: ${res.total ?? 'n/a'}`;
+          setScanMsg(msg);
+          setToast({ msg, type: 'info' });
+          setTimeout(() => setToast(null), 2500);
+        } else {
+          const msg = `Échec du scan${res?.error ? `: ${res.error}` : ''}`;
+          setScanMsg(msg);
+          setToast({ msg, type: 'error' });
+          setTimeout(() => setToast(null), 3000);
+        }
+      } catch (e:any) {
+        const msg = `Erreur pendant le scan: ${e?.message || e}`;
+        setScanMsg(msg);
+        setToast({ msg, type: 'error' });
+        setTimeout(() => setToast(null), 3000);
+      } finally {
+        setScanning(false);
+      }
+    };
+
     return (
-      <div style={{
+      <div className="hide-scrollbar" style={{
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
@@ -196,9 +250,46 @@ const App: React.FC = () => {
         height: '100%',
         paddingTop: 60,
         width: '100%',
-        overflow: 'auto',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        boxSizing: 'border-box',
+        paddingBottom: renderState ? 'calc(30vh + 48px)' : 'calc(24vh + 40px)',
         gap: 48
       }}>
+        {/* Section Général */}
+        <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <h2 style={{ fontWeight: 700, fontSize: 32, margin: '0 0 8px 0' }}>Général</h2>
+          <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
+          <div style={{ width: '100%', maxWidth: 520 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
+              <input type="checkbox" checked={scanOnStartup} onChange={e => setScanOnStartup(e.target.checked)} style={{ width: 20, height: 20 }} />
+              <span style={{ fontSize: 16, fontWeight: 500 }}>Scanner au démarrage</span>
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
+              <button
+                onClick={runScanNow}
+                disabled={scanning}
+                style={{
+                  padding: '10px 16px',
+                  background: scanning ? '#2a3138' : '#2563eb',
+                  border: '1px solid #1e3a8a',
+                  color: '#fff',
+                  borderRadius: 8,
+                  cursor: scanning ? 'not-allowed' : 'pointer',
+                  fontSize: 14,
+                  fontWeight: 600
+                }}
+                title="Scanner immédiatement vos installations Blender"
+              >
+                {scanning ? 'Scan en cours…' : 'Scanner maintenant'}
+              </button>
+              {scanMsg && (
+                <span style={{ fontSize: 12, color: '#94a3b8' }}>{scanMsg}</span>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Section Affichage / Langue */}
         <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <h2 style={{ fontWeight: 700, fontSize: 32, margin: '0 0 8px 0' }}>{t('display')}</h2>
@@ -284,6 +375,8 @@ const App: React.FC = () => {
             )}
           </div>
         </div>
+        {/* Spacer to ensure bottom controls are always visible above fixed bars/devtools */}
+        <div style={{ height: renderState ? '20vh' : '16vh' }} />
       </div>
     );
   };
@@ -382,7 +475,7 @@ const App: React.FC = () => {
           onSelectBlender={handleSelectBlender}
           selectedBlender={selectedBlender}
         />
-        <div style={{ flex: 1, display: 'flex', minWidth: 0 }}>
+        <div style={{ flex: 1, display: 'flex', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
           {page === 'settings' ? <SettingsPage /> : selectedRepo ? <ViewRepo repo={selectedRepo} onBack={()=> setSelectedRepo(null)} /> : <HomePage />}
         </div>
       </div>

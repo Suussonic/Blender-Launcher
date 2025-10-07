@@ -34,6 +34,8 @@ const api = {
       'delete-executable',
       'get-recent-blend-files',
       'remove-recent-blend-file',
+      'get-general-config',
+      'update-general-config',
       'get-discord-config',
       'update-discord-config',
       'update-discord-presence',
