@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import ViewSettings from './ViewSettings';
 import ViewOpenWith from './ViewOpenWith';
 import Filter, { RecentBlendFile } from './Filter';
+import ViewRender from './ViewRender';
 
 type BlenderExe = {
   path: string;
@@ -26,6 +27,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
   const [displayFiles, setDisplayFiles] = useState<RecentBlendFile[]>([]);
   const [recentVersion, setRecentVersion] = useState<string | null>(null);
   const [openWithFile, setOpenWithFile] = useState<string | null>(null);
+  const [renderForFile, setRenderForFile] = useState<string | null>(null);
 
   // Chargement des fichiers récents quand l'exécutable change
   useEffect(() => {
@@ -108,6 +110,34 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
       if (onLaunch) onLaunch(selectedBlender);
     }
   };
+
+  // Refresh recent files when a render session exits (headless render may write new files and update recent list)
+  useEffect(() => {
+    const api: any = (window as any).electronAPI;
+    if (!api || typeof api.on !== 'function') return;
+    let refreshing = false;
+    const refresh = async () => {
+      if (refreshing) return;
+      refreshing = true;
+      if (!selectedBlender?.path || !api?.invoke) return;
+      try {
+        const res = await api.invoke('get-recent-blend-files', { exePath: selectedBlender.path });
+        if (res && res.files) {
+          setRecentFiles(res.files);
+          setRecentVersion(res.version || null);
+        }
+      } catch {}
+      finally { refreshing = false; }
+    };
+    const handler = (_: any, payload: any) => {
+      if (payload?.event === 'EXIT' || payload?.event === 'DONE') {
+        // slight debounce to ensure Blender wrote recent files
+        setTimeout(refresh, 400);
+      }
+    };
+    api.on('render-progress', handler);
+    return () => { try { api.off?.('render-progress', handler); } catch {} };
+  }, [selectedBlender?.path]);
 
   const handleOpenSettings = () => {
     console.log('[ViewPages] Clic sur le bouton paramètres détecté!');
@@ -376,6 +406,32 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                   </div>
                   {/* Col 5: Actions */}
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: 140, justifyContent: 'flex-end', flexShrink: 0 }}>
+                    {/* Screen icon button to open render popup */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); if (f.exists) setRenderForFile(f.path); }}
+                      disabled={!f.exists}
+                      style={{
+                        background: '#1e2530',
+                        border: 'none',
+                        color: '#94a3b8',
+                        width: 34,
+                        height: 34,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 8,
+                        cursor: f.exists ? 'pointer' : 'default',
+                        opacity: f.exists ? 1 : 0.5
+                      }}
+                      title="Configurer un rendu pour ce fichier"
+                    >
+                      {/* Screen/monitor icon */}
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="4" width="18" height="12" rx="2" ry="2"></rect>
+                        <line x1="8" y1="20" x2="16" y2="20"></line>
+                        <line x1="12" y1="16" x2="12" y2="20"></line>
+                      </svg>
+                    </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); if (f.exists) setOpenWithFile(f.path); }}
                       disabled={!f.exists}
@@ -471,6 +527,16 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
           filePath={openWithFile}
           onClose={() => setOpenWithFile(null)}
         />
+        {/* Render popup embedded without launcher card */}
+        {renderForFile && (
+          <ViewRender
+            showLauncherButton={false}
+            open={!!renderForFile}
+            onClose={() => setRenderForFile(null)}
+            filePath={renderForFile}
+            selected={selectedBlender as any}
+          />
+        )}
       </div>
     );
   }

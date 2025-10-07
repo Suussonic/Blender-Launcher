@@ -1,4 +1,3 @@
-
 console.log('Chargement des modules Electron...');
 import { app, BrowserWindow, ipcMain, nativeImage, shell } from 'electron';
 import * as path from 'path';
@@ -106,6 +105,8 @@ function generateTitle(fileName: string): string {
 }
 
 let mainWindow: BrowserWindow | null = null;
+// Track whether a render is currently active to avoid quitting the app prematurely
+let renderActive: boolean = false;
 function createWindow() {
   console.log('Debut de createWindow');
   try {
@@ -583,7 +584,7 @@ app.whenReady().then(() => {
   });
 
   // Suppression d'un exécutable de la config (handle pour obtenir un résultat direct)
-  ipcMain.handle('delete-executable', async (_event, payload) => {
+  ipcMain.handle('delete-exécutable', async (_event, payload) => {
     try {
       const targetPathRaw = typeof payload === 'string' ? payload : payload?.path;
       if (!targetPathRaw) {
@@ -940,18 +941,16 @@ app.whenReady().then(() => {
         return { version: null, files: [], error: 'invalid-exe' };
       }
 
-      // 1. Tenter de récupérer la version via --version (timeout court)
+      // 1) Tenter de récupérer la version via --version (timeout un peu plus long)
       const getVersion = (): Promise<string | null> => {
         return new Promise((resolve) => {
           try {
             const { execFile } = require('child_process');
-            const proc = execFile(exePath, ['--version'], { timeout: 1500 }, (err: any, stdout: string, stderr: string) => {
+            const proc = execFile(exePath, ['--version'], { timeout: 4000 }, (err: any, stdout: string, stderr: string) => {
               if (err) return resolve(null);
               const out = (stdout || stderr || '').trim();
-              // Exemple: "Blender 4.2.0" -> extraire 4.2
               const match = out.match(/Blender\s+(\d+\.\d+)/i);
               if (match) return resolve(match[1]);
-              // Sinon tenter version complète 4.2.0
               const matchFull = out.match(/Blender\s+(\d+\.\d+\.\d+)/i);
               if (matchFull) {
                 const parts = matchFull[1].split('.');
@@ -959,61 +958,86 @@ app.whenReady().then(() => {
               }
               resolve(null);
             });
-            // Sécurité: timeout manuel si option timeout ne fonctionne pas
-            setTimeout(() => {
-              try { proc.kill('SIGKILL'); } catch {}
-              resolve(null);
-            }, 1800);
-          } catch {
-            resolve(null);
-          }
+            setTimeout(() => { try { proc.kill('SIGKILL'); } catch {}; resolve(null); }, 4500);
+          } catch { resolve(null); }
         });
       };
 
       let version = await getVersion();
       if (!version) {
-        // Fallback: essayer de deviner depuis le chemin du binaire
+        // Fallback: tenter de deviner à partir du chemin de l'exécutable
         const lower = exePath.toLowerCase();
-        const guess = lower.match(/(\d+\.\d+)/); // capture 4.2, 3.6, 2.93 etc.
+        const guess = lower.match(/(\d+\.\d+)/);
         if (guess) version = guess[1];
       }
 
-      // 2. Construire chemin recent-files.txt (Windows principalement)
-      let recentFilePath: string | null = null;
-      if (process.platform === 'win32' && version) {
+      // 2) Windows: recent-files.txt
+      if (process.platform === 'win32') {
         const appData = process.env.APPDATA; // C:\Users\User\AppData\Roaming
+        const filesFromTxt = (rfPath: string): any[] => {
+          let content = '';
+          try { content = fs.readFileSync(rfPath, 'utf-8'); } catch { return []; }
+          const lines = content.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+          const MAX_FILES = 40;
+          const selected = lines.slice(0, MAX_FILES);
+          return selected.map((p, idx) => {
+            let exists = false; let size: number | undefined; let mtime: number | undefined; let ctime: number | undefined; let name = path.basename(p);
+            try {
+              const st = fs.statSync(p);
+              exists = true;
+              size = st.size;
+              mtime = st.mtimeMs;
+              ctime = (st as any).birthtimeMs && (st as any).birthtimeMs > 0 ? (st as any).birthtimeMs : st.ctimeMs;
+            } catch { exists = false; }
+            return { path: p, name, exists, size, mtime, ctime, order: idx };
+          });
+        };
+
+        // 2a) Si la version est connue, lire recent-files.txt correspondant
+        if (appData && version) {
+          const rf = path.join(appData, 'Blender Foundation', 'Blender', version, 'config', 'recent-files.txt');
+          if (fs.existsSync(rf)) {
+            return { version, files: filesFromTxt(rf) };
+          }
+        }
+
+        // 2b) Fallback: scanner toutes les versions et agréger
         if (appData) {
-          recentFilePath = path.join(appData, 'Blender Foundation', 'Blender', version, 'config', 'recent-files.txt');
+          const base = path.join(appData, 'Blender Foundation', 'Blender');
+          const agg: any[] = [];
+          const seen = new Set<string>();
+          try {
+            const entries: any[] = fs.existsSync(base) ? fs.readdirSync(base, { withFileTypes: true }) as any : [];
+            const versionDirs = entries
+              .filter((e: any) => e.isDirectory && (typeof e.isDirectory !== 'function' || e.isDirectory()) && /^(\d+\.\d+)/.test(e.name))
+              .sort((a:any,b:any)=>{
+                const ma = a.name.match(/(\d+)\.(\d+)/); const mb = b.name.match(/(\d+)\.(\d+)/);
+                if (ma && mb) {
+                  const va = parseInt(ma[1])*100 + parseInt(ma[2]);
+                  const vb = parseInt(mb[1])*100 + parseInt(mb[2]);
+                  return vb - va;
+                }
+                return 0;
+              });
+            for (const d of versionDirs) {
+              const rf = path.join(base, d.name, 'config', 'recent-files.txt');
+              if (!fs.existsSync(rf)) continue;
+              const items = filesFromTxt(rf);
+              for (const it of items) {
+                const norm = path.normalize(it.path).toLowerCase();
+                if (seen.has(norm)) continue;
+                seen.add(norm);
+                agg.push(it);
+              }
+              if (agg.length >= 40) break;
+            }
+          } catch {}
+          return { version: version || null, files: agg.slice(0, 40) };
         }
       }
-      // TODO: Linux/Mac support (peut être ajouté plus tard)
 
-      if (!recentFilePath || !fs.existsSync(recentFilePath)) {
-        return { version: version || null, files: [] };
-      }
-
-      // 3. Lire et parser recent-files.txt
-      let content = '';
-      try { content = fs.readFileSync(recentFilePath, 'utf-8'); } catch {}
-      const lines = content.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-      // Blender met généralement un nombre limité, mais on tronque par prudence
-      const MAX_FILES = 40;
-      const selected = lines.slice(0, MAX_FILES);
-
-      const files = selected.map((p, idx) => {
-        let exists = false; let size: number | undefined; let mtime: number | undefined; let ctime: number | undefined; let name = path.basename(p);
-        try {
-          const st = fs.statSync(p);
-          exists = true;
-          size = st.size;
-          mtime = st.mtimeMs;
-          // birthtime peut être 0 sur certains FS, fallback ctime
-          ctime = (st as any).birthtimeMs && (st as any).birthtimeMs > 0 ? (st as any).birthtimeMs : st.ctimeMs;
-        } catch { exists = false; }
-        return { path: p, name, exists, size, mtime, ctime, order: idx }; // order = position dans recent-files.txt (0 = plus récent)
-      });
-
-      return { version: version || null, files };
+      // 3) Plateformes non supportées pour l'instant
+      return { version: version || null, files: [] };
     } catch (e) {
       console.error('[IPC] get-recent-blend-files erreur:', e);
       return { version: null, files: [], error: String(e) };
@@ -1176,12 +1200,300 @@ app.whenReady().then(() => {
       console.error('[IPC] reveal-in-folder erreur:', e);
     }
   });
+
+  ipcMain.handle('get-blend-metadata', async (_event, payload) => {
+    try {
+      const exePath: string | undefined = payload?.exePath;
+      const blendPath: string | undefined = payload?.blendPath;
+      if (!exePath || !blendPath || !fs.existsSync(exePath) || !fs.existsSync(blendPath)) {
+        return { success: false, reason: 'invalid-args' };
+      }
+
+      // Prefer running a bundled backend script for robust extraction
+      const scriptCandidates = [
+        path.join(__dirname, '../../backend/blend_info.py'), // dev
+        path.join(process.cwd(), 'backend', 'blend_info.py'), // cwd fallback
+        path.join(__dirname, '..', '..', 'backend', 'blend_info.py'), // dist
+      ];
+      const scriptPath = scriptCandidates.find(p => { try { return fs.existsSync(p); } catch { return false; } });
+  // We pass the blend path to the helper after '--' so it can force-open the file
+  const scriptArg = scriptPath ? ['--python', scriptPath, '--', blendPath] : [];
+
+  const { execFile } = require('child_process');
+  // Use factory startup; do not rely on positional blend load (the helper will open it explicitly)
+  const args = ['-b', '--factory-startup', ...scriptArg, '--quit'];
+
+      const result = await new Promise((resolve) => {
+        try {
+          const child = execFile(exePath, args, { timeout: 20000 }, (err: any, stdout: string, stderr: string) => {
+            if (err) {
+              return resolve({ success: false, reason: 'exec-error', err: String(err) });
+            }
+            // Find the last BL_META: JSON line for robust parsing
+            const all = ((stdout || '') + '\n' + (stderr || '')).split(/\r?\n/);
+            const tagged = all.filter(l => l.includes('BL_META:'));
+            if (tagged.length > 0) {
+              const last = tagged[tagged.length - 1];
+              const idx = last.indexOf('BL_META:');
+              const jsonPart = last.slice(idx + 'BL_META:'.length).trim();
+              try {
+                const data = JSON.parse(jsonPart);
+                return resolve({ success: true, data });
+              } catch (e) {
+                return resolve({ success: false, reason: 'parse-failed' });
+              }
+            }
+            resolve({ success: false, reason: 'no-output' });
+          });
+          // Additional hard timeout guard
+          setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, 22000);
+        } catch (e) {
+          resolve({ success: false, reason: 'spawn-failed', error: String(e) });
+        }
+      });
+
+      return result;
+    } catch (e) {
+      return { success: false, reason: 'exception', error: String(e) };
+    }
+  });
+
+  ipcMain.handle('select-output-folder', async () => {
+    try {
+      if (!mainWindow) return '';
+      const res = await dialog.showOpenDialog(mainWindow, {
+        title: 'Choisir un dossier de sortie',
+        properties: ['openDirectory', 'createDirectory']
+      });
+      if (res.canceled || !res.filePaths || !res.filePaths[0]) return '';
+      return res.filePaths[0];
+    } catch (e) {
+      console.warn('[IPC] select-output-folder erreur:', e);
+      return '';
+    }
+  });
+
+  ipcMain.handle('start-render', async (_event, cfg) => {
+    try {
+      const exePath: string | undefined = cfg?.blender?.path;
+      const blendPath: string | undefined = cfg?.filePath;
+      if (!exePath || !fs.existsSync(exePath)) return { success: false, reason: 'invalid-exe' };
+      if (!blendPath || !fs.existsSync(blendPath)) return { success: false, reason: 'invalid-blend' };
+
+    const engine: string = cfg?.engine || 'BLENDER_EEVEE';
+      const mode: 'IMAGE' | 'ANIMATION' = cfg?.mode || 'IMAGE';
+      const w: number = cfg?.resolution?.width || 1920;
+      const h: number = cfg?.resolution?.height || 1080;
+  const start: number = cfg?.frames?.start ?? 1;
+  const end: number = cfg?.frames?.end ?? start;
+  const stillFrame: number | undefined = cfg?.stillFrame;
+      const outputDir: string = cfg?.outputDir || '';
+    const imageFormat: string | undefined = cfg?.imageFormat;
+    const videoMode: 'VIDEO' | 'SEQUENCE' | undefined = cfg?.videoMode;
+    const videoContainer: string | undefined = cfg?.videoContainer;
+    const videoCodec: string | undefined = cfg?.videoCodec;
+    const videoQuality: string | undefined = cfg?.videoQuality;
+  const openRenderWindow: boolean = !!cfg?.openRenderWindow;
+
+      // Assure le dossier de sortie
+      try { if (outputDir && !fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true }); } catch {}
+
+  // Normalize output folder for Blender; script will add filename base
+  let out = outputDir ? outputDir.replace(/\\/g, '/') : '';
+  if (out && !out.endsWith('/')) out += '/';
+
+      // Build headless render using backend/render_headless.py and stream progress markers
+      const scriptCandidates = [
+        path.join(__dirname, '../../backend/render_headless.py'),
+        path.join(process.cwd(), 'backend', 'render_headless.py'),
+        path.join(__dirname, '..', '..', 'backend', 'render_headless.py'),
+      ];
+      const scriptPath = scriptCandidates.find(p => { try { return fs.existsSync(p); } catch { return false; } });
+      if (!scriptPath) return { success: false, reason: 'script-missing' };
+
+      // Build CLI args. If openRenderWindow is true, run Blender with UI and open the Image Editor render window.
+      // Optional log file for GUI mode to duplicate BL_REN markers
+      const guiLogPath = path.join(app.getPath('temp'), 'bl-launcher-render.log');
+
+      const commonArgs: string[] = [
+        // Always use factory-startup to avoid third-party addon popups during scripting
+          '--factory-startup',
+        '--python', scriptPath,
+        '--',
+        blendPath,
+        `mode=${mode}`,
+        `engine=${engine}`,
+        `width=${Math.max(1, w)}`,
+        `height=${Math.max(1, h)}`,
+  (out ? `out=${out}` : ''),
+  // Provide a temp log file to duplicate markers in GUI mode
+  (openRenderWindow ? `log=${guiLogPath.replace(/\\/g, '/')}` : ''),
+        // For IMAGE, pass explicit frame if specified (fallback to start)
+        (mode === 'IMAGE' && (stillFrame !== undefined) ? `frame=${stillFrame}` : ''),
+        (mode === 'ANIMATION' ? `start=${start}` : ''),
+        (mode === 'ANIMATION' ? `end=${end}` : ''),
+        // Output formatting
+        // SEQUENCE -> image format, VIDEO -> FFMPEG
+        (mode === 'ANIMATION' && videoMode === 'VIDEO' ? 'format=FFMPEG' : (imageFormat ? `format=${imageFormat}` : '')),
+        (mode === 'ANIMATION' && videoMode === 'VIDEO' && videoContainer ? `container=${videoContainer}` : ''),
+        (mode === 'ANIMATION' && videoMode === 'VIDEO' && videoCodec ? `codec=${videoCodec}` : ''),
+        // omit quality to simplify
+      ].filter(Boolean) as string[];
+
+      // Append flag for GUI script to show render window when requested
+      if (openRenderWindow) {
+        commonArgs.push('open_window=1');
+      }
+
+      const args: string[] = openRenderWindow
+        ? (process.platform === 'win32' ? ['-con', ...commonArgs] : commonArgs) // GUI mode; on Windows force console to capture prints
+        : ['-b', ...commonArgs]; // headless mode
+
+    const { spawn } = require('child_process');
+      console.log('[render] Launching headless render:', { exePath, args });
+  const child = spawn(exePath, args, { detached: false, stdio: ['ignore', 'pipe', 'pipe'] });
+  const wc = mainWindow?.webContents;
+  const shouldShutdown: boolean = !!cfg?.shutdownOnFinish;
+  let sawInit = false;
+  // Mark render as active until Blender finishes or sends DONE/CANCEL/ERROR
+  renderActive = true;
+
+      const emit = (event: string, payload: any) => { try { wc?.send('render-progress', { event, ...payload }); } catch {} };
+
+      // In GUI mode, Blender may not flush our markers to stdout on Windows; emit a synthetic INIT/START so the UI shows a bar.
+      if (openRenderWindow) {
+        const totalFrames = mode === 'ANIMATION' ? Math.max(1, (end - start + 1)) : 1;
+        emit('INIT', { total: String(totalFrames) });
+        sawInit = true; // consider synthetic INIT valid for shutdown behavior
+        setTimeout(() => emit('START', {}), 300);
+      } else {
+        // Headless: show a bar immediately too; real markers will update soon after
+        const totalFrames = mode === 'ANIMATION' ? Math.max(1, (end - start + 1)) : 1;
+        emit('INIT', { total: String(totalFrames) });
+        sawInit = true; // synthetic INIT
+        setTimeout(() => emit('START', {}), 150);
+      }
+
+      child.stdout?.on('data', (d: Buffer) => {
+        const lines = d.toString().split(/\r?\n/).filter(Boolean);
+        for (const line of lines) {
+          if (line.startsWith('BL_REN:')) {
+            const rest = line.slice('BL_REN:'.length).trim();
+            const [tag, ...kvparts] = rest.split(/\s+/);
+            const payload: any = { raw: line };
+            for (const kv of kvparts) {
+              const i = kv.indexOf('=');
+              if (i > 0) payload[kv.slice(0, i)] = kv.slice(i + 1);
+            }
+            emit(tag, payload);
+            if (tag === 'INIT') sawInit = true;
+            if (tag === 'DONE') {
+              renderActive = false;
+            }
+            if ((tag === 'CANCEL') || (tag === 'ERROR')) {
+              renderActive = false;
+            }
+            if (tag === 'DONE' && shouldShutdown) {
+              try {
+                if (process.platform === 'win32') {
+                  require('child_process').spawn('shutdown', ['/s', '/t', '0'], { detached: true, stdio: 'ignore' });
+                }
+              } catch {}
+            }
+          }
+        }
+      });
+      // If GUI mode, tail the log file written by the Python script for robust progress
+      let tailTimer: NodeJS.Timeout | null = null;
+      if (openRenderWindow) {
+        let lastSize = 0;
+        const readChunk = (start: number, end: number) => new Promise<string>((resolve) => {
+          try {
+            const fd = fs.createReadStream(guiLogPath, { start, end: end - 1, encoding: 'utf-8' });
+            let buf = '';
+            fd.on('data', (c: any) => { try { buf += String(c); } catch { /* ignore */ } });
+            fd.on('end', () => resolve(buf));
+            fd.on('error', () => resolve(''));
+          } catch {
+            resolve('');
+          }
+        });
+        const poll = async () => {
+          try {
+            const st = fs.existsSync(guiLogPath) ? fs.statSync(guiLogPath) : null;
+            if (st && st.size > lastSize) {
+              const chunk = await readChunk(lastSize, st.size);
+              lastSize = st.size;
+              if (chunk) {
+                const lines = chunk.split(/\r?\n/).filter(Boolean);
+                for (const line of lines) {
+                  if (line.startsWith('BL_REN:')) {
+                    const rest = line.slice('BL_REN:'.length).trim();
+                    const [tag, ...kvparts] = rest.split(/\s+/);
+                    const payload: any = { raw: line };
+                    for (const kv of kvparts) {
+                      const i = kv.indexOf('=');
+                      if (i > 0) payload[kv.slice(0, i)] = kv.slice(i + 1);
+                    }
+                    emit(tag, payload);
+                    if (tag === 'INIT') sawInit = true;
+                    if (tag === 'DONE') {
+                      renderActive = false;
+                      if (shouldShutdown) {
+                        try {
+                          if (process.platform === 'win32') {
+                            require('child_process').spawn('shutdown', ['/s', '/t', '0'], { detached: true, stdio: 'ignore' });
+                          }
+                        } catch {}
+                      }
+                    }
+                    if (tag === 'CANCEL' || tag === 'ERROR') {
+                      renderActive = false;
+                    }
+                  }
+                }
+              }
+            }
+          } catch {}
+          tailTimer = setTimeout(poll, 400);
+        };
+        tailTimer = setTimeout(poll, 600);
+      }
+      child.stderr?.on('data', (d: Buffer) => {
+        const s = d.toString();
+        if (s.trim()) console.warn('[render][stderr]', s.trim());
+      });
+      child.on('exit', (code: number) => {
+        console.log('[render] Blender headless process exited with code', code);
+        emit('EXIT', { code });
+        if (tailTimer) { try { clearTimeout(tailTimer); } catch {} tailTimer = null; }
+        // No matter what, consider the render inactive once the process exits
+        renderActive = false;
+        if (shouldShutdown && code === 0 && sawInit) {
+          try {
+            if (process.platform === 'win32') {
+              require('child_process').spawn('shutdown', ['/s', '/t', '0'], { detached: true, stdio: 'ignore' });
+            }
+          } catch {}
+        }
+      });
+
+      return { success: true };
+    } catch (e) {
+      return { success: false, reason: 'exception', error: String(e) };
+    }
+  });
 });
 
 
 app.on('window-all-closed', () => {
   console.log('Toutes les fenetres sont fermees');
   if (process.platform !== 'darwin') {
+  // If a render is active, keep the app alive to allow the render to complete
+  if (renderActive) {
+    console.log('Render actif détecté: l’application reste en arrière-plan jusqu’à la fin du rendu.');
+    return;
+  }
   console.log('Fermeture de l application');
     try {
       const userDataDir = app.getPath('userData');

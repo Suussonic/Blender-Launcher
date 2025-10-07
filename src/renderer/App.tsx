@@ -83,6 +83,8 @@ const App: React.FC = () => {
   // Steam
   const [steamEnabled, setSteamEnabled] = useState(false);
   const [steamAvailable, setSteamAvailable] = useState<boolean | null>(null);
+  // Render progress bar (global)
+  const [renderState, setRenderState] = useState<{ active: boolean; done: number; total: number; label?: string; stats?: string }|null>(null);
 
   // Charger la config + checks au montage avec progress texte
   useEffect(() => {
@@ -289,6 +291,42 @@ const App: React.FC = () => {
   // Page d'accueil
   const HomePage = () => <ViewPages selectedBlender={selectedBlender} onLaunch={(b) => setLastLaunched(b)} />;
 
+  // Listen to progress events from main
+  useEffect(() => {
+    const api: any = (window as any).electronAPI;
+    if (!api || typeof api.on !== 'function') return;
+    const handler = (_: any, payload: any) => {
+      const ev = payload?.event;
+      if (!ev) return;
+      if (ev === 'INIT') {
+        const total = parseInt(payload.total || '1', 10) || 1;
+        setRenderState({ active: true, done: 0, total, label: 'Initialisation du rendu…' });
+      } else if (ev === 'START') {
+        setRenderState((prev) => prev ? { ...prev, label: 'Rendu en cours…' } : { active: true, done: 0, total: 1, label: 'Rendu en cours…' });
+      } else if (ev === 'FRAME_DONE') {
+        const done = Math.max(0, parseInt(payload.done || '0', 10));
+        const total = Math.max(1, parseInt(payload.total || '1', 10));
+        const current = Math.min(done, total);
+        setRenderState({ active: true, done, total, label: `Frame ${current}/${total}` });
+      } else if (ev === 'STATS') {
+        const raw = String(payload?.text || payload?.msg || payload?.raw || '').trim();
+        const pretty = raw ? raw.replace(/_/g, ' ') : '';
+        setRenderState((prev) => prev ? { ...prev, stats: pretty } : prev);
+      } else if (ev === 'DONE' || ev === 'EXIT') {
+        setRenderState((prev) => prev ? { ...prev, done: prev.total, label: 'Terminé' } : { active: false, done: 1, total: 1, label: 'Terminé' });
+        // Hide after short delay
+        setTimeout(() => setRenderState(null), 1200);
+      } else if (ev === 'CANCEL' || ev === 'ERROR') {
+        setRenderState({ active: false, done: 0, total: 1, label: ev === 'ERROR' ? 'Erreur de rendu' : 'Rendu annulé' });
+        setTimeout(() => setRenderState(null), 2000);
+      }
+    };
+    api.on('render-progress', handler);
+    return () => {
+      try { api.off?.('render-progress', handler); } catch {}
+    };
+  }, []);
+
   // Gestion centralisée de la sélection d'un Blender :
   // - Si on est dans la page settings, bascule automatiquement sur home pour afficher la vue de l'app.
   const handleSelectBlender = (b: BlenderExe | null) => {
@@ -348,6 +386,24 @@ const App: React.FC = () => {
           {page === 'settings' ? <SettingsPage /> : selectedRepo ? <ViewRepo repo={selectedRepo} onBack={()=> setSelectedRepo(null)} /> : <HomePage />}
         </div>
       </div>
+      {/* Bottom render progress bar */}
+      {renderState && (
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '8px 14px', background: '#0b1016', borderTop: '1px solid #1f2937', zIndex: 4000 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: 1, height: 8, background: '#1f2937', borderRadius: 6, overflow: 'hidden' }}>
+              <div style={{ width: `${Math.min(100, Math.round((renderState.done/renderState.total)*100))}%`, height: '100%', background: '#22c55e', transition: 'width .25s ease' }} />
+            </div>
+            <div style={{ color: '#cbd5e1', fontSize: 12, minWidth: 120, textAlign: 'right' }}>
+              {renderState.label || 'Rendu en cours…'}
+            </div>
+          </div>
+          {renderState.stats && (
+            <div style={{ marginTop: 6, color: '#94a3b8', fontSize: 11, textAlign: 'right' }}>
+              {renderState.stats}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -15,3 +15,78 @@ html, body, .scroll-hide {
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
 }
+
+/* Clean numeric inputs: hide native spin buttons */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  appearance: textfield;
+  -moz-appearance: textfield; /* Firefox */
+}
+
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* Modern modal layout helpers */
+.modal-shell {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+.modal-card {
+  width: min(880px, 96vw);
+  max-height: min(92vh, 980px);
+  background: #0F1419;
+  border: 1px solid #25303b;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+}
+.modal-card.full { width: 96vw; max-height: 96vh; }
+.modal-header, .modal-footer {
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0) 60%);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-title { margin: 0; color: #e5e7eb; font-size: 18px; font-weight: 800; }
+.modal-body {
+  padding: 16px;
+  overflow: auto;
+}
+.modal-close {
+  background: transparent; border: none; color: #9ca3af; cursor: pointer; font-size: 20px;
+}
+
+/* Fancy segmented switch hover */
+.seg:hover { filter: brightness(1.05); }
+
+/* Pretty range slider */
+.range {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 240px;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #93c5fd, #60a5fa);
+  outline: none;
+}
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px; height: 18px; border-radius: 50%; background: #0b1220; border: 2px solid #93c5fd; box-shadow: 0 0 0 4px rgba(147,197,253,0.25);
+}
+.range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #0b1220; border: 2px solid #93c5fd; box-shadow: 0 0 0 4px rgba(147,197,253,0.25); }
+.range:focus-visible { box-shadow: 0 0 0 3px rgba(59,130,246,0.35); }

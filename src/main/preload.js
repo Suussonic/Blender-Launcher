@@ -12,7 +12,7 @@ const api = {
     }
   },
   on: (channel, func) => {
-    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result'];
+    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress'];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, func);
     } else {
@@ -20,7 +20,7 @@ const api = {
     }
   },
   off: (channel, func) => {
-    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result'];
+    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress'];
     if (validChannels.includes(channel)) {
       ipcRenderer.off(channel, func);
     } else {
@@ -42,6 +42,9 @@ const api = {
       'update-steam-config',
       'get-steam-availability'
       , 'scan-and-merge-blenders'
+      , 'get-blend-metadata'
+      , 'select-output-folder'
+      , 'start-render'
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, ...args);

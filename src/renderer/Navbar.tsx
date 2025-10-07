@@ -225,14 +225,37 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo }) => 
             <FiHome size={22} />
           </button>
         </div>
-  <div style={{ position:'relative', flex:1, margin:'0 24px', minWidth:260, display:'flex' }} className="no-drag">
+  <div style={{ position:'relative', flex:1, margin:'0 24px', minWidth:260, display:'flex', gap:8 }} className="no-drag">
+          {/* Cancel button to the left of the search bar */}
+          <button
+            type="button"
+            title="Annuler la recherche"
+            onClick={() => setRepoQuery('')}
+            disabled={!repoQuery}
+            style={{
+              height:36,
+              padding:'0 12px',
+              borderRadius:18,
+              border:'1px solid #2a3036',
+              background: repoQuery ? '#2b333b' : '#23272F',
+              color:'#e5e7eb',
+              cursor: repoQuery ? 'pointer' : 'default',
+              opacity: repoQuery ? 1 : 0.6,
+              outline:'none'
+            }}
+            onMouseOver={e=>{ if(repoQuery) e.currentTarget.style.background = '#323b44'; }}
+            onMouseOut={e=>{ if(repoQuery) e.currentTarget.style.background = '#2b333b'; }}
+          >
+            Annuler
+          </button>
           <input
             type="text"
             placeholder="Rechercher un repository..."
             value={repoQuery}
             onChange={e=> setRepoQuery(e.target.value)}
+            onKeyDown={e=> { if(e.key === 'Escape') setRepoQuery(''); }}
             style={{
-              width:'100%',
+              flex:1,
               height:36,
               borderRadius:18,
               border:'1px solid #23272F',
