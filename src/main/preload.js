@@ -12,7 +12,7 @@ const api = {
     }
   },
   on: (channel, func) => {
-    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress'];
+    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress', 'navigate-home', 'open-settings', 'toast'];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, func);
     } else {
@@ -20,7 +20,7 @@ const api = {
     }
   },
   off: (channel, func) => {
-    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress'];
+    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress', 'navigate-home', 'open-settings', 'toast'];
     if (validChannels.includes(channel)) {
       ipcRenderer.off(channel, func);
     } else {

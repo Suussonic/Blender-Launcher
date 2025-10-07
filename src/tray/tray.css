@@ -1,0 +1,22 @@
+:root{--bg:#0f141b;--elev:#151b22;--border:#273240;--text:#e6eefb;--muted:#a8b3c7;--accent:#3b82f6;--accent2:#2563eb;--danger:#ef4444}
+html,body{margin:0;padding:0;background:transparent;color:var(--text);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial,sans-serif;height:100%;overflow:hidden}
+.panel{width:340px;height:520px;background:linear-gradient(180deg,rgba(15,20,27,0.96),rgba(15,20,27,0.92));border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.45);backdrop-filter:blur(6px);overflow:hidden;display:flex;flex-direction:column}
+.section-title{font-size:12px;text-transform:uppercase;color:var(--muted);padding:10px 12px 6px}
+.bl-list{flex:1 1 auto;overflow:auto;padding:0 8px 8px}
+.bl-list{scrollbar-width:none}
+.bl-list::-webkit-scrollbar{width:0;height:0}
+.bl-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.bl-item:hover{background:rgba(255,255,255,0.04);border-color:var(--border)}
+.bl-icon{width:22px;height:22px;border-radius:4px;flex:0 0 auto}
+.bl-text{display:flex;flex-direction:column}
+.bl-name{font-size:13px;font-weight:600;line-height:1.2;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bl-path{font-size:11px;color:var(--muted);max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.divider{height:1px;background:var(--border);margin:8px 12px 6px}
+.actions{display:flex;gap:8px;padding:8px 12px;margin-top:auto}
+.actions-stack{flex-direction:column}
+.btn{flex:1 1 auto;background:#2a3138;color:#e5e7eb;border:1px solid #374151;border-radius:8px;padding:8px 10px;font-weight:600;cursor:pointer;box-shadow:none;transition:background .18s, border-color .18s, color .18s}
+.btn-sm{font-size:12px;padding:6px 10px;border-radius:7px}
+.btn:hover{background:#303841;border-color:#44515e}
+.btn:active{transform:translateY(1px)}
+.btn.danger{background:#1c1111;color:#fca5a5;border:1px solid #7f1d1d}
+.btn.danger:hover{background:#2a1414;border-color:#991b1b;color:#fecaca}

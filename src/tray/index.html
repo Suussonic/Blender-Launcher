@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Blender Launcher Tray</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:;">
+  <link rel="stylesheet" href="./tray.css" />
+</head>
+<body>
+  <div class="panel">
+    <div class="section-title">Vos Blender</div>
+    <div id="blender-list" class="bl-list"></div>
+    <div class="divider"></div>
+    <div class="actions actions-stack">
+      <button id="btn-home" class="btn btn-sm">Accueil</button>
+      <button id="btn-settings" class="btn btn-sm">Paramètres</button>
+      <button id="btn-quit" class="btn btn-sm danger">Quitter</button>
+    </div>
+  </div>
+  <script src="./tray.js"></script>
+</body>
+</html>

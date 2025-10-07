@@ -85,6 +85,7 @@ const App: React.FC = () => {
   const [steamAvailable, setSteamAvailable] = useState<boolean | null>(null);
   // General settings
   const [scanOnStartup, setScanOnStartup] = useState<boolean>(false);
+  const [exitOnClose, setExitOnClose] = useState<boolean>(false);
   // Render progress bar (global)
   const [renderState, setRenderState] = useState<{ active: boolean; done: number; total: number; label?: string; stats?: string }|null>(null);
 
@@ -114,6 +115,7 @@ const App: React.FC = () => {
         try {
           const general = await window.electronAPI.invoke('get-general-config');
           generalScan = !!general?.scanOnStartup;
+          setExitOnClose(!!general?.exitOnClose);
           setScanOnStartup(generalScan);
         } catch {}
 
@@ -168,12 +170,12 @@ const App: React.FC = () => {
     const saveGeneral = async () => {
       if (!window.electronAPI?.invoke) return;
       try {
-        await window.electronAPI.invoke('update-general-config', { scanOnStartup });
+        await window.electronAPI.invoke('update-general-config', { scanOnStartup, exitOnClose });
       } catch (e) { console.warn('[GeneralUI] save config erreur:', e); }
     };
     const h = setTimeout(saveGeneral, 300);
     return () => clearTimeout(h);
-  }, [scanOnStartup]);
+  }, [scanOnStartup, exitOnClose]);
 
   // Mise a jour presence a chaque launch (si enabled)
   useEffect(() => {
@@ -261,11 +263,17 @@ const App: React.FC = () => {
           <h2 style={{ fontWeight: 700, fontSize: 32, margin: '0 0 8px 0' }}>Général</h2>
           <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
           <div style={{ width: '100%', maxWidth: 520 }}>
+            {/* 1) Scanner au démarrage */}
             <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
               <input type="checkbox" checked={scanOnStartup} onChange={e => setScanOnStartup(e.target.checked)} style={{ width: 20, height: 20 }} />
               <span style={{ fontSize: 16, fontWeight: 500 }}>Scanner au démarrage</span>
             </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
+            <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8' }}>
+              Lance automatiquement un scan des installations Blender au lancement.
+            </div>
+            {/* 2) Bouton Scanner maintenant (placé entre les deux cases) */}
+            <div style={{ height: 14 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 4px 0' }}>
               <button
                 onClick={runScanNow}
                 disabled={scanning}
@@ -287,6 +295,27 @@ const App: React.FC = () => {
                 <span style={{ fontSize: 12, color: '#94a3b8' }}>{scanMsg}</span>
               )}
             </div>
+            <div style={{ height: 14 }} />
+
+            {/* 3) Quitter à la fermeture de la fenêtre */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={exitOnClose}
+                onChange={async e => {
+                  const v = e.target.checked;
+                  setExitOnClose(v);
+                  // Persist immediately to avoid race when user clicks the X right away
+                  try { await window.electronAPI?.invoke?.('update-general-config', { exitOnClose: v }); } catch {}
+                }}
+                style={{ width: 20, height: 20 }}
+              />
+              <span style={{ fontSize: 16, fontWeight: 500 }}>Quitter l’application à la fermeture</span>
+            </label>
+            <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>
+              Si désactivé, la fenêtre sera masquée dans la zone de notification.
+            </div>
+            
           </div>
         </div>
 
@@ -383,6 +412,29 @@ const App: React.FC = () => {
 
   // Page d'accueil
   const HomePage = () => <ViewPages selectedBlender={selectedBlender} onLaunch={(b) => setLastLaunched(b)} />;
+
+  // Listen to tray navigation/toast events
+  useEffect(() => {
+    const api: any = (window as any).electronAPI;
+    if (!api || typeof api.on !== 'function') return;
+    const toHome = () => {
+      setSelectedBlender(null);
+      setSelectedRepo(null);
+      setPage('home');
+    };
+    const toSettings = () => setPage('settings');
+    const onToast = (_evt: any, payload: any) => {
+      if (!payload) return;
+      setToast({ msg: String(payload.text || payload.msg || ''), type: (payload.type === 'error' ? 'error' : 'info') });
+      setTimeout(() => setToast(null), 2500);
+    };
+    api.on('navigate-home', toHome);
+    api.on('open-settings', toSettings);
+    api.on('toast', onToast as any);
+    return () => {
+      try { api.off?.('navigate-home', toHome); api.off?.('open-settings', toSettings); api.off?.('toast', onToast as any); } catch {}
+    };
+  }, []);
 
   // Listen to progress events from main
   useEffect(() => {

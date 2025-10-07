@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import extractIcon from 'extract-file-icon';
 import { pathToFileURL, fileURLToPath } from 'url';
 import { initSettings, getConfigPath, getDiscordManager } from './settings';
+import { initTrayMenu, destroyTrayMenu } from './trayMenu';
 console.log('Modules Electron charges.');
 // Résolveur robuste pour modules backend (évite les soucis de chemins en dist/dev)
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -81,12 +82,26 @@ function generateTitle(fileName: string): string {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let forceQuit = false; // set by tray Quit
 // Track whether a render is currently active to avoid quitting the app prematurely
 let renderActive: boolean = false;
+
+// Quit helper: make red X identical to tray Quit
+function quitAppFully() {
+  try { destroyTrayMenu(); } catch {}
+  forceQuit = true;
+  try { app.quit(); } catch {}
+}
 function createWindow() {
   console.log('Debut de createWindow');
   try {
-    const iconPath = path.join(__dirname, '../../public/logo/ico/Blender-Launcher-256x256.ico');
+    // Prefer 512x512 for crisper taskbar icon
+    const iconCandidates = [
+      path.join(__dirname, '../../public/logo/ico/Blender-Launcher-512x512.ico'),
+      path.join(__dirname, '../../public/logo/ico/Blender-Launcher-256x256.ico'),
+      path.join(__dirname, '../../public/logo/ico/Blender-Launcher-128x128.ico'),
+    ];
+    const iconPath = iconCandidates.find(p => { try { return fs.existsSync(p); } catch { return false; } }) || iconCandidates[1];
   console.log('Chemin icone :', iconPath, fs.existsSync(iconPath) ? 'OK' : 'NON TROUVE');
   // Détermination dynamique du preload (dev : src, prod : dist)
   let preloadPath = path.join(__dirname, '../../dist/preload.js');
@@ -140,6 +155,21 @@ app.whenReady().then(() => {
     blenderScanner,
     steamWarp,
   });
+  // Init tray popup menu
+  const ensureMainWindow = () => {
+    if (!mainWindow) createWindow();
+    return mainWindow;
+  };
+  initTrayMenu(() => mainWindow, ensureMainWindow);
+
+  // On macOS/Windows: recreate/show window when the app is activated (e.g., from tray)
+  app.on('activate', () => {
+    if (!BrowserWindow.getAllWindows().length) {
+      createWindow();
+    } else {
+      try { mainWindow?.show(); mainWindow?.focus(); } catch {}
+    }
+  });
   // Au démarrage: tenter une restauration de warp laissée en plan
   try {
     const userDataDir = app.getPath('userData');
@@ -171,7 +201,22 @@ app.whenReady().then(() => {
   ipcMain.on('close-window', () => {
     console.log('Recu : close-window');
     if (mainWindow) {
-      mainWindow.close();
+      try {
+        const raw = fs.readFileSync(getConfigPath(), 'utf-8');
+        const cfg = JSON.parse(raw || '{}');
+        const exitOnClose = !!cfg?.general?.exitOnClose;
+        console.log('[Close] exitOnClose =', exitOnClose);
+        if (exitOnClose) {
+          // Unifié avec "Quitter" du tray
+          quitAppFully();
+        } else {
+          // mimic the close interception but immediately hide
+          mainWindow.hide();
+        }
+      } catch (e) {
+        console.warn('[Close] lecture config échouée, hide par défaut:', e);
+        mainWindow.hide();
+      }
     }
   });
 
@@ -185,6 +230,33 @@ app.whenReady().then(() => {
         if (mainWindow) {
           mainWindow.webContents.openDevTools();
         }
+      }
+    });
+  }
+
+  app.on('before-quit', () => { forceQuit = true; });
+
+  // Intercept close to hide-to-tray unless exitOnClose is enabled
+  if (mainWindow) {
+    mainWindow.on('close', (e) => {
+      try {
+        if (forceQuit) { console.log('[Close] forceQuit=true -> fermeture réelle'); return; }
+        const raw = fs.readFileSync(getConfigPath(), 'utf-8');
+        const cfg = JSON.parse(raw || '{}');
+        const exitOnClose = !!cfg?.general?.exitOnClose;
+        console.log('[Close] handler, exitOnClose =', exitOnClose);
+        if (!exitOnClose) {
+          e.preventDefault();
+          mainWindow?.hide();
+        } else {
+          // Fully quit the app when enabled (same as tray Quit)
+          e.preventDefault();
+          quitAppFully();
+        }
+      } catch (err) {
+        console.warn('[Close] erreur -> hide par défaut:', err);
+        e.preventDefault();
+        mainWindow?.hide();
       }
     });
   }

@@ -43,10 +43,11 @@ function migrateConfig() {
     cfg.blenders = Array.isArray(cfg.blenders) ? cfg.blenders : [];
     // Ensure general section exists first in the file (schema-wise)
     if (!cfg.general || typeof cfg.general !== 'object') {
-      cfg.general = { scanOnStartup: false };
+      cfg.general = { scanOnStartup: false, exitOnClose: false };
       console.log('Migration: ajout bloc general par defaut');
     } else {
       if (typeof cfg.general.scanOnStartup !== 'boolean') cfg.general.scanOnStartup = false;
+      if (typeof cfg.general.exitOnClose !== 'boolean') cfg.general.exitOnClose = false;
     }
     if (!cfg.discord) {
       cfg.discord = { enabled: false, showFile: true, showTitle: true, showTime: false, appId: DISCORD_APP_ID };
@@ -105,11 +106,11 @@ export function initSettings(opts: {
     try {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
       const cfg = JSON.parse(raw || '{}');
-      if (!cfg.general || typeof cfg.general !== 'object') return { scanOnStartup: false };
-      return { scanOnStartup: cfg.general.scanOnStartup === true };
+      if (!cfg.general || typeof cfg.general !== 'object') return { scanOnStartup: false, exitOnClose: false };
+      return { scanOnStartup: cfg.general.scanOnStartup === true, exitOnClose: cfg.general.exitOnClose === true };
     } catch (e) {
       console.error('[General] get-general-config erreur:', e);
-      return { scanOnStartup: false };
+      return { scanOnStartup: false, exitOnClose: false };
     }
   });
 
@@ -117,9 +118,10 @@ export function initSettings(opts: {
     try {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
       const cfg = JSON.parse(raw || '{}');
-      if (!cfg.general || typeof cfg.general !== 'object') cfg.general = { scanOnStartup: false };
+  if (!cfg.general || typeof cfg.general !== 'object') cfg.general = { scanOnStartup: false, exitOnClose: false };
       cfg.general = { ...cfg.general, ...(partial || {}) };
       cfg.general.scanOnStartup = cfg.general.scanOnStartup === true; // normalize boolean
+  cfg.general.exitOnClose = cfg.general.exitOnClose === true;
       fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf-8');
       const win = opts.getMainWindow();
       if (win) win.webContents.send('config-updated');
