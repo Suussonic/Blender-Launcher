@@ -1,8 +1,18 @@
+// Small file logger to capture main-process startup logs for debugging in packaged builds
+function appendLog(msg: string) {
+  try {
+    const p = app && app.getPath ? app.getPath('userData') : process.cwd();
+    const logFile = require('path').join(p, 'bl-launcher-main.log');
+    const line = new Date().toISOString() + ' - ' + String(msg) + '\n';
+    require('fs').appendFileSync(logFile, line, { encoding: 'utf8' });
+  } catch (e) { /* ignore logging errors */ }
+}
+appendLog('Chargement des modules Electron...');
 console.log('Chargement des modules Electron...');
 import { app, BrowserWindow, ipcMain, nativeImage, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
-import extractIcon from 'extract-file-icon';
+import extractIcon = require('extract-file-icon');
 import { pathToFileURL, fileURLToPath } from 'url';
 import { initSettings, getConfigPath, getDiscordManager } from './settings';
 import { initTrayMenu, destroyTrayMenu } from './trayMenu';
@@ -103,17 +113,38 @@ function createWindow() {
     ];
     const iconPath = iconCandidates.find(p => { try { return fs.existsSync(p); } catch { return false; } }) || iconCandidates[1];
   console.log('Chemin icone :', iconPath, fs.existsSync(iconPath) ? 'OK' : 'NON TROUVE');
-  // Détermination dynamique du preload (dev : src, prod : dist)
-  let preloadPath = path.join(__dirname, '../../dist/preload.js');
-  const devPreloadCandidate = path.join(__dirname, '../../src/main/preload.js');
-  if (!app.isPackaged && fs.existsSync(devPreloadCandidate)) {
-    preloadPath = devPreloadCandidate;
-    console.log('Mode dev: utilisation du preload source:', preloadPath);
-  } else {
-    console.log('Utilisation du preload dist:', preloadPath, fs.existsSync(preloadPath) ? 'OK' : 'NON TROUVE');
+  // Détermination dynamique des chemins (compatible asar)
+  const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
+  let preloadPath = app.isPackaged
+    ? path.join(appRoot, 'dist', 'preload.js')
+    : path.join(appRoot, 'src', 'main', 'preload.js');
+  if (!fs.existsSync(preloadPath)) {
+    // fallback to dist for dev if not found
+    const fallback = path.join(appRoot, 'dist', 'preload.js');
+    if (fs.existsSync(fallback)) preloadPath = fallback;
   }
-    const htmlPath = path.join(__dirname, '../../dist/renderer/index.html');
+  const htmlPath = app.isPackaged
+    ? path.join(appRoot, 'dist', 'renderer', 'index.html')
+    : path.join(appRoot, 'dist', 'renderer', 'index.html');
   console.log('Chemin index.html :', htmlPath, fs.existsSync(htmlPath) ? 'OK' : 'NON TROUVE');
+
+  // If running packaged but required runtime files are missing (common when
+  // user moves only the exe without the resources folder), show a clear error
+  // and quit instead of leaving the renderer stuck on a spinner.
+  try {
+    const missingPreload = !fs.existsSync(preloadPath);
+    const missingHtml = !fs.existsSync(htmlPath);
+    if ((app.isPackaged && (missingPreload || missingHtml)) || (!fs.existsSync(htmlPath))) {
+      const msgLines = [];
+      if (missingHtml) msgLines.push(`Fichier manquant: ${htmlPath}`);
+      if (missingPreload) msgLines.push(`Fichier manquant: ${preloadPath}`);
+      msgLines.push('Le paquet semble incomplet. Assurez-vous de déplacer le dossier entier "release\\Blender Launcher-win32-x64" et non seulement l\'exécutable.');
+      msgLines.push('Pour obtenir un exe unique et portable, générez le build "portable" (npm run package:win:portable) sur une machine avec les permissions nécessaires.');
+      try { dialog.showErrorBox('Blender Launcher — fichiers manquants', msgLines.join('\n\n')); } catch (e) { console.error('Impossible d\'afficher le dialogue d\'erreur', e); }
+      try { app.quit(); } catch (e) { }
+      return;
+    }
+  } catch (e) { /* ignore */ }
 
     const win = new BrowserWindow({
       width: 1200,
@@ -147,14 +178,20 @@ function createWindow() {
 import { dialog } from 'electron';
 
 app.whenReady().then(() => {
-  console.log('App ready, creation de la fenetre...');
-  createWindow();
+  console.log('App ready - initialisation des handlers avant creation de la fenetre...');
   // Initialize settings module and register all settings-related IPC handlers
+  // Doing this before creating the BrowserWindow avoids a race where the renderer
+  // calls ipcRenderer.invoke(...) before the handlers are registered (causing
+  // "No handler registered" errors observed during startup).
   initSettings({
     getMainWindow: () => mainWindow,
     blenderScanner,
     steamWarp,
   });
+
+  // Now create the main window (renderer may start and call invoke() - handlers are ready)
+  createWindow();
+
   // Init tray popup menu
   const ensureMainWindow = () => {
     if (!mainWindow) createWindow();
@@ -200,23 +237,22 @@ app.whenReady().then(() => {
 
   ipcMain.on('close-window', () => {
     console.log('Recu : close-window');
-    if (mainWindow) {
-      try {
-        const raw = fs.readFileSync(getConfigPath(), 'utf-8');
-        const cfg = JSON.parse(raw || '{}');
-        const exitOnClose = !!cfg?.general?.exitOnClose;
-        console.log('[Close] exitOnClose =', exitOnClose);
-        if (exitOnClose) {
-          // Unifié avec "Quitter" du tray
-          quitAppFully();
-        } else {
-          // mimic the close interception but immediately hide
-          mainWindow.hide();
-        }
-      } catch (e) {
-        console.warn('[Close] lecture config échouée, hide par défaut:', e);
-        mainWindow.hide();
+    try {
+      const cfgPath = getConfigPath();
+      const raw = cfgPath && fs.existsSync(cfgPath) ? fs.readFileSync(cfgPath, 'utf-8') : '{}';
+      const cfg = JSON.parse(raw || '{}');
+      const exitOnClose = !!cfg?.general?.exitOnClose;
+      console.log('[Close] exitOnClose =', exitOnClose);
+      if (exitOnClose) {
+        // Unified with tray Quit
+        quitAppFully();
+      } else {
+        // Hide if possible, otherwise log the situation
+        try { if (mainWindow) { mainWindow.hide(); } else { console.warn('[Close] mainWindow absent - cannot hide'); } } catch (e) { console.warn('[Close] hide failed', e); }
       }
+    } catch (e) {
+      console.warn('[Close] lecture config échouée, tentative de hide par défaut:', e);
+      try { if (mainWindow) { mainWindow.hide(); } else { console.warn('[Close] mainWindow absent - cannot hide'); } } catch (e2) { console.warn('[Close] hide failed', e2); }
     }
   });
 

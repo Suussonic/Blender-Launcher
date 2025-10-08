@@ -1,6 +1,7 @@
 node_modules
 dist
 config.json
+release
 
 # Python
 *.pyc

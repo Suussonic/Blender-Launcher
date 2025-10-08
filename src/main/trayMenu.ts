@@ -6,7 +6,7 @@ let tray: Tray | null = null;
 let trayWindow: BrowserWindow | null = null;
 
 function resolveTrayHtml(): string {
-  const appRoot = app.isPackaged ? path.dirname(app.getPath('exe')) : path.join(process.cwd());
+  const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
   const candidates = [
     path.join(appRoot, 'dist', 'tray', 'index.html'),
     path.join(appRoot, 'src', 'tray', 'index.html'),
@@ -18,7 +18,7 @@ function resolveTrayHtml(): string {
 }
 
 function resolveTrayIcon(): string {
-  const appRoot = app.isPackaged ? path.dirname(app.getPath('exe')) : process.cwd();
+  const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
   const candidates = [
     // Prefer ICO for Windows tray for best scaling
     path.join(appRoot, 'public', 'logo', 'ico', 'Blender-Launcher-512x512.ico'),
@@ -90,6 +90,30 @@ export function initTrayMenu(getMainWindow: () => BrowserWindow | null, ensureMa
   });
   trayWindow.setMenu(null);
   trayWindow.loadFile(resolveTrayHtml()).catch(() => {});
+
+  // Pipe tray window console messages to a log file for packaged debugging
+  try {
+    const userData = app.getPath('userData');
+    const trayLog = path.join(userData, 'bl-launcher-tray.log');
+    trayWindow.webContents.on('console-message', (_evt: any, level: number, message: string, line: number, sourceId: string) => {
+      try {
+        const entry = `[${new Date().toISOString()}] [level:${level}] ${message} (source:${sourceId}:${line})\n`;
+        fs.appendFileSync(trayLog, entry);
+      } catch (e) { /* best-effort */ }
+    });
+    // Also forward unhandled exceptions from the tray renderer
+    // Handle renderer process exit/crash in a typed-safe way
+    trayWindow.webContents.on('render-process-gone', (_evt: any, details: any) => {
+      try {
+        const entry = `[${new Date().toISOString()}] tray render-process-gone: type=${details?.type} reason=${details?.reason} \n`;
+        fs.appendFileSync(trayLog, entry);
+      } catch (e) { /* best-effort */ }
+    });
+    // Optionally open DevTools if TRAY_DEBUG env var is set
+    if (process.env.TRAY_DEBUG === '1') {
+      try { trayWindow.webContents.openDevTools({ mode: 'detach' }); } catch (e) {}
+    }
+  } catch (e) { /* non-fatal */ }
 
   const togglePopup = () => {
     if (!trayWindow) return;

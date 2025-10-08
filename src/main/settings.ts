@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
-import extractIcon from 'extract-file-icon';
+import extractIcon = require('extract-file-icon');
 import { pathToFileURL, fileURLToPath } from 'url';
 // @ts-ignore - JS backend module without typings
 import { DiscordRPCManager } from '../../backend/discord_rpc_manager';

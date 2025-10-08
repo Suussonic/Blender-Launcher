@@ -49,7 +49,33 @@ const api = {
       , 'start-render'
     ];
     if (validChannels.includes(channel)) {
-      return ipcRenderer.invoke(channel, ...args);
+      // Retry wrapper: some races in packaged builds caused the renderer
+      // to call invoke() before main registered handlers. Retry a few times
+      // with backoff when we detect handler-missing or transient errors.
+      const maxAttempts = 4;
+      let attempt = 0;
+      const attemptInvoke = async () => {
+        attempt++;
+        try {
+          // Debug log to help diagnosing missing-handler issues in production
+          try { console.debug && console.debug('[preload] invoke', channel, 'attempt', attempt); } catch {}
+          const res = await ipcRenderer.invoke(channel, ...args);
+          return res;
+        } catch (err) {
+          const msg = (err && err.message) ? err.message : String(err);
+          try { console.warn('[preload] invoke error', channel, 'attempt', attempt, msg); } catch {}
+          // If error message indicates no handler registered, or if we haven't exhausted attempts, retry
+          const isNoHandler = msg && msg.toLowerCase().includes('no handler registered');
+          if (attempt < maxAttempts && (isNoHandler || true)) {
+            // backoff delay
+            const delay = 120 * attempt;
+            await new Promise(r => setTimeout(r, delay));
+            return attemptInvoke();
+          }
+          throw err;
+        }
+      };
+      return attemptInvoke();
     }
     console.warn('[preload] Canal invoke non autorisé demandé:', channel);
     return Promise.reject(new Error(`Canal non autorisé: ${channel}`));
