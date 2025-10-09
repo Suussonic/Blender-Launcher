@@ -25,6 +25,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
   const [recentError, setRecentError] = useState<string | null>(null);
   const [recentFiles, setRecentFiles] = useState<RecentBlendFile[]>([]);
   const [displayFiles, setDisplayFiles] = useState<RecentBlendFile[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [recentVersion, setRecentVersion] = useState<string | null>(null);
   const [openWithFile, setOpenWithFile] = useState<string | null>(null);
   const [renderForFile, setRenderForFile] = useState<string | null>(null);
@@ -316,9 +317,35 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
         <div style={{ height: 2, background: 'linear-gradient(90deg, #374151 0%, #6b7280 50%, #374151 100%)' }} />
         {/* Contenu scrollable (la scrollbar ne dépasse plus le header) */}
   <div className="hide-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24, padding: '24px 32px 32px 32px', overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#f1f5f9' }}>
-            Fichiers récents
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginBottom: 8 }}>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#f1f5f9', flex: '0 0 auto' }}>
+              Fichiers récents
+            </h2>
+          </div>
+          {/* Search bar placed between the title and the Filter; width set to 100% to match Filter */}
+          <div style={{ width: '100%', marginBottom: 8, display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0b1220', border: '1px solid #1f2937', padding: '8px 10px', borderRadius: 10, width: '100%', maxWidth: 1060 }}>
+              {/* Magnifying glass icon */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="7"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input
+                aria-label="Recherche fichiers récents"
+                placeholder="Rechercher..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  color: '#d1d5db',
+                  fontSize: 14,
+                  width: '100%'
+                }}
+              />
+            </div>
+          </div>
           {recentLoading && (
             <div style={{ color: '#94a3b8', fontSize: 14 }}>Chargement...</div>
           )}
@@ -328,7 +355,23 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
           {!recentLoading && !recentError && recentFiles.length === 0 && (
             <div style={{ color: '#64748b', fontSize: 14 }}>Aucun fichier récent disponible pour ce build.</div>
           )}
-          <Filter files={recentFiles} onSorted={(sorted) => setDisplayFiles(sorted)} />
+          {/* Filter component (sorting / filtering UI) - it will provide a sorted set which we further filter by searchQuery */}
+          <Filter files={recentFiles} onSorted={(sorted) => {
+            // Apply live search on the sorted results
+            if (!searchQuery || !searchQuery.trim()) {
+              setDisplayFiles(sorted);
+              return;
+            }
+            const q = searchQuery.trim().toLowerCase();
+            const filtered = sorted.filter(f => {
+              const name = (f.name || '').toLowerCase();
+              const path = (f.path || '').toLowerCase();
+              // also search in readable metadata if present (type-safe)
+              const meta = ('meta' in f) ? String((f as any).meta || '').toLowerCase() : '';
+              return name.includes(q) || path.includes(q) || meta.includes(q);
+            });
+            setDisplayFiles(filtered);
+          }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
             {(displayFiles.length ? displayFiles : recentFiles).map((f, idx) => {
               const createdStr = f.ctime ? new Date(f.ctime).toLocaleString() : '';
