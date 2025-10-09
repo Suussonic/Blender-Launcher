@@ -28,19 +28,25 @@
     "copy-webpack-plugin": "^13.0.1",
     "css-loader": "^7.1.2",
     "electron-packager": "^17.1.0",
+    "concurrently": "^8.2.0",
+    "nodemon": "^3.0.2",
+    "electron": "^38.1.0",
     "i18next": "^25.5.3",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.4",
     "webpack-cli": "^6.0.1"
   },
   "scripts": {
+    "clean": "node scripts/clean.js || rimraf dist release",
+    "start": "npx electron .",
+    "dev": "npx tsc && npx cross-env BROWSER=none webpack --mode development && npx electron .",
     "build:renderer": "webpack --mode production",
     "build:main": "tsc -p tsconfig.json && node scripts/copy_dist_assets.js",
     "build": "npm run build:renderer && npm run build:main && echo Renderer+Main built",
     "package:win:zip": "npm run build && electron-builder --win --x64 --publish never",
     "package:win:portable": "node scripts/package_portable_packager.js",
-  "package:packager": "npm run build && node scripts/package_with_packager.js",
-    "clean": "node scripts/clean.js || rimraf dist release"
+    "package:packager": "npm run build && node scripts/package_with_packager.js",
+    "clean:all": "node scripts/clean.js || rimraf dist release"
   },
   "build": {
     "productName": "Blender Launcher",
