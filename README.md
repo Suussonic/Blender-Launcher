@@ -111,6 +111,27 @@ npm run package:packager
 ```
 Cela crée le dossier `release/Blender Launcher-win32-x64/` (ou sim.) contenant l'app unpacked.
 
+### Metadata Windows intégrées automatiquement
+
+Les builds produits par les scripts de packaging intègrent désormais automatiquement les metadata Windows (CompanyName, FileDescription, ProductName) afin que Windows affiche le bon éditeur au lieu de "GitHub, Inc.".
+
+- Les valeurs par défaut sont définies dans `package.json` sous `build.win32metadata`.
+- Les scripts de packaging (`scripts/package_with_packager.js` et `scripts/package_portable_packager.js`) lisent ces métadonnées et transmettent `win32metadata` à `electron-packager`.
+
+Pour modifier l'éditeur affiché, éditez `package.json` et changez `build.win32metadata.CompanyName` puis ré-exécutez le packaging :
+
+```powershell
+npm run package:packager
+```
+
+Ou pour produire la version portable (zip) :
+
+```powershell
+npm run package:win:portable
+```
+
+Si tu veux modifier les métadonnées pour des builds CI seulement, tu peux aussi passer des variables d'environnement et les lire dans les scripts.
+
 ### Nettoyage
 - Nettoyer les artefacts :
 ```powershell

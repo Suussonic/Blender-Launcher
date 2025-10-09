@@ -25,6 +25,24 @@ async function run() {
     asar: false
   };
 
+  // Try to read metadata from package.json build.win or fallback to sane defaults
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf-8'));
+    const build = pkg.build || {};
+    const winMeta = build.win || build.win32metadata || {};
+    opts.win32metadata = {
+      CompanyName: winMeta.CompanyName || winMeta.publisherName || 'Suussonic',
+      FileDescription: winMeta.FileDescription || pkg.productName || 'Blender Launcher',
+      ProductName: winMeta.ProductName || pkg.productName || 'Blender Launcher'
+    };
+    // Icon path from package.json product/icon if present
+    const iconPathCandidates = [
+      path.join(root, 'public', 'logo', 'ico', 'Blender-Launcher-256x256.ico'),
+      path.join(root, 'public', 'logo', 'ico', 'Blender-Launcher-128x128.ico')
+    ];
+    for (const p of iconPathCandidates) if (fs.existsSync(p)) { opts.icon = p; break; }
+  } catch (e) { /* ignore, use defaults */ }
+
   const apps = await packager(opts);
   if (!apps || apps.length === 0) throw new Error('No app produced by packager');
   const appPath = apps[0];

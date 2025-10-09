@@ -28,6 +28,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
   // General
   const [scanOnStartup, setScanOnStartup] = useState<boolean>(false);
   const [exitOnClose, setExitOnClose] = useState<boolean>(false);
+  const [launchOnStartup, setLaunchOnStartup] = useState<boolean>(false);
 
   // Local scan button state
   const [scanning, setScanning] = useState(false);
@@ -55,6 +56,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
           const general = await window.electronAPI?.invoke?.('get-general-config');
           setScanOnStartup(!!general?.scanOnStartup);
           setExitOnClose(!!general?.exitOnClose);
+          setLaunchOnStartup(!!general?.launchOnStartup);
         } catch {}
 
         // Steam
@@ -97,7 +99,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
     const saveGeneral = async () => {
       if (!window.electronAPI?.invoke) return;
       try {
-        await window.electronAPI.invoke('update-general-config', { scanOnStartup, exitOnClose });
+        await window.electronAPI.invoke('update-general-config', { scanOnStartup, exitOnClose, launchOnStartup });
       } catch (e) {
         console.warn('[SettingsPage] save general error:', e);
       }
@@ -206,6 +208,26 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
           </label>
           <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>
             Si désactivé, la fenêtre sera masquée dans la zone de notification.
+          </div>
+          <div style={{ height: 12 }} />
+          {/* 4) Lancer au démarrage */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={launchOnStartup}
+              onChange={async e => {
+                const v = e.target.checked;
+                setLaunchOnStartup(v);
+                try {
+                  await window.electronAPI?.invoke?.('update-general-config', { launchOnStartup: v });
+                } catch {}
+              }}
+              style={{ width: 20, height: 20 }}
+            />
+            <span style={{ fontSize: 16, fontWeight: 500 }}>Lancer au démarrage</span>
+          </label>
+          <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>
+            Démarre automatiquement Blender Launcher au démarrage de la session.
           </div>
         </div>
       </div>

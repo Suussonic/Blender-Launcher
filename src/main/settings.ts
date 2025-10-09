@@ -43,11 +43,12 @@ function migrateConfig() {
     cfg.blenders = Array.isArray(cfg.blenders) ? cfg.blenders : [];
     // Ensure general section exists first in the file (schema-wise)
     if (!cfg.general || typeof cfg.general !== 'object') {
-      cfg.general = { scanOnStartup: false, exitOnClose: false };
+      cfg.general = { scanOnStartup: false, exitOnClose: false, launchOnStartup: false };
       console.log('Migration: ajout bloc general par defaut');
     } else {
-      if (typeof cfg.general.scanOnStartup !== 'boolean') cfg.general.scanOnStartup = false;
-      if (typeof cfg.general.exitOnClose !== 'boolean') cfg.general.exitOnClose = false;
+  if (typeof cfg.general.scanOnStartup !== 'boolean') cfg.general.scanOnStartup = false;
+  if (typeof cfg.general.exitOnClose !== 'boolean') cfg.general.exitOnClose = false;
+  if (typeof cfg.general.launchOnStartup !== 'boolean') cfg.general.launchOnStartup = false;
     }
     if (!cfg.discord) {
       cfg.discord = { enabled: false, showFile: true, showTitle: true, showTime: false, appId: DISCORD_APP_ID };
@@ -106,8 +107,8 @@ export function initSettings(opts: {
     try {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
       const cfg = JSON.parse(raw || '{}');
-      if (!cfg.general || typeof cfg.general !== 'object') return { scanOnStartup: false, exitOnClose: false };
-      return { scanOnStartup: cfg.general.scanOnStartup === true, exitOnClose: cfg.general.exitOnClose === true };
+  if (!cfg.general || typeof cfg.general !== 'object') return { scanOnStartup: false, exitOnClose: false, launchOnStartup: false };
+  return { scanOnStartup: cfg.general.scanOnStartup === true, exitOnClose: cfg.general.exitOnClose === true, launchOnStartup: cfg.general.launchOnStartup === true };
     } catch (e) {
       console.error('[General] get-general-config erreur:', e);
       return { scanOnStartup: false, exitOnClose: false };
@@ -118,11 +119,28 @@ export function initSettings(opts: {
     try {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
       const cfg = JSON.parse(raw || '{}');
-  if (!cfg.general || typeof cfg.general !== 'object') cfg.general = { scanOnStartup: false, exitOnClose: false };
+      if (!cfg.general || typeof cfg.general !== 'object') cfg.general = { scanOnStartup: false, exitOnClose: false, launchOnStartup: false };
+      const prevLaunch = cfg.general.launchOnStartup === true;
       cfg.general = { ...cfg.general, ...(partial || {}) };
       cfg.general.scanOnStartup = cfg.general.scanOnStartup === true; // normalize boolean
-  cfg.general.exitOnClose = cfg.general.exitOnClose === true;
+      cfg.general.exitOnClose = cfg.general.exitOnClose === true;
+      cfg.general.launchOnStartup = cfg.general.launchOnStartup === true;
       fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf-8');
+
+      // If launchOnStartup changed, attempt to apply to OS using Electron API
+      try {
+        if (prevLaunch !== cfg.general.launchOnStartup) {
+          // Use process.execPath to point to the current executable (works when packaged)
+          const exePath = process.execPath;
+          console.log('[General] Applying launchOnStartup ->', cfg.general.launchOnStartup, 'via setLoginItemSettings path=', exePath);
+          // When openAtLogin is false, we can call setLoginItemSettings with openAtLogin:false
+          // On Windows this will register/unregister in Startup registry entries
+          app.setLoginItemSettings({ openAtLogin: !!cfg.general.launchOnStartup, path: exePath, args: [] });
+        }
+      } catch (e) {
+        console.warn('[General] Failed to apply launchOnStartup to OS:', e);
+      }
+
       const win = opts.getMainWindow();
       if (win) win.webContents.send('config-updated');
       return { success: true, general: cfg.general };
