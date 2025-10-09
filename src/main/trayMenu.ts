@@ -44,6 +44,25 @@ function resolveTrayPreload(): string {
 }
 
 function getPopupPosition(width = 340, height = 520) {
+  // Try to anchor to the tray icon bounds when available (more stable on Windows taskbar)
+  try {
+    if (tray && typeof (tray as any).getBounds === 'function') {
+      const b = (tray as any).getBounds();
+      // Center horizontally on the tray icon
+      let x = Math.floor(b.x + (b.width / 2) - (width / 2));
+      // Place the popup above the icon with a small extra offset to avoid overlapping Windows overflow popup
+      const extraUp = 10; // raise popup a bit higher
+      let y = Math.floor(b.y - height - extraUp);
+      // Ensure within display work area
+      const display = screen.getDisplayNearestPoint({ x: b.x, y: b.y });
+      const { x: dx, y: dy, width: dw, height: dh } = display.workArea;
+      if (x < dx) x = dx + 8;
+      if (x + width > dx + dw) x = dx + dw - width - 8;
+      if (y < dy) y = dy + 8;
+      return { x, y };
+    }
+  } catch (e) { /* fallback to cursor-based positioning */ }
+
   const cursor = screen.getCursorScreenPoint();
   const display = screen.getDisplayNearestPoint(cursor);
   const taskbarMargin = 12;
@@ -69,7 +88,8 @@ export function initTrayMenu(getMainWindow: () => BrowserWindow | null, ensureMa
     { label: 'Quitter', role: 'quit' },
   ]);
   tray.setToolTip('Blender Launcher');
-  tray.setContextMenu(fallbackMenu);
+  // Do not set a native context menu here because we want to show a custom HTML popup
+  // on right-click. The fallbackMenu is kept for reference but won't be bound by default.
 
   trayWindow = new BrowserWindow({
     width: 340,
@@ -115,16 +135,79 @@ export function initTrayMenu(getMainWindow: () => BrowserWindow | null, ensureMa
     }
   } catch (e) { /* non-fatal */ }
 
-  const togglePopup = () => {
+  let _lastToggleMs = 0;
+  const togglePopup = (pos?: { x: number; y: number }) => {
+    const now = Date.now();
+    if (now - _lastToggleMs < 200) return; // debounce rapid double events
+    _lastToggleMs = now;
+
     if (!trayWindow) return;
-    if (trayWindow.isVisible()) { trayWindow.hide(); return; }
-    const { x, y } = getPopupPosition(340, 520);
+    try { fs.appendFileSync(path.join(app.getPath('userData'), 'bl-launcher-tray.log'), `[${new Date().toISOString()}] togglePopup called pos=${JSON.stringify(pos)} visible=${trayWindow.isVisible()}\n`); } catch {}
+    if (trayWindow.isVisible()) { trayWindow.hide(); try { fs.appendFileSync(path.join(app.getPath('userData'), 'bl-launcher-tray.log'), `[${new Date().toISOString()}] hide popup\n`); } catch {} return; }
+    let x: number, y: number;
+    const width = 340, height = 520;
+    if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+      // Position the popup centered horizontally on the tray icon and well above the icon
+      x = Math.floor(pos.x - width / 2);
+  // Use a slightly larger upward offset so the popup appears clearly above the taskbar/overflow
+  const extraUp = 42; // small tweak: a bit lower than previous 52
+      y = Math.floor(pos.y - height - extraUp);
+    } else {
+      const p = getPopupPosition(width, height);
+      x = p.x; y = p.y;
+    }
+    // Clamp to visible work area
+    try {
+      const display = screen.getDisplayNearestPoint({ x, y });
+      const { x: dx, y: dy, width: dw, height: dh } = display.workArea;
+      if (x < dx) x = dx + 8;
+      if (x + width > dx + dw) x = dx + dw - width - 8;
+      if (y < dy) y = dy + 8;
+    } catch (e) {}
+
+    // Try to ensure the popup is above system UI by using the pop-up-menu level
+    try {
+      trayWindow.setAlwaysOnTop(true, 'pop-up-menu');
+      trayWindow.setVisibleOnAllWorkspaces(true);
+    } catch (e) {}
+
     trayWindow.setPosition(x, y, false);
-    trayWindow.showInactive();
+    // Use showInactive to avoid stealing focus while keeping the popup visible above the taskbar
+    try { trayWindow.showInactive(); } catch { try { trayWindow.show(); } catch {} }
     try { trayWindow.webContents.send('tray-refresh'); } catch {}
   };
-  tray.on('click', togglePopup);
-  tray.on('right-click', togglePopup);
+
+  // Left-click: open main window (Accueil). Right-click: show tray popup
+  tray.on('click', () => {
+    const mw = (ensureMainWindow ? ensureMainWindow() : getMainWindow());
+    try { mw?.show(); mw?.focus(); } catch {}
+    try { mw?.webContents.send('navigate-home'); } catch {}
+  });
+  // Use mouse-up to reliably detect right-button release; avoid using both 'right-click' and
+  // 'mouse-up' which can trigger twice on some platforms and cause a flicker.
+  tray.on('mouse-up', (event: any, bounds: any) => {
+    try {
+      try { fs.appendFileSync(path.join(app.getPath('userData'), 'bl-launcher-tray.log'), `[${new Date().toISOString()}] mouse-up event button=${event?.button} bounds=${JSON.stringify(bounds)}\n`); } catch {}
+      if (event && (event.button === 2 || event.button === 3)) {
+        if (bounds && typeof bounds.x === 'number' && typeof bounds.y === 'number') {
+          togglePopup({ x: bounds.x + Math.floor(bounds.width / 2), y: bounds.y + bounds.height });
+        } else {
+          togglePopup();
+        }
+      }
+    } catch (e) { /* best-effort */ }
+  });
+  // right-click fallback: some Windows setups fire 'right-click' instead of mouse-up
+  tray.on('right-click', (event: any, bounds: any) => {
+    try {
+      try { fs.appendFileSync(path.join(app.getPath('userData'), 'bl-launcher-tray.log'), `[${new Date().toISOString()}] right-click event bounds=${JSON.stringify(bounds)}\n`); } catch {}
+      if (bounds && typeof bounds.x === 'number' && typeof bounds.y === 'number') {
+        togglePopup({ x: bounds.x + Math.floor(bounds.width / 2), y: bounds.y + bounds.height });
+      } else {
+        togglePopup();
+      }
+    } catch (e) { /* best-effort */ }
+  });
   trayWindow.on('blur', () => trayWindow?.hide());
 
   // IPC
