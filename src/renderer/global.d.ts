@@ -4,6 +4,7 @@ interface ElectronAPI {
   off: (channel: 'selected-blender-folder' | 'config-updated' | 'executable-updated' | 'executable-deleted' | 'delete-executable-result', func: (...args: any[]) => void) => void;
   invoke: (channel: string, data?: any) => Promise<any>;
   getBlenders: () => Promise<any[]>;
+  reorderBlenders?: (paths: string[]) => Promise<{success:boolean}>;
   // Discord
   // Steam
   // get-steam-config -> { enabled:boolean }

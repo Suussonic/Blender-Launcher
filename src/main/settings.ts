@@ -781,6 +781,9 @@ export function initSettings(opts: {
     }
   });
 
+  // Reorder blenders: receive an array of executable paths in the desired order
+  
+
   // --- Add-ons: list / enable / disable / remove via Blender runtime ---
   // Simple persistent cache for addon scans to speed up UI startup
   const ADDONS_CACHE_PATH = path.join(app.getPath('userData'), 'addons_cache.json');
@@ -1093,5 +1096,33 @@ export function initSettings(opts: {
       }
       return res;
     } catch (e) { return { success: false, error: String(e) }; }
+  });
+
+  // Reorder blenders: receive an array of exe paths in desired order and rewrite config.json accordingly
+  ipcMain.handle('reorder-blenders', async (_event, paths: string[]) => {
+    try {
+      if (!Array.isArray(paths)) return { success: false, error: 'invalid-params' };
+      const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
+      const cfg = JSON.parse(raw || '{"blenders":[]}');
+      cfg.blenders = Array.isArray(cfg.blenders) ? cfg.blenders : [];
+      // Build new array preserving full objects where path matches, otherwise ignore
+      const mapByPath: Record<string, any> = {};
+      for (const b of cfg.blenders) if (b && b.path) mapByPath[b.path] = b;
+      const newList: any[] = [];
+      for (const p of paths) {
+        if (mapByPath[p]) newList.push(mapByPath[p]);
+      }
+      // Append any entries that weren't included in paths to preserve them
+      for (const b of cfg.blenders) {
+        if (!newList.find(x => x.path === b.path)) newList.push(b);
+      }
+      cfg.blenders = newList;
+      fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf-8');
+      try { opts.getMainWindow()?.webContents.send('config-updated'); } catch {}
+      return { success: true };
+    } catch (e) {
+      console.error('[IPC] reorder-blenders erreur:', e);
+      return { success: false, error: String(e) };
+    }
   });
 }

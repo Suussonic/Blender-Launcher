@@ -30,6 +30,7 @@ const api = {
   invoke: (channel, ...args) => {
     const validChannels = [
       'get-blenders',
+  'reorder-blenders',
       'update-executable-title',
       'delete-executable',
       'get-recent-blend-files',
