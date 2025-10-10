@@ -177,13 +177,22 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
               onPointerDown={(ev) => {
                 // start long-press timer to initiate drag
                 ev.currentTarget.setPointerCapture(ev.pointerId);
+                console.log('[Sidebar] pointerdown on item', i, 'type=', ev.pointerType);
                 setPressedIndex(i);
                 // clear any existing
                 if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
-                longPressTimer.current = window.setTimeout(() => {
+                // If mouse, start dragging immediately; otherwise use long-press for touch/stylus
+                if (ev.pointerType === 'mouse') {
                   draggingIndexRef.current = i;
                   setIsDragging(true);
-                }, 260) as unknown as number;
+                  console.log('[Sidebar] drag started immediately (mouse) index', i);
+                } else {
+                  longPressTimer.current = window.setTimeout(() => {
+                    draggingIndexRef.current = i;
+                    setIsDragging(true);
+                    console.log('[Sidebar] drag started after long-press index', i);
+                  }, 260) as unknown as number;
+                }
               }}
               onPointerMove={(ev) => {
                 ev.preventDefault();
@@ -208,6 +217,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
                   copy.splice(targetIdx, 0, moved);
                   // update refs and state
                   draggingIndexRef.current = targetIdx;
+                  console.log('[Sidebar] pointermove: from', fromIdx, 'to', targetIdx);
                   setBlenders(copy);
                 } catch (e) { console.error('pointer drag error', e); }
               }}
@@ -222,7 +232,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
                   // finalize reorder
                   setIsDragging(false);
                   const paths = blenders.map(x => x.path);
-                  try { window.electronAPI?.invoke('reorder-blenders', paths); } catch (e) { console.error('reorder-blenders ipc failed', e); }
+                  try { window.electronAPI?.invoke('reorder-blenders', paths); console.log('[Sidebar] reorder invoked', paths); } catch (e) { console.error('reorder-blenders ipc failed', e); }
                   draggingIndexRef.current = null;
                 }
                 setPressedIndex(null);
@@ -250,7 +260,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
                 width: 180,
                 background: selectedBlender?.path === b.path ? '#2a2d36' : 'transparent',
               }}
-              onClick={() => handleClick(b)}
+              onClick={() => { if (isDragging) { console.log('[Sidebar] click suppressed because dragging'); return; } handleClick(b); }}
               onDoubleClick={() => handleDoubleClick(b)}
               title={b.path}
             >
