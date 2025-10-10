@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import ViewPages from './ViewPages';
+import Home from './Home';
 import ViewRepo, { SimpleRepoRef } from './ViewRepo';
 import Loading from './Loading';
 import SettingsPage from './SettingsPage';
@@ -145,8 +146,7 @@ const App: React.FC = () => {
 
   // settings page moved to dedicated component
 
-  // Page d'accueil
-  const HomePage = () => <ViewPages selectedBlender={selectedBlender} onLaunch={(b) => setLastLaunched(b)} />;
+  // Page d'accueil (externalisée dans Home.tsx)
 
   // Listen to tray navigation/toast events
   useEffect(() => {
@@ -276,7 +276,7 @@ const App: React.FC = () => {
             )
             : selectedRepo
             ? <ViewRepo repo={selectedRepo} onBack={()=> setSelectedRepo(null)} />
-            : <HomePage />}
+            : <Home selectedBlender={selectedBlender} onLaunch={(b) => setLastLaunched(b)} />}
         </div>
       </div>
       {/* Bottom render progress bar */}
