@@ -4,6 +4,7 @@ import * as fs from 'fs';
 
 let tray: Tray | null = null;
 let trayWindow: BrowserWindow | null = null;
+let overlayWindow: BrowserWindow | null = null;
 
 function resolveTrayHtml(): string {
   const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
@@ -111,6 +112,41 @@ export function initTrayMenu(getMainWindow: () => BrowserWindow | null, ensureMa
   trayWindow.setMenu(null);
   trayWindow.loadFile(resolveTrayHtml()).catch(() => {});
 
+  // Create an overlay window to catch outside clicks and close the tray popup
+  try {
+    const display = screen.getPrimaryDisplay();
+    overlayWindow = new BrowserWindow({
+      x: display.bounds.x,
+      y: display.bounds.y,
+      width: display.bounds.width,
+      height: display.bounds.height,
+      show: false,
+      frame: false,
+      transparent: true,
+      resizable: false,
+      movable: false,
+      focusable: false,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      webPreferences: {
+        preload: resolveTrayPreload(),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+    overlayWindow.setMenu(null);
+    overlayWindow.setIgnoreMouseEvents(false);
+    // Load overlay HTML if available (dist first, then src)
+    const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
+    const overlayCandidates = [
+      path.join(appRoot, 'dist', 'tray', 'overlay.html'),
+      path.join(appRoot, 'src', 'tray', 'overlay.html'),
+    ];
+    for (const p of overlayCandidates) {
+      try { if (fs.existsSync(p)) { overlayWindow.loadFile(p).catch(() => {}); break; } } catch (e) {}
+    }
+  } catch (e) { overlayWindow = null; }
+
   // Pipe tray window console messages to a log file for packaged debugging
   try {
     const userData = app.getPath('userData');
@@ -143,7 +179,12 @@ export function initTrayMenu(getMainWindow: () => BrowserWindow | null, ensureMa
 
     if (!trayWindow) return;
     try { fs.appendFileSync(path.join(app.getPath('userData'), 'bl-launcher-tray.log'), `[${new Date().toISOString()}] togglePopup called pos=${JSON.stringify(pos)} visible=${trayWindow.isVisible()}\n`); } catch {}
-    if (trayWindow.isVisible()) { trayWindow.hide(); try { fs.appendFileSync(path.join(app.getPath('userData'), 'bl-launcher-tray.log'), `[${new Date().toISOString()}] hide popup\n`); } catch {} return; }
+    if (trayWindow.isVisible()) {
+      trayWindow.hide();
+      try { fs.appendFileSync(path.join(app.getPath('userData'), 'bl-launcher-tray.log'), `[${new Date().toISOString()}] hide popup\n`); } catch {}
+      try { if (overlayWindow && overlayWindow.isVisible()) overlayWindow.hide(); } catch {}
+      return;
+    }
     let x: number, y: number;
     const width = 340, height = 520;
     if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
@@ -172,6 +213,14 @@ export function initTrayMenu(getMainWindow: () => BrowserWindow | null, ensureMa
     } catch (e) {}
 
     trayWindow.setPosition(x, y, false);
+    // Show overlay first so clicks outside the popup close it
+    try {
+      if (overlayWindow) {
+        const displayForOverlay = screen.getDisplayNearestPoint({ x, y });
+        overlayWindow.setBounds({ x: displayForOverlay.bounds.x, y: displayForOverlay.bounds.y, width: displayForOverlay.bounds.width, height: displayForOverlay.bounds.height });
+        overlayWindow.showInactive();
+      }
+    } catch (e) {}
     // Use showInactive to avoid stealing focus while keeping the popup visible above the taskbar
     try { trayWindow.showInactive(); } catch { try { trayWindow.show(); } catch {} }
     try { trayWindow.webContents.send('tray-refresh'); } catch {}
@@ -249,6 +298,8 @@ export function initTrayMenu(getMainWindow: () => BrowserWindow | null, ensureMa
   });
 
   ipcMain.on('tray-hide', () => trayWindow?.hide());
+  // Also hide overlay when requested
+  ipcMain.on('tray-hide', () => { try { overlayWindow?.hide(); } catch {} });
 }
 
 export function destroyTrayMenu() {
