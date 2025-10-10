@@ -47,6 +47,12 @@ const api = {
       , 'get-blend-metadata'
       , 'select-output-folder'
       , 'start-render'
+      // Addons-related IPC
+      , 'get-addons'
+      , 'scan-addons-fs'
+      , 'enable-addon'
+      , 'remove-addon'
+      , 'install-addon-on'
     ];
     if (validChannels.includes(channel)) {
       // Retry wrapper: some races in packaged builds caused the renderer
@@ -81,6 +87,12 @@ const api = {
     return Promise.reject(new Error(`Canal non autorisé: ${channel}`));
   },
   getBlenders: () => ipcRenderer.invoke('get-blenders'),
+  // convenience helpers for addons
+  getAddons: (exePath) => ipcRenderer.invoke('get-addons', exePath),
+  scanAddonsFs: (payload) => ipcRenderer.invoke('scan-addons-fs', payload),
+  enableAddon: (params) => ipcRenderer.invoke('enable-addon', params),
+  removeAddon: (params) => ipcRenderer.invoke('remove-addon', params),
+  installAddon: (params) => ipcRenderer.invoke('install-addon-on', params),
   debugInfo: () => ({
     keys: Object.keys(apiRef),
     hasInvoke: typeof apiRef.invoke === 'function'

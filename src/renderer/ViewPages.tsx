@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import ViewSettings from './ViewSettings';
 import ViewOpenWith from './ViewOpenWith';
-import Filter, { RecentBlendFile } from './Filter';
+import Filter, { RecentBlendFile, TableHeader } from './Filter';
+import FindBar from './FindBar';
+import ViewRecentFile from './ViewRecentFile';
+import ViewAddon from './ViewAddon';
 import ViewRender from './ViewRender';
 
 type BlenderExe = {
@@ -29,41 +32,55 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
   const [recentVersion, setRecentVersion] = useState<string | null>(null);
   const [openWithFile, setOpenWithFile] = useState<string | null>(null);
   const [renderForFile, setRenderForFile] = useState<string | null>(null);
+  // Addons state (moved to ViewAddon)
+  const [addonQuery, setAddonQuery] = useState('');
+  const [panel, setPanel] = useState<'recent' | 'addons'>('recent');
+  // Debug panel for last probe output
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [lastProbeStdout, setLastProbeStdout] = useState<string | null>(null);
+  const [lastProbeStderr, setLastProbeStderr] = useState<string | null>(null);
 
-  // Chargement des fichiers récents quand l'exécutable change
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      if (!selectedBlender || !window.electronAPI || !window.electronAPI.invoke) {
+  // Load recent files function (call on selection change or when user switches to Recent panel)
+  const loadRecent = async () => {
+    if (!selectedBlender || !window.electronAPI || !window.electronAPI.invoke) {
+      setRecentFiles([]);
+      setRecentVersion(null);
+      return;
+    }
+    setRecentLoading(true);
+    setRecentError(null);
+    try {
+      const res = await window.electronAPI.invoke('get-recent-blend-files', { exePath: selectedBlender.path });
+      if (res && res.files) {
+        setRecentFiles(res.files);
+        setRecentVersion(res.version || null);
+      } else {
         setRecentFiles([]);
-        setRecentVersion(null);
-        return;
+        setRecentVersion(res?.version || null);
       }
-      setRecentLoading(true);
-      setRecentError(null);
-      try {
-        const res = await window.electronAPI.invoke('get-recent-blend-files', { exePath: selectedBlender.path });
-        if (cancelled) return;
-        if (res && res.files) {
-          setRecentFiles(res.files);
-          setRecentVersion(res.version || null);
-        } else {
-          setRecentFiles([]);
-          setRecentVersion(res?.version || null);
-        }
-      } catch (e:any) {
-        if (!cancelled) setRecentError(e?.message || 'Erreur inconnue');
-      } finally {
-        if (!cancelled) setRecentLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [selectedBlender?.path]);
+    } catch (e:any) {
+      setRecentError(e?.message || 'Erreur inconnue');
+    } finally {
+      setRecentLoading(false);
+    }
+  };
+
+  useEffect(() => { loadRecent(); }, [selectedBlender?.path]);
+
+  // Addon loading moved to ViewAddon
+
+  console.log('[ViewPages] Rendu avec selectedBlender:', selectedBlender);
+  console.log('[ViewPages] isSettingsOpen:', isSettingsOpen);
+
+  const handleLaunch = () => {
+    if (selectedBlender && window.electronAPI && window.electronAPI.send) {
+      window.electronAPI.send('launch-blender', selectedBlender.path);
+      if (onLaunch) onLaunch(selectedBlender);
+    }
+  };
 
   const openRecent = (filePath: string) => {
     if (!selectedBlender || !window.electronAPI) return;
-    // Requiert côté main un canal open-blend-file (à implémenter)
     if ((window.electronAPI as any).send) {
       (window.electronAPI as any).send('open-blend-file', { exePath: selectedBlender.path, blendPath: filePath });
     }
@@ -75,20 +92,12 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
     }
   };
 
-  const removeRecentLocal = (filePath: string) => {
-    // Retrait local immédiat (UX). Si on ajoute plus tard un backend, on enverra un canal.
-    setRecentFiles(prev => prev.filter(f => f.path !== filePath));
-  };
-
   const removeRecentPersistent = async (filePath: string) => {
-    // Optimiste: retirer tout de suite
     setRecentFiles(prev => prev.filter(f => f.path !== filePath));
     if (!selectedBlender || !window.electronAPI?.invoke) return;
     try {
       const res = await window.electronAPI.invoke('remove-recent-blend-file', { exePath: selectedBlender.path, blendPath: filePath });
       if (!res?.success) {
-        console.warn('[ViewPages] Echec suppression persistante recent file:', res?.reason);
-        // Recharger la liste pour refléter l'état réel
         try {
           const reload = await window.electronAPI.invoke('get-recent-blend-files', { exePath: selectedBlender.path });
           if (reload && reload.files) {
@@ -97,19 +106,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
           }
         } catch {}
       }
-    } catch (e) {
-      console.error('[ViewPages] Exception remove-recent-blend-file:', e);
-    }
-  };
-
-  console.log('[ViewPages] Rendu avec selectedBlender:', selectedBlender);
-  console.log('[ViewPages] isSettingsOpen:', isSettingsOpen);
-
-  const handleLaunch = () => {
-    if (selectedBlender && window.electronAPI && window.electronAPI.send) {
-      window.electronAPI.send('launch-blender', selectedBlender.path);
-      if (onLaunch) onLaunch(selectedBlender);
-    }
+    } catch (e) { console.error('removeRecentPersistent error', e); }
   };
 
   // Refresh recent files when a render session exits (headless render may write new files and update recent list)
@@ -318,242 +315,81 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
         {/* Contenu scrollable (la scrollbar ne dépasse plus le header) */}
   <div className="hide-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24, padding: '24px 32px 32px 32px', overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginBottom: 8 }}>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#f1f5f9', flex: '0 0 auto' }}>
-              Fichiers récents
-            </h2>
-          </div>
-          {/* Search bar placed between the title and the Filter; width set to 100% to match Filter */}
-          <div style={{ width: '100%', marginBottom: 8, display: 'flex', justifyContent: 'flex-end' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0b1220', border: '1px solid #1f2937', padding: '8px 10px', borderRadius: 10, width: '100%', maxWidth: 1060 }}>
-              {/* Magnifying glass icon */}
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="7"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input
-                aria-label="Recherche fichiers récents"
-                placeholder="Rechercher..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => { setPanel('recent'); loadRecent(); }}
                 style={{
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  color: '#d1d5db',
-                  fontSize: 14,
-                  width: '100%'
+                  background: panel === 'recent' ? '#1f2937' : 'transparent',
+                  border: panel === 'recent' ? '1px solid #374151' : '1px solid transparent',
+                  color: '#fff',
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  fontWeight: panel === 'recent' ? 700 : 500
                 }}
-              />
+              >
+                Fichiers récents
+              </button>
+              <button
+                onClick={() => { setPanel('addons'); /* loadAddons will be triggered by effect */ }}
+                style={{
+                  background: panel === 'addons' ? '#1f2937' : 'transparent',
+                  border: panel === 'addons' ? '1px solid #374151' : '1px solid transparent',
+                  color: '#fff',
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  fontWeight: panel === 'addons' ? 700 : 500
+                }}
+              >
+                Add‑ons
+              </button>
             </div>
           </div>
-          {recentLoading && (
-            <div style={{ color: '#94a3b8', fontSize: 14 }}>Chargement...</div>
+          {/* Shared FindBar used for both Recent files and Addons */}
+          <FindBar value={searchQuery} onChange={setSearchQuery} placeholder="Rechercher..." />
+
+          {panel === 'recent' ? (
+            <>
+              {recentLoading && (
+                <div style={{ color: '#94a3b8', fontSize: 14 }}>Chargement...</div>
+              )}
+              {recentError && (
+                <div style={{ color: '#ef4444', fontSize: 14 }}>Erreur: {recentError}</div>
+              )}
+              {!recentLoading && !recentError && recentFiles.length === 0 && (
+                <div style={{ color: '#64748b', fontSize: 14 }}>Aucun fichier récent disponible pour ce build.</div>
+              )}
+              {/* Filter component (sorting / filtering UI) - it will provide a sorted+filtered set via query prop */}
+              <Filter files={recentFiles} query={searchQuery} onSorted={(sorted) => { setDisplayFiles(sorted); }} />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
+                <ViewRecentFile
+                  selectedBlender={selectedBlender}
+                  recentLoading={recentLoading}
+                  recentError={recentError}
+                  recentFiles={recentFiles}
+                  displayFiles={displayFiles}
+                  setDisplayFiles={setDisplayFiles}
+                  setRenderForFile={setRenderForFile}
+                  setOpenWithFile={setOpenWithFile}
+                />
+              </div>
+            </>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
+              {/* Keep the column header in the same position as the Filter header for parity */}
+              <TableHeader
+                variant="addons"
+                activeField={undefined}
+                activeDir={'asc'}
+                onToggle={(f) => {
+                  // Relay header clicks down via a custom event — ViewAddon handles its own sorting locally.
+                  const ev = new CustomEvent('blender-launcher-addon-sort', { detail: { field: f } });
+                  window.dispatchEvent(ev);
+                }}
+              />
+              <ViewAddon selectedBlender={selectedBlender} query={searchQuery} />
+            </div>
           )}
-          {recentError && (
-            <div style={{ color: '#ef4444', fontSize: 14 }}>Erreur: {recentError}</div>
-          )}
-          {!recentLoading && !recentError && recentFiles.length === 0 && (
-            <div style={{ color: '#64748b', fontSize: 14 }}>Aucun fichier récent disponible pour ce build.</div>
-          )}
-          {/* Filter component (sorting / filtering UI) - it will provide a sorted set which we further filter by searchQuery */}
-          <Filter files={recentFiles} onSorted={(sorted) => {
-            // Apply live search on the sorted results
-            if (!searchQuery || !searchQuery.trim()) {
-              setDisplayFiles(sorted);
-              return;
-            }
-            const q = searchQuery.trim().toLowerCase();
-            const filtered = sorted.filter(f => {
-              const name = (f.name || '').toLowerCase();
-              const path = (f.path || '').toLowerCase();
-              // also search in readable metadata if present (type-safe)
-              const meta = ('meta' in f) ? String((f as any).meta || '').toLowerCase() : '';
-              return name.includes(q) || path.includes(q) || meta.includes(q);
-            });
-            setDisplayFiles(filtered);
-          }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
-            {(displayFiles.length ? displayFiles : recentFiles).map((f, idx) => {
-              const createdStr = f.ctime ? new Date(f.ctime).toLocaleString() : '';
-              const usedStr = f.mtime ? new Date(f.mtime).toLocaleString() : '';
-              const sizeStr = f.size ? `${(f.size/1024).toFixed(1)} Ko` : '';
-              return (
-                <div
-                  key={f.path + idx}
-                  role={f.exists ? 'button' : undefined}
-                  tabIndex={f.exists ? 0 : -1}
-                  onKeyDown={(e) => { if (f.exists && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openRecent(f.path); }}}
-                  onClick={() => { if (f.exists) openRecent(f.path); }}
-                  style={{
-                    background: '#131a20',
-                    border: '1px solid #1e2530',
-                    borderRadius: 10,
-                    padding: '10px 14px',
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(160px, 1fr) 170px 170px 110px 140px',
-                    gap: 12,
-                    alignItems: 'center',
-                    position: 'relative',
-                    opacity: f.exists ? 1 : 0.55,
-                    cursor: f.exists ? 'pointer' : 'default',
-                    transition: 'background 0.15s, border-color 0.15s',
-                    minWidth: 0
-                  }}
-                  onMouseOver={e => { if (f.exists) { e.currentTarget.style.background = '#182129'; e.currentTarget.style.borderColor = '#26303b'; }}}
-                  onMouseOut={e => { e.currentTarget.style.background = '#131a20'; e.currentTarget.style.borderColor = '#1e2530'; }}
-                >
-                  {/* Col 1: Nom + meta + chemin */}
-                  <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span
-                      style={{
-                        fontSize: 15,
-                        fontWeight: 500,
-                        color: f.exists ? '#e2e8f0' : '#f87171',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}
-                      title={f.path + (f.exists ? '' : ' (fichier introuvable)')}
-                    >
-                      {f.name}{!f.exists && ' (manquant)'}
-                    </span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, color: '#64748b', fontSize: 12 }}>
-                      <span
-                        style={{
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          opacity: 0.85,
-                          // Keep the end of the path visible (start-ellipsis)
-                          display: 'inline-block',
-                          direction: 'rtl',
-                          textAlign: 'left'
-                        }}
-                        title={f.path}
-                      >
-                        {f.path}
-                      </span>
-                    </div>
-                  </div>
-                  {/* Col 2: Date de création */}
-                  <div style={{ color: '#94a3b8', fontSize: 12 }}>
-                    {createdStr}
-                  </div>
-                  {/* Col 3: Date d'utilisation */}
-                  <div style={{ color: '#94a3b8', fontSize: 12 }}>
-                    {usedStr}
-                  </div>
-                  {/* Col 4: Taille */}
-                  <div style={{ color: '#94a3b8', fontSize: 12 }}>
-                    {sizeStr}
-                  </div>
-                  {/* Col 5: Actions */}
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: 140, justifyContent: 'flex-end', flexShrink: 0 }}>
-                    {/* Screen icon button to open render popup */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); if (f.exists) setRenderForFile(f.path); }}
-                      disabled={!f.exists}
-                      style={{
-                        background: '#1e2530',
-                        border: 'none',
-                        color: '#94a3b8',
-                        width: 34,
-                        height: 34,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: 8,
-                        cursor: f.exists ? 'pointer' : 'default',
-                        opacity: f.exists ? 1 : 0.5
-                      }}
-                      title="Configurer un rendu pour ce fichier"
-                    >
-                      {/* Screen/monitor icon */}
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="4" width="18" height="12" rx="2" ry="2"></rect>
-                        <line x1="8" y1="20" x2="16" y2="20"></line>
-                        <line x1="12" y1="16" x2="12" y2="20"></line>
-                      </svg>
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); if (f.exists) setOpenWithFile(f.path); }}
-                      disabled={!f.exists}
-                      style={{
-                        background: '#1e2530',
-                        border: 'none',
-                        color: '#94a3b8',
-                        width: 34,
-                        height: 34,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: 8,
-                        cursor: f.exists ? 'pointer' : 'default',
-                        opacity: f.exists ? 1 : 0.5
-                      }}
-                      title="Ouvrir avec une autre version"
-                    >
-                      {/* Icône expand (4 flèches vers l'extérieur) */}
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="15 3 21 3 21 9" />
-                        <polyline points="9 21 3 21 3 15" />
-                        <line x1="21" y1="3" x2="14" y2="10" />
-                        <line x1="3" y1="21" x2="10" y2="14" />
-                        <polyline points="3 9 3 3 9 3" />
-                        <polyline points="21 15 21 21 15 21" />
-                        <line x1="3" y1="3" x2="10" y2="10" />
-                        <line x1="21" y1="21" x2="14" y2="14" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); revealRecent(f.path); }}
-                      style={{
-                        background: '#1e2530',
-                        border: 'none',
-                        color: '#94a3b8',
-                        width: 34,
-                        height: 34,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: 8,
-                        cursor: 'pointer'
-                      }}
-                      title="Ouvrir le dossier"
-                    >
-                      {/* Icône dossier */}
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 7h5l2 3h11v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-                        <path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v3" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); removeRecentPersistent(f.path); }}
-                      style={{
-                        background: '#31141b',
-                        border: '1px solid #842b3b',
-                        color: '#f87171',
-                        width: 34,
-                        height: 34,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: 8,
-                        cursor: 'pointer'
-                      }}
-                      title="Retirer de la liste"
-                    >
-                      {/* Icône croix */}
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </div>
         
         {/* Popup de paramètres */}

@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import extractIcon = require('extract-file-icon');
 import { pathToFileURL, fileURLToPath } from 'url';
+import { spawn } from 'child_process';
 // @ts-ignore - JS backend module without typings
 import { DiscordRPCManager } from '../../backend/discord_rpc_manager';
 
@@ -274,6 +275,122 @@ export function initSettings(opts: {
       return { available: false };
     } catch (e) {
       return { available: false, error: String(e) };
+    }
+  });
+
+  // Helper: find candidate addons directories for a given Blender executable
+  function findCandidateAddonsDirs(exePath: string): string[] {
+    const results: Set<string> = new Set();
+    try {
+      if (!exePath) return [];
+      const exeDir = path.dirname(exePath);
+      // direct scripts/addons next to exe
+      const direct = path.join(exeDir, 'scripts', 'addons');
+      if (fs.existsSync(direct)) results.add(direct);
+
+      // search downwards a couple levels from exeDir for */scripts/addons
+      const walk = (base: string, depth: number) => {
+        if (depth < 0) return;
+        try {
+          const entries = fs.readdirSync(base, { withFileTypes: true });
+          for (const e of entries) {
+            try {
+              const p = path.join(base, e.name);
+              const maybe = path.join(p, 'scripts', 'addons');
+              if (fs.existsSync(maybe)) results.add(maybe);
+              if (e.isDirectory()) walk(p, depth - 1);
+            } catch {}
+          }
+        } catch {}
+      };
+      walk(exeDir, 2);
+
+      // check user AppData Blenders (Windows) or ~/.config on Linux
+      try {
+        const appData = app.getPath('appData');
+        const bf = path.join(appData, 'Blender Foundation', 'Blender');
+        if (fs.existsSync(bf)) {
+          const versions = fs.readdirSync(bf, { withFileTypes: true });
+          for (const v of versions) {
+            if (!v.isDirectory()) continue;
+            const cand = path.join(bf, v.name, 'scripts', 'addons');
+            if (fs.existsSync(cand)) results.add(cand);
+          }
+        }
+      } catch {}
+
+      // normalize into array
+      return Array.from(results);
+    } catch (e) {
+      console.warn('findCandidateAddonsDirs erreur', e);
+      return Array.from(results);
+    }
+  }
+
+  // Copy helper (recursive) - uses fs.cpSync when available, falls back to manual copy
+  function copyRecursiveSync(src: string, dest: string) {
+    if ((fs as any).cpSync) {
+      try { (fs as any).cpSync(src, dest, { recursive: true, force: true }); return; } catch (e) { /* fallback */ }
+    }
+    const stat = fs.statSync(src);
+    if (stat.isDirectory()) {
+      if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+      const entries = fs.readdirSync(src, { withFileTypes: true });
+      for (const e of entries) {
+        const s = path.join(src, e.name);
+        const d = path.join(dest, e.name);
+        if (e.isDirectory()) copyRecursiveSync(s, d);
+        else fs.copyFileSync(s, d);
+      }
+    } else {
+      const dd = path.dirname(dest);
+      if (!fs.existsSync(dd)) fs.mkdirSync(dd, { recursive: true });
+      fs.copyFileSync(src, dest);
+    }
+  }
+
+  ipcMain.handle('install-addon-on', async (_event, params: { exePath?: string; addonPath?: string }) => {
+    try {
+      const exePath = params?.exePath;
+      const addonPath = params?.addonPath;
+      if (!exePath) return { success: false, error: 'exePath manquant' };
+      if (!addonPath || !fs.existsSync(addonPath)) return { success: false, error: 'addonPath invalide' };
+
+      const candidates = findCandidateAddonsDirs(exePath);
+      if (!candidates || candidates.length === 0) {
+        return { success: false, error: 'Aucun dossier addons trouvé pour ce Blender' };
+      }
+
+      // choose first candidate
+      const targetBase = candidates[0];
+      const addonName = path.basename(addonPath);
+      const dest = path.join(targetBase, addonName);
+
+      // If dest exists, remove it (overwrite)
+      try {
+        if (fs.existsSync(dest)) {
+          // remove file or directory
+          const st = fs.statSync(dest);
+          if (st.isDirectory()) {
+            fs.rmSync(dest, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(dest);
+          }
+        }
+      } catch (e) { /* ignore removal errors */ }
+
+      // perform copy
+      copyRecursiveSync(addonPath, dest);
+
+  // invalidate cache for this exePath
+  try { const cache = readAddonsCache(); if (cache[exePath]) { delete cache[exePath]; writeAddonsCache(cache); } } catch (e) {}
+  // schedule refresh
+  setTimeout(() => { void refreshAddonsCacheForExe(exePath); }, 100);
+
+  return { success: true, dest };
+    } catch (e) {
+      console.error('[install-addon-on] erreur', e);
+      return { success: false, error: String(e) };
     }
   });
 
@@ -662,6 +779,309 @@ export function initSettings(opts: {
       console.error('Erreur lors de la lecture de config.json :', e);
       return [];
     }
+  });
+
+  // --- Add-ons: list / enable / disable / remove via Blender runtime ---
+  // Simple persistent cache for addon scans to speed up UI startup
+  const ADDONS_CACHE_PATH = path.join(app.getPath('userData'), 'addons_cache.json');
+
+  function readAddonsCache(): Record<string, { ts: number; addons: any[] }> {
+    try {
+      if (!fs.existsSync(ADDONS_CACHE_PATH)) return {};
+      const raw = fs.readFileSync(ADDONS_CACHE_PATH, 'utf-8');
+      if (!raw) return {};
+      return JSON.parse(raw || '{}');
+    } catch (e) {
+      console.warn('[cache] failed to read addons cache', e);
+      return {};
+    }
+  }
+
+  function writeAddonsCache(cache: Record<string, { ts: number; addons: any[] }>) {
+    try {
+      const dir = path.dirname(ADDONS_CACHE_PATH);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(ADDONS_CACHE_PATH, JSON.stringify(cache, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('[cache] failed to write addons cache', e);
+    }
+  }
+
+  async function refreshAddonsCacheForExe(exePath: string) {
+    try {
+      if (!exePath || !fs.existsSync(exePath)) return;
+      const script = `\ntry:\n    import json, addon_utils\n    res = []\n    for m in addon_utils.modules():\n        try:\n            name = (getattr(m, 'bl_info', {}) or {}).get('name') or getattr(m, '__name__', str(m))\n            module = getattr(m, '__name__', None)\n            bl_info = getattr(m, 'bl_info', {}) or {}\n            enabled = False\n            try:\n                enabled = addon_utils.check(module)[0]\n            except Exception:\n                try:\n                    enabled = addon_utils.is_enabled(module)\n                except Exception:\n                    enabled = False\n            res.append({ 'module': module, 'name': name, 'bl_info': bl_info, 'enabled': enabled })\n        except Exception:\n            pass\n    print('@@ADDONS_JSON_START@@')\n    print(json.dumps(res))\n    print('@@ADDONS_JSON_END@@')\nexcept Exception as e:\n    import traceback\n    traceback.print_exc()\n`;
+      const out = await runBlenderScriptAndCaptureJson(exePath, script, 25000);
+      if (out && out.json && Array.isArray(out.json)) {
+        const cache = readAddonsCache();
+        cache[exePath] = { ts: Date.now(), addons: out.json };
+        writeAddonsCache(cache);
+        try { opts.getMainWindow()?.webContents.send('addons-updated', { exePath, addons: out.json }); } catch {};
+      }
+    } catch (e) { console.warn('[cache] refresh failed for', exePath, e); }
+  }
+
+  async function runBlenderScriptAndCaptureJson(exePath: string, scriptContent: string, timeoutMs = 20000): Promise<{ stdout: string; stderr: string; json?: any; error?: string }> {
+    const markerStart = '@@ADDONS_JSON_START@@';
+    const markerEnd = '@@ADDONS_JSON_END@@';
+    // Always write the provided scriptContent into a temporary script and execute it.
+    const scriptPath = path.join(app.getPath('userData'), 'temp_blender_scripts', `bl_script_${Date.now()}.py`);
+    const fullScript = `import sys\n${scriptContent}\n`;
+    try {
+      const tmpDir = path.dirname(scriptPath);
+      if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+      fs.writeFileSync(scriptPath, fullScript, 'utf-8');
+    } catch (e) {
+      return { stdout: '', stderr: '', error: 'failed-to-write-script' };
+    }
+    return await new Promise<{ stdout: string; stderr: string; json?: any; error?: string }>((resolve) => {
+      const child = spawn(exePath, ['--background', '--python', scriptPath], { windowsHide: true });
+      let stdout = '';
+      let stderr = '';
+      let finished = false;
+      const to = setTimeout(() => {
+        try { child.kill(); } catch {}
+      }, timeoutMs);
+      child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+      child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+      child.on('error', (err) => {
+        clearTimeout(to);
+        if (finished) return;
+        finished = true;
+        resolve({ stdout, stderr, error: String(err) });
+      });
+      child.on('close', (code) => {
+        clearTimeout(to);
+        if (finished) return;
+        finished = true;
+        // try to extract JSON between markers
+        const s = stdout || '';
+        const start = s.indexOf(markerStart);
+        const end = s.indexOf(markerEnd, start >= 0 ? start : 0);
+        if (start >= 0 && end > start) {
+          const jsonStr = s.substring(start + markerStart.length, end).trim();
+          try { const parsed = JSON.parse(jsonStr); resolve({ stdout, stderr, json: parsed }); return; } catch (e) { /* fallthrough */ }
+        }
+        resolve({ stdout, stderr });
+      });
+    }).finally(() => {
+      try { fs.unlinkSync(scriptPath); } catch {}
+    });
+  }
+
+  ipcMain.handle('get-addons', async (_event, exePath: string) => {
+    try {
+      if (!exePath || !fs.existsSync(exePath)) return { success: false, error: 'exe-not-found', addons: [] };
+      // Try cache first for fast response
+      try {
+        const cache = readAddonsCache();
+        const entry = cache[exePath];
+        if (entry && Array.isArray(entry.addons) && entry.addons.length >= 0) {
+          // schedule background refresh but return cached result immediately
+          setTimeout(() => { void refreshAddonsCacheForExe(exePath); }, 10);
+          return { success: true, addons: entry.addons, cached: true };
+        }
+      } catch (e) { /* ignore cache read errors */ }
+
+      // Python script that enumerates addons using Blender's addon_utils and prints JSON between markers
+      const script = `\ntry:\n    import json, addon_utils\n    res = []\n    for m in addon_utils.modules():\n        try:\n            name = (getattr(m, 'bl_info', {}) or {}).get('name') or getattr(m, '__name__', str(m))\n            module = getattr(m, '__name__', None)\n            bl_info = getattr(m, 'bl_info', {}) or {}\n            enabled = False\n            try:\n                enabled = addon_utils.check(module)[0]\n            except Exception:\n                try:\n                    enabled = addon_utils.is_enabled(module)\n                except Exception:\n                    enabled = False\n            res.append({ 'module': module, 'name': name, 'bl_info': bl_info, 'enabled': enabled })\n        except Exception:\n            pass\n    print('@@ADDONS_JSON_START@@')\n    print(json.dumps(res))\n    print('@@ADDONS_JSON_END@@')\nexcept Exception as e:\n    import traceback\n    traceback.print_exc()\n`;
+      const out = await runBlenderScriptAndCaptureJson(exePath, script, 25000);
+      if (out.error) return { success: false, error: out.error, stdout: out.stdout, stderr: out.stderr, addons: [] };
+      if (out.json) {
+        try { const cache = readAddonsCache(); cache[exePath] = { ts: Date.now(), addons: out.json }; writeAddonsCache(cache); } catch (e) {}
+        return { success: true, addons: out.json, stdout: out.stdout, stderr: out.stderr };
+      }
+      // fallback: try to parse any JSON like content in stdout
+      try {
+        const s = out.stdout || '';
+        const m = s.match(/\{[\s\S]*\}|\[[\s\S]*\]/m);
+        if (m) {
+          const parsed = JSON.parse(m[0]);
+          try { const cache = readAddonsCache(); cache[exePath] = { ts: Date.now(), addons: parsed }; writeAddonsCache(cache); } catch (e) {}
+          return { success: true, addons: parsed, stdout: out.stdout, stderr: out.stderr };
+        }
+      } catch (e) {}
+      return { success: false, error: 'no-json', stdout: out.stdout, stderr: out.stderr, addons: [] };
+    } catch (e) {
+      return { success: false, error: String(e), addons: [] };
+    }
+  });
+
+  ipcMain.handle('scan-addons-fs', async (_event, payload: { exePath?: string }) => {
+    try {
+      const exePath = payload?.exePath;
+      const candidates: string[] = [];
+      // 1) scan relative to exe: ../scripts/addons and ./scripts/addons
+      try {
+        if (exePath && fs.existsSync(exePath)) {
+          const exeDir = path.dirname(exePath);
+          const maybe1 = path.join(exeDir, '..', 'scripts', 'addons');
+          const maybe2 = path.join(exeDir, 'scripts', 'addons');
+          candidates.push(maybe1, maybe2);
+        }
+      } catch {}
+      // 2) user AppData Blender folders
+      try {
+        const appData = process.env.APPDATA || (process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Roaming') : null);
+        if (appData) {
+          const blenderBase = path.join(appData, 'Blender Foundation', 'Blender');
+          if (fs.existsSync(blenderBase)) {
+            const vers = fs.readdirSync(blenderBase, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => path.join(blenderBase, d.name));
+            for (const v of vers) candidates.push(path.join(v, 'scripts', 'addons'));
+          }
+        }
+      } catch {}
+      // 3) common locations: Program Files Blender install 'scripts/addons' if present
+      try {
+        const prog = process.env['PROGRAMFILES'] || process.env['ProgramFiles(x86)'];
+        if (prog) {
+          // search for blender folders under Program Files
+          const entries = fs.existsSync(prog) ? fs.readdirSync(prog, { withFileTypes: true }) : [];
+          for (const e of entries) {
+            if (!e.isDirectory()) continue;
+            if (/blender/i.test(e.name)) {
+              const p = path.join(prog, e.name, 'scripts', 'addons');
+              candidates.push(p);
+            }
+          }
+        }
+      } catch {}
+
+      const seen = new Set<string>();
+      const addonList: any[] = [];
+      for (const cand of candidates) {
+        if (!cand) continue;
+        try {
+          if (!fs.existsSync(cand)) continue;
+          const children = fs.readdirSync(cand, { withFileTypes: true });
+          for (const ch of children) {
+            if (!ch.isDirectory()) continue;
+            const addonDir = path.join(cand, ch.name);
+            if (seen.has(addonDir)) continue;
+            seen.add(addonDir);
+            // try to parse __init__.py
+            const initPy = path.join(addonDir, '__init__.py');
+            let bl_info: any = {};
+            let name = ch.name;
+            try {
+              if (fs.existsSync(initPy)) {
+                const txt = fs.readFileSync(initPy, 'utf-8');
+                const m = txt.match(/bl_info\s*=\s*\{/m);
+                if (m) {
+                  // extract from the first '{' after match to the matching '}'
+                  const startPos = txt.indexOf('{', m.index || 0);
+                  let depth = 0;
+                  let endPos = -1;
+                  for (let i = startPos; i < txt.length; i++) {
+                    const ch2 = txt[i];
+                    if (ch2 === '{') depth++; else if (ch2 === '}') { depth--; if (depth === 0) { endPos = i; break; } }
+                  }
+                  if (startPos >= 0 && endPos > startPos) {
+                    let dictStr = txt.substring(startPos, endPos + 1);
+                    // strip python comments
+                    dictStr = dictStr.replace(/#.*$/gm, '');
+                    // normalize booleans/null
+                    dictStr = dictStr.replace(/\bNone\b/g, 'null').replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false');
+                    // convert simple single-quoted strings to double-quoted strings (heuristic)
+                    dictStr = dictStr.replace(/'([^'\\]*)'/g, '"$1"');
+                    // remove trailing commas before } or ]
+                    dictStr = dictStr.replace(/,(\s*[}\]])/g, '$1');
+                    // convert simple tuples to arrays: ('a','b') -> ["a","b"] (heuristic)
+                    dictStr = dictStr.replace(/\(\s*([^\)]*?)\s*\)/g, (m: string, inner: string) => '[' + inner.replace(/'([^'\\]*)'/g, '"$1"').replace(/,\s*$/, '') + ']');
+                    // ensure bareword keys are quoted: key: -> "key":
+                    dictStr = dictStr.replace(/([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '"$1":');
+                    try { bl_info = JSON.parse(dictStr); if (bl_info && bl_info.name) name = bl_info.name; } catch (e) { bl_info = {}; }
+                  }
+                }
+              }
+            } catch (e) { /* ignore parse errors */ }
+            addonList.push({ module: ch.name, name, bl_info, path: addonDir, exists: true, source: cand });
+          }
+        } catch (e) { /* ignore folder read errors */ }
+      }
+      return { success: true, addons: addonList };
+    } catch (e) {
+      return { success: false, error: String(e), addons: [] };
+    }
+  });
+
+  ipcMain.handle('enable-addon', async (_event, params: { exePath: string; module: string; enable: boolean }) => {
+  try {
+    const { exePath, module, enable } = params || ({} as any);
+    if (!exePath || !module) return { success: false, error: 'missing-params' };
+    const action = enable ? 'enable' : 'disable';
+
+    // try to find backend script in a couple of likely locations
+    const backendCandidates = [
+      path.join(__dirname, '../../backend/blender_addon_action.py'),
+      path.join(process.cwd(), 'backend', 'blender_addon_action.py')
+    ];
+    let scriptContent = '';
+    for (const c of backendCandidates) {
+      try { if (fs.existsSync(c)) { scriptContent = fs.readFileSync(c, 'utf-8'); break; } } catch {}
+    }
+
+    if (!scriptContent) {
+      // fallback embedded tolerant script
+      scriptContent = `#!/usr/bin/env python3\nimport sys, traceback\ntry:\n    import addon_utils\n    MARK_OK='@@ACTION_OK@@'\n    MARK_FAIL='@@ACTION_FAIL@@'\n    args = sys.argv\n    if '--' in args:\n        idx = args.index('--')\n        a = args[idx+1:]\n    else:\n        a = args[1:]\n    params = {}\n    i = 0\n    while i < len(a):\n        k = a[i]\n        v = a[i+1] if i+1 < len(a) else None\n        params[k] = v\n        i += 2\n    action = params.get('action')\n    mod = params.get('module')\n    desired = (action == 'enable')\n    try:\n        if desired:\n            try:\n                addon_utils.enable(mod)\n            except Exception:\n                try:\n                    import bpy\n                    bpy.ops.preferences.addon_enable(module=mod)\n                except Exception:\n                    pass\n        else:\n            try:\n                addon_utils.disable(mod, default_set=False, persistent=False)\n            except TypeError:\n                try:\n                    addon_utils.disable(mod)\n                except Exception:\n                    pass\n            except Exception:\n                pass\n            try:\n                import bpy\n                bpy.ops.preferences.addon_disable(module=mod)\n            except Exception:\n                pass\n    except Exception:\n        traceback.print_exc()\n    ok = False\n    try:\n        chk = addon_utils.check(mod)\n        if isinstance(chk, (list, tuple)) and len(chk) >= 1:\n            ok = bool(chk[0])\n        else:\n            try:\n                ok = bool(addon_utils.is_enabled(mod))\n            except Exception:\n                ok = False\n    except Exception:\n        try:\n            ok = bool(addon_utils.is_enabled(mod))\n        except Exception:\n            ok = False\n    if ok == desired:\n        print(MARK_OK)\n    else:\n        print(MARK_FAIL)\nexcept Exception:\n    traceback.print_exc()\n`;
+    }
+
+    // write temp script to userData
+    const tmpDir = path.join(app.getPath('userData'), 'temp_blender_scripts');
+    try { if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true }); } catch {}
+    const tmpPath = path.join(tmpDir, `bl_action_${Date.now()}.py`);
+    try { fs.writeFileSync(tmpPath, scriptContent, 'utf-8'); } catch (e) { return { success: false, error: 'failed-write-temp-script', detail: String(e) }; }
+
+    // spawn blender with --python <tmpPath> -- action ...
+    console.log('[IPC enable-addon] exec=', exePath, 'tmpScript=', tmpPath, 'action=', action, 'module=', module);
+    const child = spawn(exePath, ['--background', '--python', tmpPath, '--', 'action', action, 'module', module], { windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+    return await new Promise((resolve) => {
+      const to = setTimeout(() => { try { child.kill(); } catch {} }, 20000);
+      child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+      child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+      child.on('error', (err) => { clearTimeout(to); try { fs.unlinkSync(tmpPath); } catch {} ; resolve({ success: false, error: String(err), stdout, stderr }); });
+      child.on('close', (code) => {
+        clearTimeout(to);
+        try { fs.unlinkSync(tmpPath); } catch {}
+        console.log('[IPC enable-addon] stdout=', String(stdout).slice(0,8000));
+        console.log('[IPC enable-addon] stderr=', String(stderr).slice(0,8000));
+        const ok = stdout.indexOf('@@ACTION_OK@@') >= 0;
+        const fail = stdout.indexOf('@@ACTION_FAIL@@') >= 0;
+        if (ok) { resolve({ success: true, stdout, stderr }); }
+        else if (fail) { resolve({ success: false, error: 'validation-failed', stdout, stderr }); }
+        else { resolve({ success: false, error: 'no-confirmation', stdout, stderr }); }
+      });
+    });
+  } catch (e) { return { success: false, error: String(e) }; }
+  });
+
+  ipcMain.handle('remove-addon', async (_event, params: { path: string }) => {
+    try {
+      const p = params?.path;
+      if (!p) return { success: false, error: 'missing-path' };
+      if (!fs.existsSync(p)) return { success: false, error: 'not-found' };
+      // Be conservative: only allow removal inside Blender 'addons' folders
+      // We won't attempt to guess root; assume caller provides the exact addon folder
+      try {
+        fs.rmSync(p, { recursive: true, force: true });
+        // invalidate any cache entries that reference this path
+        try {
+          const cache = readAddonsCache();
+          let changed = false;
+          for (const k of Object.keys(cache)) {
+            const entry = cache[k];
+            if (Array.isArray(entry.addons)) {
+              const found = entry.addons.some((ad: any) => ad.path === p || (ad.path && ad.path.startsWith(p)));
+              if (found) { delete cache[k]; changed = true; }
+            }
+          }
+          if (changed) writeAddonsCache(cache);
+        } catch (e) { /* ignore */ }
+        return { success: true };
+      } catch (e) { return { success: false, error: String(e) }; }
+    } catch (e) { return { success: false, error: String(e) }; }
   });
 
   // Scanner et fusionner les installations Blender (Program Files, Registre, Steam)

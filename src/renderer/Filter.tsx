@@ -16,6 +16,7 @@ export type SortDir = 'asc' | 'desc';
 interface FilterProps {
   files: RecentBlendFile[];
   onSorted: (sorted: RecentBlendFile[]) => void;
+  query?: string; // optional search/find text provided by parent (findbar)
 }
 
 const headerStyle: React.CSSProperties = {
@@ -51,7 +52,7 @@ const arrow = (active: boolean, dir: SortDir) => {
   );
 };
 
-const Filter: React.FC<FilterProps> = ({ files, onSorted }) => {
+const Filter: React.FC<FilterProps> = ({ files, onSorted, query }) => {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
@@ -86,7 +87,19 @@ const Filter: React.FC<FilterProps> = ({ files, onSorted }) => {
     return copy;
   }, [files, sortField, sortDir]);
 
-  React.useEffect(() => { onSorted(sorted); }, [sorted, onSorted]);
+  // Apply query filtering (findbar) on top of sorted results
+  const finalList = useMemo(() => {
+    if (!query || !query.trim()) return sorted;
+    const q = query.trim().toLowerCase();
+    return sorted.filter(f => {
+      const name = (f.name || '').toLowerCase();
+      const path = (f.path || '').toLowerCase();
+      const meta = ('meta' in f) ? String((f as any).meta || '').toLowerCase() : '';
+      return name.includes(q) || path.includes(q) || meta.includes(q);
+    });
+  }, [sorted, query]);
+
+  React.useEffect(() => { onSorted(finalList); }, [finalList, onSorted]);
 
   const active = (f: SortField) => sortField === f;
 
@@ -107,6 +120,42 @@ const Filter: React.FC<FilterProps> = ({ files, onSorted }) => {
         </div>
         <div />
       </div>
+    </div>
+  );
+};
+
+export const TableHeader: React.FC<{ activeField?: string | null, activeDir?: SortDir, onToggle?: (f: string) => void, variant?: 'recent' | 'addons' }> = ({ activeField, activeDir = 'asc', onToggle, variant = 'recent' }) => {
+  const active = (f: string) => activeField === f;
+  if (variant === 'addons') {
+    // smaller header: Name | Status | (actions)
+    const addonHeaderStyle: React.CSSProperties = { ...headerStyle, gridTemplateColumns: 'minmax(160px, 1fr) 110px 140px' };
+    return (
+      <div style={addonHeaderStyle}>
+        <div style={{...cellBase, color: active('name') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('name')}>
+          <span style={{flexShrink:0}}>Nom</span>{active('name') ? arrow(true, activeDir) : null}
+        </div>
+        <div style={{...cellBase, color: active('status') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('status')}>
+          <span>Statut</span>{active('status') ? arrow(true, activeDir) : null}
+        </div>
+        <div />
+      </div>
+    );
+  }
+  return (
+    <div style={headerStyle}>
+      <div style={{...cellBase, color: active('name') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('name')}>
+        <span style={{flexShrink:0}}>Nom</span>{active('name') ? arrow(true, activeDir) : null}
+      </div>
+      <div style={{...cellBase, color: active('ctime') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('ctime')}>
+        <span>Date de création</span>{active('ctime') ? arrow(true, activeDir) : null}
+      </div>
+      <div style={{...cellBase, color: active('order') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('order')}>
+        <span>Date d'utilisation</span>{active('order') ? arrow(true, activeDir) : null}
+      </div>
+      <div style={{...cellBase, color: active('size') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('size')}>
+        <span>Taille</span>{active('size') ? arrow(true, activeDir) : null}
+      </div>
+      <div />
     </div>
   );
 };

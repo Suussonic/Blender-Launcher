@@ -11,9 +11,11 @@ interface ViewOpenWithProps {
 	isOpen: boolean;
 	filePath: string | null;
 	onClose: () => void;
+	// optional callback when a blender is chosen; if provided, it's called with the blender object
+	onSelect?: (b: BlenderExe) => void;
 }
 
-const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose }) => {
+const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose, onSelect }) => {
 	const [blenders, setBlenders] = useState<BlenderExe[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -71,8 +73,12 @@ const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose }
 							key={b.path + idx}
 							ref={idx === 0 ? firstBtnRef : undefined}
 							onClick={() => {
-								if (filePath && window.electronAPI?.send) {
-									window.electronAPI.send('open-blend-file', { exePath: b.path, blendPath: filePath });
+								if (onSelect) {
+									try { onSelect(b); } catch {};
+								} else {
+									if (filePath && window.electronAPI?.send) {
+										window.electronAPI.send('open-blend-file', { exePath: b.path, blendPath: filePath });
+									}
 								}
 								onClose();
 							}}
