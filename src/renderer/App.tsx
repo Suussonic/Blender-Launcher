@@ -4,6 +4,7 @@ import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import ViewPages from './ViewPages';
 import Home from './Home';
+import InAppWeb, { InAppWebHandle } from './InAppWeb';
 import ViewRepo, { SimpleRepoRef } from './ViewRepo';
 import Loading from './Loading';
 import SettingsPage from './SettingsPage';
@@ -17,7 +18,17 @@ type BlenderExe = {
 
 const App: React.FC = () => {
   const { t, i18n } = useTranslation();
-  const [page, setPage] = useState<'home' | 'settings'>('home');
+  const [page, setPage] = useState<'home' | 'settings' | 'web'>('home');
+  type NavEntry = { page: 'home'|'settings'|'web'|'repo'; webUrl?:string; repo?: SimpleRepoRef | null; blender?: BlenderExe | null };
+  const [appHistory, setAppHistory] = useState<NavEntry[]>([{ page: 'home' }]);
+  const [appIndex, setAppIndex] = useState<number>(0);
+  const [webUrl, setWebUrl] = useState<string>('');
+  const [webHistory, setWebHistory] = useState<string[]>([]);
+  const [webIndex, setWebIndex] = useState<number>(-1);
+  const [webCanGo, setWebCanGo] = useState<{ back: boolean; forward: boolean }>({ back: false, forward: false });
+  const [webReloadKey, setWebReloadKey] = useState<number>(0);
+  const webRef = React.useRef<InAppWebHandle|null>(null);
+  const DEFAULT_WEB_HOME = 'https://docs.blender.org/manual/en/latest/';
   const [selectedBlender, setSelectedBlender] = useState<BlenderExe | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'info' | 'error'; } | null>(null);
   const [selectedRepo, setSelectedRepo] = useState<SimpleRepoRef | null>(null);
@@ -209,17 +220,120 @@ const App: React.FC = () => {
 
   // Gestion centralisée de la sélection d'un Blender :
   // - Si on est dans la page settings, bascule automatiquement sur home pour afficher la vue de l'app.
+  const pushAppEntry = (entry: NavEntry) => {
+    setAppHistory((prev) => {
+      const base = prev.slice(0, appIndex + 1);
+      const next = base.concat(entry);
+      return next;
+    });
+    setAppIndex((i) => i + 1);
+    // apply state
+    setPage(entry.page as any);
+    setSelectedRepo(entry.repo || null);
+    setSelectedBlender(entry.blender || null);
+    if (entry.page === 'web') setWebUrl(entry.webUrl || '');
+  };
+
+  const restoreAppEntry = (index: number) => {
+    const entry = appHistory[index];
+    if (!entry) return;
+    setAppIndex(index);
+    setPage(entry.page as any);
+    setSelectedRepo(entry.repo || null);
+    setSelectedBlender(entry.blender || null);
+    if (entry.page === 'web') setWebUrl(entry.webUrl || ''); else setWebUrl('');
+  };
+
   const handleSelectBlender = (b: BlenderExe | null) => {
     setSelectedRepo(null);
     setSelectedBlender(b);
-    if (b && page === 'settings') setPage('home');
+    if (b && page === 'settings') {
+      pushAppEntry({ page: 'home', blender: b });
+    }
   };
 
   // Clic sur Home : on revient sur page d'accueil réelle (donc on efface la sélection)
   const handleHome = () => {
     setSelectedBlender(null);
     setSelectedRepo(null);
-    setPage('home');
+    pushAppEntry({ page: 'home' });
+  };
+
+  // Web navigation helpers
+  const openWeb = (url: string) => {
+    if (!url) return;
+    // push app entry and open web
+    pushAppEntry({ page: 'web', webUrl: url });
+    // webUrl will be set by pushAppEntry
+    setWebHistory((prev) => {
+      const base = prev.slice(0, webIndex + 1);
+      const next = base.concat(url);
+      setWebIndex(next.length - 1);
+      return next;
+    });
+  };
+  const canGoBack = webCanGo.back || webIndex > 0;
+  const canGoForward = webCanGo.forward || (webIndex >= 0 && webIndex < webHistory.length - 1);
+  const goBack = () => {
+    if (!canGoBack) return;
+    setPage('web');
+    // Prefer native webview navigation
+    if (webRef.current && typeof webRef.current.goBack === 'function') {
+      try { webRef.current.goBack(); } catch (e) { console.warn('[App] webRef.goBack failed', e); }
+      return;
+    }
+    // Fallback to app-level history navigation
+    if (webIndex > 0) {
+      const nextIndex = Math.max(0, webIndex - 1);
+      setWebIndex(nextIndex);
+      setWebUrl(webHistory[nextIndex]);
+    }
+    // Additional fallback: try webview.executeJavaScript('history.back()')
+    try {
+      const w = document.querySelector('webview');
+      // @ts-ignore
+      if (w && typeof w.executeJavaScript === 'function') {
+        // run in page context
+        // @ts-ignore
+        w.executeJavaScript('history.back();');
+        return;
+      }
+    } catch (e) { console.warn('[App] executeJavaScript fallback failed', e); }
+  };
+  const goForward = () => {
+    if (!canGoForward) return;
+    setPage('web');
+    if (webRef.current && typeof webRef.current.goForward === 'function') {
+      try { webRef.current.goForward(); } catch (e) { console.warn('[App] webRef.goForward failed', e); }
+      return;
+    }
+    if (webIndex >= 0 && webIndex < webHistory.length - 1) {
+      const nextIndex = Math.min(webHistory.length - 1, webIndex + 1);
+      setWebIndex(nextIndex);
+      setWebUrl(webHistory[nextIndex]);
+    }
+    try {
+      const w = document.querySelector('webview');
+      // @ts-ignore
+      if (w && typeof w.executeJavaScript === 'function') {
+        // @ts-ignore
+        w.executeJavaScript('history.forward();');
+        return;
+      }
+    } catch (e) { console.warn('[App] executeJavaScript forward fallback failed', e); }
+  };
+  const webHome = () => {
+    // push app-level entry for web home
+    pushAppEntry({ page: 'web', webUrl: DEFAULT_WEB_HOME });
+    setWebHistory([DEFAULT_WEB_HOME]);
+    setWebIndex(0);
+    setWebReloadKey(k=>k+1);
+  };
+  const clearWebHistory = () => {
+    if (!webUrl) { setWebReloadKey(k=>k+1); return; }
+    setWebHistory([webUrl]);
+    setWebIndex(0);
+    setWebReloadKey(k=>k+1);
   };
 
   if (isBootLoading) {
@@ -238,7 +352,15 @@ const App: React.FC = () => {
       alignItems: 'stretch',
       overflow: 'hidden',
     }}>
-  <Navbar onHome={handleHome} onSettings={() => setPage('settings')} onSelectRepo={(r)=> { setSelectedRepo(r); setSelectedBlender(null); setPage('home'); }} />
+  <Navbar
+    onHome={handleHome}
+    onSettings={() => pushAppEntry({ page: 'settings' })}
+    onSelectRepo={(r)=> { setSelectedRepo(r); setSelectedBlender(null); pushAppEntry({ page: 'repo', repo: r }); }}
+    canGoBack={appIndex > 0}
+    canGoForward={appIndex < appHistory.length - 1}
+    onBack={() => { if (appIndex > 0) restoreAppEntry(appIndex - 1); }}
+    onForward={() => { if (appIndex < appHistory.length - 1) restoreAppEntry(appIndex + 1); }}
+  />
       {toast && (
         <div style={{
           position: 'fixed',
@@ -276,7 +398,35 @@ const App: React.FC = () => {
             )
             : selectedRepo
             ? <ViewRepo repo={selectedRepo} onBack={()=> setSelectedRepo(null)} />
-            : <Home selectedBlender={selectedBlender} onLaunch={(b) => setLastLaunched(b)} />}
+            : page === 'web'
+            ? (
+              <div style={{ flex: 1, display: 'flex', minWidth: 0, minHeight: 0 }}>
+                {webUrl ? (
+                  <InAppWeb
+                    ref={webRef}
+                    url={webUrl}
+                    reloadKey={webReloadKey}
+                    onNavigated={(u) => {
+                      if (!u) return;
+                      setWebUrl(u);
+                      // sync app-level history: if different from last, append
+                      setWebHistory((prev) => {
+                        const last = prev[webIndex];
+                        if (last === u) return prev;
+                        const base = prev.slice(0, webIndex + 1);
+                        const next = base.concat(u);
+                        setWebIndex(next.length - 1);
+                        return next;
+                      });
+                    }}
+                    onCanGo={(state) => setWebCanGo({ back: !!state.canGoBack, forward: !!state.canGoForward })}
+                  />
+                ) : (
+                  <div style={{ color: '#94a3b8', padding: 24 }}>Aucune page</div>
+                )}
+              </div>
+            )
+            : <Home selectedBlender={selectedBlender} onLaunch={(b) => setLastLaunched(b)} onOpenLink={openWeb} />}
         </div>
       </div>
       {/* Bottom render progress bar */}

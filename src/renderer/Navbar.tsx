@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { FiHome, FiDownload, FiSettings, FiMinus, FiMaximize2, FiX, FiGithub, FiFolder } from 'react-icons/fi';
+import { FiHome, FiDownload, FiSettings, FiMinus, FiMaximize2, FiX, FiGithub, FiFolder, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
 
 const iconBtnStyle: React.CSSProperties = {
@@ -158,9 +158,16 @@ type NavbarProps = {
   onHome?: () => void;
   onSettings?: () => void;
   onSelectRepo?: (repo:{ name:string; link:string }) => void;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  onBack?: () => void;
+  onForward?: () => void;
+  isOnWebPage?: boolean;
+  onWebHome?: () => void;
+  onClearWebHistory?: () => void;
 };
 
-const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo }) => {
+const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, canGoBack, canGoForward, onBack, onForward, isOnWebPage, onWebHome, onClearWebHistory }) => {
   const { t } = useTranslation();
   const navbarRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -224,6 +231,26 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo }) => 
           <button style={{ ...iconBtnStyle, width:38, height:38 }} title="Accueil" onClick={onHome}>
             <FiHome size={22} />
           </button>
+          {/* Back/Forward */}
+          <div style={{ display:'flex', gap:6 }} className="no-drag">
+            <button
+              style={{ ...iconBtnStyle, width:34, height:34, opacity: canGoBack ? 1 : 0.4 }}
+              title="Précédent"
+              disabled={!canGoBack}
+              onClick={() => { if (canGoBack && onBack) onBack(); }}
+            >
+              <FiChevronLeft size={18} />
+            </button>
+            <button
+              style={{ ...iconBtnStyle, width:34, height:34, opacity: canGoForward ? 1 : 0.4 }}
+              title="Suivant"
+              disabled={!canGoForward}
+              onClick={() => { if (canGoForward && onForward) onForward(); }}
+            >
+              <FiChevronRight size={18} />
+            </button>
+          </div>
+          {/* removed web quick controls per user request */}
         </div>
   <div style={{ position:'relative', flex:1, margin:'0 24px', minWidth:260, display:'flex', gap:8 }} className="no-drag">
           <input

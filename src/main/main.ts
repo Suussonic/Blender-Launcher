@@ -155,6 +155,7 @@ function createWindow() {
         preload: preloadPath,
         nodeIntegration: false,
         contextIsolation: true,
+        webviewTag: true,
       },
     });
   console.log('Fenetre BrowserWindow creee');
