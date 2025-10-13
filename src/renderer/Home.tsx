@@ -88,15 +88,17 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
             {[
               // Slide 1: YouTube Channel
               <div key="yt" style={{ ...cardBase, position: 'relative', overflow:'hidden' }} onClick={() => onOpenLink && onOpenLink('https://www.youtube.com/@BlenderOfficial')}>
-                <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(1200px 400px at 20% 20%, rgba(37,99,235,0.18), transparent)' }} />
+                <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/youtube.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
+                <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
                 <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
                   <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>Blender Official sur YouTube</div>
                   <div style={{ opacity: .9 }}>Tutoriels, annonces, nouveautés — apprends Blender avec la chaîne officielle.</div>
                 </div>
               </div>,
-              // Slide 2: Docs Manual
-              <div key="manual" style={{ ...cardBase, position: 'relative', overflow:'hidden' }} onClick={() => onOpenLink && onOpenLink('https://docs.blender.org/manual/en/latest/')}>
-                <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(1200px 400px at 80% 20%, rgba(16,185,129,0.18), transparent)' }} />
+              // Slide 2: Docs Manual (with background image)
+              <div key="manual" style={{ ...cardBase, position: 'relative', overflow:'hidden', padding:0, cursor: 'pointer' }} onClick={() => onOpenLink && onOpenLink('https://docs.blender.org/manual/en/latest/')}>
+                <div style={{ position: 'absolute', inset: 0, backgroundImage: "url('./public/vignette/docs.png')", backgroundSize: 'cover', backgroundPosition: 'center', transform: 'scale(1.02)' }} />
+                <div style={{ position: 'absolute', inset: 0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
                 <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
                   <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>Documentation Utilisateur</div>
                   <div style={{ opacity: .9 }}>Le manuel complet et à jour pour toutes les fonctionnalités de Blender.</div>
@@ -143,7 +145,11 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
         {/* Sections */}
         <Section title="Apprendre Blender">
           <Grid columns={3}>
-            {linkCard('Chaîne YouTube officielle', 'https://www.youtube.com/@BlenderOfficial', onOpenLink)}
+            <div onClick={() => onOpenLink && onOpenLink('https://www.youtube.com/@BlenderOfficial')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0 }}>
+              <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/youtube.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
+              <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
+              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>Chaîne YouTube officielle</div>
+            </div>
             {linkCard('Documentation Utilisateur', 'https://docs.blender.org/manual/en/latest/', onOpenLink)}
             {/* Demo card: background image with iPhone-like blur overlay and title */}
             <div onClick={() => onOpenLink && onOpenLink('https://www.blender.org/download/demo-files/')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0 }}>
