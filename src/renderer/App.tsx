@@ -18,8 +18,8 @@ type BlenderExe = {
 
 const App: React.FC = () => {
   const { t, i18n } = useTranslation();
-  const [page, setPage] = useState<'home' | 'settings' | 'web'>('home');
-  type NavEntry = { page: 'home'|'settings'|'web'|'repo'; webUrl?:string; repo?: SimpleRepoRef | null; blender?: BlenderExe | null };
+  const [page, setPage] = useState<'home' | 'settings' | 'web' | 'pages'>('home');
+  type NavEntry = { page: 'home'|'settings'|'web'|'repo'|'pages'; webUrl?:string; repo?: SimpleRepoRef | null; blender?: BlenderExe | null };
   const [appHistory, setAppHistory] = useState<NavEntry[]>([{ page: 'home' }]);
   const [appIndex, setAppIndex] = useState<number>(0);
   const [webUrl, setWebUrl] = useState<string>('');
@@ -246,10 +246,12 @@ const App: React.FC = () => {
 
   const handleSelectBlender = (b: BlenderExe | null) => {
     setSelectedRepo(null);
-    setSelectedBlender(b);
-    if (b && page === 'settings') {
-      pushAppEntry({ page: 'home', blender: b });
+    if (!b) {
+      setSelectedBlender(null);
+      return;
     }
+    // On single click, navigate to the ViewPages for this blender
+    pushAppEntry({ page: 'pages', blender: b });
   };
 
   // Clic sur Home : on revient sur page d'accueil réelle (donc on efface la sélection)
@@ -426,6 +428,8 @@ const App: React.FC = () => {
                 )}
               </div>
             )
+            : page === 'pages' && selectedBlender
+            ? <ViewPages selectedBlender={selectedBlender} onLaunch={(b) => setLastLaunched(b)} />
             : <Home selectedBlender={selectedBlender} onLaunch={(b) => setLastLaunched(b)} onOpenLink={openWeb} />}
         </div>
       </div>

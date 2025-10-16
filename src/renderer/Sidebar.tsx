@@ -22,6 +22,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
   const longPressTimer = useRef<number | null>(null);
   const draggingIndexRef = useRef<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const pendingRaf = useRef<number | null>(null);
+  const lastClientY = useRef<number | null>(null);
 
   // Charge la liste depuis config.json au montage
   useEffect(() => {
@@ -174,80 +176,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
           blenders.map((b, i) => (
             <div
               key={b.path + i}
-              onPointerDown={(ev) => {
-                // start long-press timer to initiate drag
-                ev.currentTarget.setPointerCapture(ev.pointerId);
-                console.log('[Sidebar] pointerdown on item', i, 'type=', ev.pointerType);
-                setPressedIndex(i);
-                // clear any existing
-                if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
-                // If mouse, start dragging immediately; otherwise use long-press for touch/stylus
-                if (ev.pointerType === 'mouse') {
-                  draggingIndexRef.current = i;
-                  setIsDragging(true);
-                  console.log('[Sidebar] drag started immediately (mouse) index', i);
-                } else {
-                  longPressTimer.current = window.setTimeout(() => {
-                    draggingIndexRef.current = i;
-                    setIsDragging(true);
-                    console.log('[Sidebar] drag started after long-press index', i);
-                  }, 260) as unknown as number;
-                }
-              }}
-              onPointerMove={(ev) => {
-                ev.preventDefault();
-                // if not dragging yet, ignore moves
-                if (!isDragging) return;
-                try {
-                  const container = containerRef.current;
-                  if (!container) return;
-                  const children = Array.from(container.children) as HTMLElement[];
-                  const y = ev.clientY;
-                  let targetIdx = children.length - 1;
-                  for (let idx = 0; idx < children.length; idx++) {
-                    const r = children[idx].getBoundingClientRect();
-                    const mid = r.top + r.height / 2;
-                    if (y < mid) { targetIdx = idx; break; }
-                  }
-                  const fromIdx = draggingIndexRef.current;
-                  if (fromIdx == null) return;
-                  if (fromIdx === targetIdx) return;
-                  const copy = blenders.slice();
-                  const [moved] = copy.splice(fromIdx, 1);
-                  copy.splice(targetIdx, 0, moved);
-                  // update refs and state
-                  draggingIndexRef.current = targetIdx;
-                  console.log('[Sidebar] pointermove: from', fromIdx, 'to', targetIdx);
-                  setBlenders(copy);
-                } catch (e) { console.error('pointer drag error', e); }
-              }}
-              onPointerUp={(ev) => {
-                try {
-                  const target = ev.currentTarget as HTMLElement;
-                  try { target.releasePointerCapture(ev.pointerId); } catch {}
-                } catch {}
-                // clear timer
-                if (longPressTimer.current) { window.clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-                if (isDragging) {
-                  // finalize reorder
-                  setIsDragging(false);
-                  const paths = blenders.map(x => x.path);
-                  try { window.electronAPI?.invoke('reorder-blenders', paths); console.log('[Sidebar] reorder invoked', paths); } catch (e) { console.error('reorder-blenders ipc failed', e); }
-                  draggingIndexRef.current = null;
-                }
-                setPressedIndex(null);
-              }}
-              onPointerCancel={() => {
-                if (longPressTimer.current) { window.clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-                draggingIndexRef.current = null;
-                setIsDragging(false);
-                setPressedIndex(null);
-              }}
               style={{
                 padding: '8px 18px 8px 8px',
                 borderRadius: 8,
                 cursor: 'pointer',
-                transition: 'background 0.15s, transform 0.12s',
+                transition: 'background 0.15s, transform 0.18s cubic-bezier(.2,.9,.2,1), box-shadow 0.12s',
+                willChange: 'transform',
                 transform: pressedIndex === i || (isDragging && draggingIndexRef.current === i) ? 'translateY(-6px) scale(1.02)' : undefined,
                 boxShadow: pressedIndex === i || (isDragging && draggingIndexRef.current === i) ? '0 8px 18px rgba(0,0,0,0.45)' : undefined,
                 color: '#fff',
@@ -271,6 +205,111 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
                 draggable={false}
               />
               {b.title || b.name}
+
+              {/* Drag handle: six small dots on the right — pointer handlers live here */}
+              <div
+                onPointerDown={(ev) => {
+                  ev.stopPropagation();
+                  (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
+                  console.log('[Sidebar] pointerdown on handle', i, 'type=', ev.pointerType);
+                  setPressedIndex(i);
+                  if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
+                  if (ev.pointerType === 'mouse') {
+                    draggingIndexRef.current = i;
+                    setIsDragging(true);
+                    console.log('[Sidebar] drag started immediately (mouse) index', i);
+                  } else {
+                    longPressTimer.current = window.setTimeout(() => {
+                      draggingIndexRef.current = i;
+                      setIsDragging(true);
+                      console.log('[Sidebar] drag started after long-press index', i);
+                    }, 260) as unknown as number;
+                  }
+                }}
+                onPointerMove={(ev) => {
+                  ev.preventDefault();
+                  // store latest Y and schedule a rAF to process
+                  lastClientY.current = ev.clientY;
+                  if (!isDragging) return;
+                  if (pendingRaf.current) return;
+                  pendingRaf.current = window.requestAnimationFrame(() => {
+                    try {
+                      const y = lastClientY.current;
+                      const container = containerRef.current;
+                      if (!container || y == null) { pendingRaf.current = null; return; }
+                      const children = Array.from(container.children) as HTMLElement[];
+                      let targetIdx = children.length - 1;
+                      for (let idx = 0; idx < children.length; idx++) {
+                        const r = children[idx].getBoundingClientRect();
+                        const mid = r.top + r.height / 2;
+                        if (y < mid) { targetIdx = idx; break; }
+                      }
+                      const fromIdx = draggingIndexRef.current;
+                      if (fromIdx == null) { pendingRaf.current = null; return; }
+                      if (fromIdx === targetIdx) { pendingRaf.current = null; return; }
+                      const copy = blenders.slice();
+                      const [moved] = copy.splice(fromIdx, 1);
+                      copy.splice(targetIdx, 0, moved);
+                      draggingIndexRef.current = targetIdx;
+                      // batch update
+                      setBlenders(copy);
+                      console.log('[Sidebar] pointermove (raf): from', fromIdx, 'to', targetIdx);
+                    } catch (e) { console.error('pointer drag rAF error', e); }
+                    pendingRaf.current = null;
+                  });
+                }}
+                onPointerUp={(ev) => {
+                  ev.stopPropagation();
+                  try { (ev.currentTarget as HTMLElement).releasePointerCapture(ev.pointerId); } catch {}
+                  if (longPressTimer.current) { window.clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+                  if (isDragging) {
+                    setIsDragging(false);
+                    const paths = blenders.map(x => x.path);
+                    try { window.electronAPI?.invoke('reorder-blenders', paths); console.log('[Sidebar] reorder invoked', paths); } catch (e) { console.error('reorder-blenders ipc failed', e); }
+                    draggingIndexRef.current = null;
+                  }
+                  setPressedIndex(null);
+                }}
+                onPointerCancel={(ev) => {
+                  ev.stopPropagation();
+                  if (longPressTimer.current) { window.clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+                  draggingIndexRef.current = null;
+                  setIsDragging(false);
+                  setPressedIndex(null);
+                }}
+                style={{
+                  marginLeft: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                  width: 28,
+                  height: 40,
+                  paddingRight: 4,
+                  boxSizing: 'border-box',
+                  cursor: draggingIndexRef.current === i && isDragging ? 'grabbing' : 'grab',
+                  userSelect: 'none'
+                }}
+              >
+                {(() => {
+                  const active = (pressedIndex === i) || (isDragging && draggingIndexRef.current === i);
+                  const fill = active ? '#ffffff' : '#94a3b8';
+                  const opacity = active ? 1 : 0.95;
+                  return (
+                    <svg width="16" height="24" viewBox="0 0 16 24" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }} aria-hidden>
+                      <g fill={fill} opacity={opacity}>
+                        <circle cx="4" cy="4" r="1.6" />
+                        <circle cx="12" cy="4" r="1.6" />
+                        <circle cx="4" cy="12" r="1.6" />
+                        <circle cx="12" cy="12" r="1.6" />
+                        <circle cx="4" cy="20" r="1.6" />
+                        <circle cx="12" cy="20" r="1.6" />
+                      </g>
+                    </svg>
+                  );
+                })()}
+              </div>
             </div>
           ))
         )}
