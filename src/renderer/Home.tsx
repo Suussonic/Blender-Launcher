@@ -97,7 +97,7 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
               </div>,
               // Slide 2: Docs Manual (with background image)
               <div key="manual" style={{ ...cardBase, position: 'relative', overflow:'hidden', padding:0, cursor: 'pointer' }} onClick={() => onOpenLink && onOpenLink('https://docs.blender.org/manual/en/latest/')}>
-                <div style={{ position: 'absolute', inset: 0, backgroundImage: "url('./public/vignette/docs.png')", backgroundSize: 'cover', backgroundPosition: 'center', transform: 'scale(1.02)' }} />
+                <div style={{ position: 'absolute', inset: 0, backgroundImage: "url('./public/vignette/documentation.png')", backgroundSize: 'cover', backgroundPosition: 'center', transform: 'scale(1.02)' }} />
                 <div style={{ position: 'absolute', inset: 0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
                 <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
                   <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>Documentation Utilisateur</div>
@@ -150,7 +150,11 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
               <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
               <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>Chaîne YouTube officielle</div>
             </div>
-            {linkCard('Documentation Utilisateur', 'https://docs.blender.org/manual/en/latest/', onOpenLink)}
+            <div onClick={() => onOpenLink && onOpenLink('https://docs.blender.org/manual/en/latest/')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0 }}>
+              <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/documentation.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
+              <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
+              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>Documentation Utilisateur</div>
+            </div>
             {/* Demo card: background image with iPhone-like blur overlay and title */}
             <div onClick={() => onOpenLink && onOpenLink('https://www.blender.org/download/demo-files/')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0 }}>
               {/* background image */}
@@ -173,7 +177,11 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
           <Grid columns={3}>
             {linkCard('API Python', 'https://docs.blender.org/api/current/', onOpenLink)}
             {linkCard('Portail Développeurs', 'https://developer.blender.org/docs/', onOpenLink)}
-            {linkCard('Contribuer au code source', 'https://developer.blender.org', onOpenLink)}
+            <div onClick={() => onOpenLink && onOpenLink('https://developer.blender.org')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0 }}>
+              <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/makeblender.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
+              <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
+              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>Contribuer au code source</div>
+            </div>
           </Grid>
         </Section>
 
