@@ -86,16 +86,8 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
         <div style={{ width: '100%', touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}>
           <Carousel ref={carouselRef} height={'42vh'} autoplayDelay={3200} loop aspectRatio={16/9}>
             {[
-              // Slide 1: YouTube Channel
-              <div key="yt" style={{ ...cardBase, position: 'relative', overflow:'hidden' }} onClick={() => onOpenLink && onOpenLink('https://www.youtube.com/@BlenderOfficial')}>
-                <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/youtube.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
-                <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
-                <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>Blender Official sur YouTube</div>
-                  <div style={{ opacity: .9 }}>Tutoriels, annonces, nouveautés — apprends Blender avec la chaîne officielle.</div>
-                </div>
-              </div>,
-              // Slide 2: Docs Manual (with background image)
+              // (YouTube slide removed)
+              // Slide: Documentation (also keep in grid below)
               <div key="manual" style={{ ...cardBase, position: 'relative', overflow:'hidden', padding:0, cursor: 'pointer' }} onClick={() => onOpenLink && onOpenLink('https://docs.blender.org/manual/en/latest/')}>
                 <div style={{ position: 'absolute', inset: 0, backgroundImage: "url('./public/vignette/documentation.png')", backgroundSize: 'cover', backgroundPosition: 'center', transform: 'scale(1.02)' }} />
                 <div style={{ position: 'absolute', inset: 0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
@@ -104,6 +96,26 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
                   <div style={{ opacity: .9 }}>Le manuel complet et à jour pour toutes les fonctionnalités de Blender.</div>
                 </div>
               </div>,
+              // Slide: YouTube Channel
+              <div key="yt" style={{ ...cardBase, position: 'relative', overflow:'hidden' }} onClick={() => onOpenLink && onOpenLink('https://www.youtube.com/@BlenderOfficial')}>
+                <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/youtube.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
+                <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
+                <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>Blender Official sur YouTube</div>
+                  <div style={{ opacity: .9 }}>Tutoriels, annonces, nouveautés — apprends Blender avec la chaîne officielle.</div>
+                </div>
+              </div>,
+
+              // Slide: Contribute
+              <div key="contrib" style={{ ...cardBase, position: 'relative', overflow:'hidden' }} onClick={() => onOpenLink && onOpenLink('https://developer.blender.org')}>
+                <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/makeblender.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
+                <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
+                <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>Contribuer au code source</div>
+                  <div style={{ opacity: .9 }}>Guides, rapports et contributions pour développer Blender.</div>
+                </div>
+              </div>,
+
               // Slide 3: API Python
               <div key="api" style={{ ...cardBase, position: 'relative', overflow:'hidden' }} onClick={() => onOpenLink && onOpenLink('https://docs.blender.org/api/current/')}>
                 <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(1200px 400px at 50% 10%, rgba(234,179,8,0.18), transparent)' }} />
@@ -185,13 +197,7 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
           </Grid>
         </Section>
 
-        <Section title="Guides rapides">
-          <Grid columns={3}>
-            {linkCard('Interface & Navigation', 'https://docs.blender.org/manual/en/latest/interface/index.html', onOpenLink)}
-            {linkCard('Modeling', 'https://docs.blender.org/manual/en/latest/modeling/index.html', onOpenLink)}
-            {linkCard('Rendering', 'https://docs.blender.org/manual/en/latest/render/index.html', onOpenLink)}
-          </Grid>
-        </Section>
+        {/* Guides rapides section removed */}
       </div>
     </div>
   );

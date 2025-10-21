@@ -44,19 +44,8 @@ const Carousel = forwardRef<CarouselHandle, Props>(({ children, height = '33vh',
     slidesToRender = out.slice(0, Math.max(slidesPerView, slidesToRender.length));
   }
 
-  // If loop is enabled, ensure the first slide also appears at the end so when
-  // you swipe to the right (looping) the first slide is visible on the right side.
-  // Swiper creates clones for looping, but for small/slightly-custom setups it's
-  // helpful to explicitly append a copy of the first slide content.
-  if (loop && slidesToRender.length > 0) {
-    // append a shallow clone (React node reuse is fine here) of the first slide
-    // only if the last rendered slide is not already the same node reference
-    const first = slidesToRender[0];
-    const last = slidesToRender[slidesToRender.length - 1];
-    if (first !== last) {
-      slidesToRender = [...slidesToRender, first];
-    }
-  }
+  // Note: Swiper handles loop cloning internally. Avoid manually appending the
+  // first slide to prevent visible duplicates when loop is enabled.
 
   return (
     <div style={{ width: '100%', height: typeof height === 'number' ? `${height}px` : height }}>
