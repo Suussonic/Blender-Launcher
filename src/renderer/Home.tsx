@@ -125,9 +125,10 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
                   <div style={{ opacity: .9 }}>Référence officielle pour les scripts et addons Blender.</div>
                 </div>
               </div>,
-              // Slide 4: Dev Portal
+              // Slide 4: Dev Portal (uses provided vignette)
               <div key="dev" style={{ ...cardBase, position: 'relative', overflow:'hidden' }} onClick={() => onOpenLink && onOpenLink('https://developer.blender.org/docs/')}>
-                <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(1200px 400px at 20% 80%, rgba(99,102,241,0.18), transparent)' }} />
+                <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/portaildev.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
+                <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
                 <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
                   <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>Portail Développeurs</div>
                   <div style={{ opacity: .9 }}>Guides techniques, contributions et architecture de Blender.</div>
@@ -193,7 +194,11 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
               <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
               <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>API Python</div>
             </div>
-            {linkCard('Portail Développeurs', 'https://developer.blender.org/docs/', onOpenLink)}
+            <div onClick={() => onOpenLink && onOpenLink('https://developer.blender.org/docs/')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0 }}>
+              <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/portaildev.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
+              <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
+              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>Portail Développeurs</div>
+            </div>
             <div onClick={() => onOpenLink && onOpenLink('https://developer.blender.org')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0 }}>
               <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/makeblender.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
               <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
