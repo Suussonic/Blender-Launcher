@@ -371,6 +371,9 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                   setDisplayFiles={setDisplayFiles}
                   setRenderForFile={setRenderForFile}
                   setOpenWithFile={setOpenWithFile}
+                  onOpenRecent={openRecent}
+                  onRevealRecent={revealRecent}
+                  onRemoveRecent={removeRecentPersistent}
                 />
               </div>
             </>

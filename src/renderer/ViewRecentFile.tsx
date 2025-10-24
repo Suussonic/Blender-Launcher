@@ -10,41 +10,31 @@ type Props = {
   setDisplayFiles: (files: RecentBlendFile[]) => void;
   setRenderForFile: (p: string | null) => void;
   setOpenWithFile: (p: string | null) => void;
+  // handlers passed from parent to centralize IPC and state changes
+  onOpenRecent?: (p: string) => void;
+  onRevealRecent?: (p: string) => void;
+  onRemoveRecent?: (p: string) => Promise<void> | void;
 };
 
-const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recentError, recentFiles, displayFiles, setDisplayFiles, setRenderForFile, setOpenWithFile }) => {
+const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recentError, recentFiles, displayFiles, setDisplayFiles, setRenderForFile, setOpenWithFile, onOpenRecent, onRevealRecent, onRemoveRecent }) => {
 
+  // Use handlers passed from parent when available to centralize IPC/state
   const openRecent = (filePath: string) => {
-    if (!selectedBlender || !window.electronAPI) return;
-    if ((window.electronAPI as any).send) {
-      (window.electronAPI as any).send('open-blend-file', { exePath: selectedBlender.path, blendPath: filePath });
-    }
+    if (typeof onOpenRecent === 'function') return onOpenRecent(filePath);
+    // fallback: no-op
   };
 
   const revealRecent = (filePath: string) => {
-    if ((window as any).electronAPI?.send) {
-      (window as any).electronAPI.send('reveal-in-folder', { path: filePath });
-    }
+    if (typeof onRevealRecent === 'function') return onRevealRecent(filePath);
   };
 
-  const removeRecentPersistent = async (filePath: string) => {
-    // optimistic UI update - build a new array from current recentFiles
+  const removeRecentPersistent = (filePath: string) => {
+    if (typeof onRemoveRecent === 'function') return onRemoveRecent(filePath);
+    // fallback: optimistic UI update only
     try {
       const updated = recentFiles.filter((f: RecentBlendFile) => f.path !== filePath);
       setDisplayFiles(updated);
     } catch {}
-    if (!selectedBlender || !window.electronAPI?.invoke) return;
-    try {
-      const res = await window.electronAPI.invoke('remove-recent-blend-file', { exePath: selectedBlender.path, blendPath: filePath });
-      if (!res?.success) {
-        try {
-          const reload = await window.electronAPI.invoke('get-recent-blend-files', { exePath: selectedBlender.path });
-          if (reload && reload.files) {
-            setDisplayFiles(reload.files);
-          }
-        } catch {}
-      }
-    } catch (e) { console.error('removeRecentPersistent error', e); }
   };
 
   if (recentLoading) {
