@@ -135,7 +135,7 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo }) => {
 
   return (
     <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#0F1419', height:'100%' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:28, padding:'20px 32px 0 32px', background:'#0F1419', boxShadow:'0 4px 8px -4px rgba(0,0,0,0.55)' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:28, padding:'20px 32px 0 32px', background:'#0F1419' }}>
         {meta && <img src={meta.owner.avatar_url} alt="avatar" style={{ width:84, height:84, borderRadius:'50%', flexShrink:0, boxShadow:'0 0 0 2px #1e242a' }} />}
         <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:6 }}>
           <h1 style={{ fontSize:34, fontWeight:700, margin:0, color:'#fff', wordBreak:'break-word' }}>{ meta?.full_name || repo.link.split('/').slice(-2).join('/') }</h1>
