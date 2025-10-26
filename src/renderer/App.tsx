@@ -32,6 +32,14 @@ const App: React.FC = () => {
   const [selectedBlender, setSelectedBlender] = useState<BlenderExe | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'info' | 'error'; } | null>(null);
   const [selectedRepo, setSelectedRepo] = useState<SimpleRepoRef | null>(null);
+  
+  // Clone progress state
+  const [cloneState, setCloneState] = useState<{ 
+    isCloning: boolean; 
+    progress: number; 
+    text: string; 
+    repoName?: string; 
+  } | null>(null);
 
   console.log('[App] Rendu - page:', page, 'selectedBlender:', selectedBlender);
 
@@ -399,7 +407,7 @@ const App: React.FC = () => {
               />
             )
             : selectedRepo
-            ? <ViewRepo repo={selectedRepo} onBack={()=> setSelectedRepo(null)} />
+            ? <ViewRepo repo={selectedRepo} onBack={()=> setSelectedRepo(null)} onCloneStateChange={setCloneState} />
             : page === 'web'
             ? (
               <div style={{ flex: 1, display: 'flex', minWidth: 0, minHeight: 0 }}>
@@ -433,6 +441,24 @@ const App: React.FC = () => {
             : <Home selectedBlender={selectedBlender} onLaunch={(b) => setLastLaunched(b)} onOpenLink={openWeb} />}
         </div>
       </div>
+      {/* Bottom clone progress bar */}
+      {cloneState && (
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '8px 14px', background: '#0b1016', borderTop: '1px solid #1f2937', zIndex: 4000 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: 1, height: 8, background: '#1f2937', borderRadius: 6, overflow: 'hidden' }}>
+              <div style={{ width: `${Math.min(100, cloneState.progress)}%`, height: '100%', background: '#3b82f6', transition: 'width .25s ease' }} />
+            </div>
+            <div style={{ color: '#cbd5e1', fontSize: 12, minWidth: 120, textAlign: 'right' }}>
+              {cloneState.text}
+            </div>
+          </div>
+          {cloneState.repoName && (
+            <div style={{ marginTop: 4, color: '#94a3b8', fontSize: 11, textAlign: 'left' }}>
+              Clonage de {cloneState.repoName}
+            </div>
+          )}
+        </div>
+      )}
       {/* Bottom render progress bar */}
       {renderState && (
         <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '8px 14px', background: '#0b1016', borderTop: '1px solid #1f2937', zIndex: 4000 }}>

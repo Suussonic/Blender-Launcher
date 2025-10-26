@@ -2,13 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { marked } from 'marked';
 import './markdown.css';
 import { loadRepoCache, saveRepoCache, needsMeta, needsReadme, needsLicense, needsExtra } from './githubCache';
+import ViewClone from './ViewClone';
 
 export interface SimpleRepoRef { name: string; link: string; }
-interface ViewRepoProps { repo: SimpleRepoRef; onBack?: () => void; }
+interface ViewRepoProps { 
+  repo: SimpleRepoRef; 
+  onBack?: () => void; 
+  onCloneStateChange?: (state: { isCloning: boolean; progress: number; text: string; repoName?: string; } | null) => void;
+}
 
 interface RepoMeta { full_name:string; description:string; owner:{ avatar_url:string; login:string }; stargazers_count:number; forks_count:number; html_url:string; watchers_count?:number; subscribers_count?:number; }
 
-const ViewRepo: React.FC<ViewRepoProps> = ({ repo }) => {
+const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
   const [meta, setMeta] = useState<RepoMeta | null>(null);
   const [readmeHtml, setReadmeHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -16,6 +21,7 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo }) => {
   const [licenseHtml, setLicenseHtml] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'readme' | 'license'>('readme');
   const [extraStats, setExtraStats] = useState<{ branches:number; commits:number; tags:number } | null>(null);
+  const [showCloneModal, setShowCloneModal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,6 +155,33 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo }) => {
               {extraStats && <span>Commits ~{extraStats.commits}</span>}
               {extraStats && <span>Tags {extraStats.tags}</span>}
               <a href={meta.html_url} style={{ color:'#38bdf8', textDecoration:'none' }} onMouseOver={e=>e.currentTarget.style.textDecoration='underline'} onMouseOut={e=>e.currentTarget.style.textDecoration='none'}>GitHub</a>
+              <button
+                onClick={() => setShowCloneModal(true)}
+                style={{
+                  background: '#16a34a',
+                  border: 'none',
+                  color: '#fff',
+                  padding: '6px 12px',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  transition: 'background 0.15s'
+                }}
+                onMouseOver={e => e.currentTarget.style.background = '#15803d'}
+                onMouseOut={e => e.currentTarget.style.background = '#16a34a'}
+                title="Cloner ce dépôt"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Installer
+              </button>
               <div style={{ display:'flex', marginLeft:'auto', gap:0, border:'1px solid #2f3740', borderRadius:8, overflow:'hidden', background:'#161c22' }}>
                 {['readme','license'].map(tab=> (
                   <button key={tab} onClick={()=> setActiveTab(tab as any)}
@@ -186,6 +219,16 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo }) => {
           <div style={{ maxWidth:900, fontSize:13 }} dangerouslySetInnerHTML={{ __html: licenseHtml || '<em>Aucune licence trouvée.</em>' }} />
         )}
       </div>
+      
+      {/* Clone Modal */}
+      <ViewClone
+        isOpen={showCloneModal}
+        onClose={() => setShowCloneModal(false)}
+        repoName={meta?.full_name?.split('/')[1] || repo.link.split('/').slice(-1)[0]}
+        repoUrl={repo.link}
+        owner={meta?.owner?.login || repo.link.split('/').slice(-2)[0]}
+        onCloneStateChange={onCloneStateChange}
+      />
     </div>
   );
 };

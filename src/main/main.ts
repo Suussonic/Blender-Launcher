@@ -923,6 +923,97 @@ app.whenReady().then(() => {
       return { success: false, reason: 'exception', error: String(e) };
     }
   });
+
+  // Clone repository handler
+  ipcMain.handle('clone-repository', async (event, payload) => {
+    console.log('[clone-repository] Début du clonage avec payload:', payload);
+    
+    try {
+      const { url, branch, targetPath, folderName } = payload;
+      
+      if (!url || !targetPath || !folderName) {
+        console.log('[clone-repository] Paramètres manquants');
+        return { success: false, error: 'Paramètres manquants pour le clonage' };
+      }
+
+      const { spawn } = require('child_process');
+      const targetFullPath = path.join(targetPath, folderName);
+      console.log('[clone-repository] Chemin cible:', targetFullPath);
+
+      // Vérifier si le dossier existe déjà
+      if (fs.existsSync(targetFullPath)) {
+        console.log('[clone-repository] Le dossier existe déjà');
+        return { success: false, error: `Le dossier "${folderName}" existe déjà dans ce répertoire` };
+      }
+
+      return new Promise((resolve) => {
+        const gitArgs = ['clone'];
+        if (branch && branch !== 'main' && branch !== 'master') {
+          gitArgs.push('-b', branch);
+        }
+        gitArgs.push(url, targetFullPath);
+        
+        console.log('[clone-repository] Commande git:', 'git', gitArgs.join(' '));
+
+        const gitProcess = spawn('git', gitArgs, {
+          stdio: ['pipe', 'pipe', 'pipe'],
+          env: process.env
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        gitProcess.stdout?.on('data', (data: any) => {
+          const output = data.toString();
+          stdout += output;
+          console.log('[git stdout]', output.trim());
+        });
+
+        gitProcess.stderr?.on('data', (data: any) => {
+          const output = data.toString();
+          stderr += output;
+          console.log('[git stderr]', output.trim());
+        });
+
+        gitProcess.on('close', (code: any) => {
+          console.log('[clone-repository] Git process fermé avec code:', code);
+          console.log('[clone-repository] stdout complet:', stdout);
+          console.log('[clone-repository] stderr complet:', stderr);
+          
+          if (code === 0) {
+            console.log('[clone-repository] Clonage réussi');
+            resolve({ success: true, path: targetFullPath });
+          } else {
+            const errorMsg = stderr || stdout || `Git a quitté avec le code ${code}`;
+            console.log('[clone-repository] Erreur:', errorMsg);
+            resolve({ 
+              success: false, 
+              error: errorMsg
+            });
+          }
+        });
+
+        gitProcess.on('error', (err: any) => {
+          console.error('[clone-repository] Erreur du processus git:', err);
+          resolve({ 
+            success: false, 
+            error: `Impossible d'exécuter git: ${err.message}. Vérifiez que Git est installé.` 
+          });
+        });
+
+        // Timeout de 5 minutes
+        setTimeout(() => {
+          console.log('[clone-repository] Timeout atteint');
+          gitProcess.kill();
+          resolve({ success: false, error: 'Timeout: le clonage a pris trop de temps (5 minutes)' });
+        }, 5 * 60 * 1000);
+      });
+    } catch (error) {
+      console.error('[clone-repository] Exception:', error);
+      return { success: false, error: `Erreur: ${error}` };
+    }
+  });
+
 });
 
 
