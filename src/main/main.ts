@@ -947,12 +947,12 @@ app.whenReady().then(() => {
       }
 
       return new Promise((resolve) => {
-        const gitArgs = ['clone'];
+        const gitArgs = ['clone', '--progress'];
         if (branch && branch !== 'main' && branch !== 'master') {
           gitArgs.push('-b', branch);
         }
         gitArgs.push(url, targetFullPath);
-        
+
         console.log('[clone-repository] Commande git:', 'git', gitArgs.join(' '));
 
         const gitProcess = spawn('git', gitArgs, {
@@ -962,51 +962,123 @@ app.whenReady().then(() => {
 
         let stdout = '';
         let stderr = '';
+        let progressPercent = 0;
+
+        const sendProgress = (p: number, text: string) => {
+          // ensure monotonic progress unless resetting on error
+          if (p < progressPercent) return;
+          progressPercent = Math.min(100, Math.round(p));
+          try {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('clone-progress', { progress: progressPercent, text });
+            }
+          } catch (e) { console.warn('[clone-repository] Envoi clone-progress failed', e); }
+        };
 
         gitProcess.stdout?.on('data', (data: any) => {
           const output = data.toString();
           stdout += output;
           console.log('[git stdout]', output.trim());
+
+          // Normalize remote: prefixes and collapse whitespace
+          const normalized = output.replace(/\r/g, '\n').replace(/remote:\s*/gi, '').trim();
+
+          // Prefer explicit phase patterns
+          const phasePatterns: Array<[RegExp, (pct: number)=>number, string]> = [
+            [/Counting objects:\s*(\d+)%/i, (p)=>Math.round(p*0.05), 'Comptage des objets'],
+            [/Compressing objects:\s*(\d+)%/i, (p)=>Math.round(5 + p*0.2), 'Compression des objets'],
+            [/Receiving objects:\s*(\d+)%/i, (p)=>Math.round(25 + p*0.45), 'Réception des objets'],
+            [/Resolving deltas:\s*(\d+)%/i, (p)=>Math.round(70 + p*0.25), 'Résolution des deltas'],
+            [/Checking out files:\s*(\d+)%/i, (p)=>Math.round(95 + p*0.05), 'Extraction des fichiers'],
+            [/Checking out:\s*(\d+)%/i, (p)=>Math.round(95 + p*0.05), 'Extraction des fichiers']
+          ];
+
+          for (const [rx, mapper, label] of phasePatterns) {
+            const m = normalized.match(rx);
+            if (m) {
+              const pct = parseInt(m[1]);
+              const mapped = Math.min(100, mapper(pct));
+              sendProgress(mapped, `${mapped}% - ${label}`);
+              return;
+            }
+          }
+
+          // Fallback: pick the largest percent number found in the chunk
+          const pctMatches = normalized.match(/(\d+)%/g);
+          if (pctMatches && pctMatches.length) {
+            const allPct = pctMatches.map((s: string) => parseInt(s.replace('%', '')));
+            const maxPct = Math.max(...allPct);
+            // cap at 95 until process close
+            sendProgress(Math.min(95, maxPct), `${maxPct}% - Clonage en cours`);
+          }
         });
 
         gitProcess.stderr?.on('data', (data: any) => {
           const output = data.toString();
           stderr += output;
           console.log('[git stderr]', output.trim());
+
+          const normalized = output.replace(/\r/g, '\n').replace(/remote:\s*/gi, '').trim();
+
+          // Use same phase mapping as stdout
+          const phasePatterns: Array<[RegExp, (pct: number)=>number, string]> = [
+            [/Counting objects:\s*(\d+)%/i, (p)=>Math.round(p*0.05), 'Comptage des objets'],
+            [/Compressing objects:\s*(\d+)%/i, (p)=>Math.round(5 + p*0.2), 'Compression des objets'],
+            [/Receiving objects:\s*(\d+)%/i, (p)=>Math.round(25 + p*0.45), 'Réception des objets'],
+            [/Resolving deltas:\s*(\d+)%/i, (p)=>Math.round(70 + p*0.25), 'Résolution des deltas'],
+            [/Checking out files:\s*(\d+)%/i, (p)=>Math.round(95 + p*0.05), 'Extraction des fichiers'],
+            [/Checking out:\s*(\d+)%/i, (p)=>Math.round(95 + p*0.05), 'Extraction des fichiers']
+          ];
+
+          for (const [rx, mapper, label] of phasePatterns) {
+            const m = normalized.match(rx);
+            if (m) {
+              const pct = parseInt(m[1]);
+              const mapped = Math.min(100, mapper(pct));
+              sendProgress(mapped, `${mapped}% - ${label}`);
+              return;
+            }
+          }
+
+          // fallback: pick the largest percent number found in the chunk
+          const pctMatches = normalized.match(/(\d+)%/g);
+          if (pctMatches && pctMatches.length) {
+            const allPct = pctMatches.map((s: string) => parseInt(s.replace('%', '')));
+            const maxPct = Math.max(...allPct);
+            sendProgress(Math.min(95, maxPct), `${maxPct}% - Clonage en cours`);
+          }
         });
 
         gitProcess.on('close', (code: any) => {
           console.log('[clone-repository] Git process fermé avec code:', code);
           console.log('[clone-repository] stdout complet:', stdout);
           console.log('[clone-repository] stderr complet:', stderr);
-          
           if (code === 0) {
-            console.log('[clone-repository] Clonage réussi');
+            sendProgress(100, '100% - Clonage terminé');
             resolve({ success: true, path: targetFullPath });
           } else {
             const errorMsg = stderr || stdout || `Git a quitté avec le code ${code}`;
-            console.log('[clone-repository] Erreur:', errorMsg);
-            resolve({ 
-              success: false, 
-              error: errorMsg
-            });
+            sendProgress(0, `Erreur: ${errorMsg}`);
+            resolve({ success: false, error: errorMsg });
           }
         });
 
         gitProcess.on('error', (err: any) => {
           console.error('[clone-repository] Erreur du processus git:', err);
-          resolve({ 
-            success: false, 
-            error: `Impossible d'exécuter git: ${err.message}. Vérifiez que Git est installé.` 
-          });
+          sendProgress(0, `Erreur: ${err.message}`);
+          resolve({ success: false, error: `Impossible d'exécuter git: ${err.message}. Vérifiez que Git est installé.` });
         });
 
         // Timeout de 5 minutes
-        setTimeout(() => {
+        const timeout = setTimeout(() => {
           console.log('[clone-repository] Timeout atteint');
-          gitProcess.kill();
+          try { gitProcess.kill(); } catch (e) {}
+          sendProgress(0, 'Erreur: Timeout du clonage');
           resolve({ success: false, error: 'Timeout: le clonage a pris trop de temps (5 minutes)' });
         }, 5 * 60 * 1000);
+
+        // Cleanup: clear timeout when process ends
+        gitProcess.on('exit', () => { try { clearTimeout(timeout); } catch {} });
       });
     } catch (error) {
       console.error('[clone-repository] Exception:', error);

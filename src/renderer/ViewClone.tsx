@@ -56,6 +56,25 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
     }
   }, [repoName, selectedBranch]);
 
+  // Listen to real-time clone progress events from main process
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (_: any, progressData: { progress: number; text: string }) => {
+      onCloneStateChange?.({
+        isCloning: true,
+        progress: progressData.progress,
+        text: progressData.text,
+        repoName: `${owner}/${repoName}`
+      });
+    };
+    if (window.electronAPI?.on) {
+      window.electronAPI.on('clone-progress', handler);
+    }
+    return () => {
+      if (window.electronAPI?.off) window.electronAPI.off('clone-progress', handler);
+    };
+  }, [isOpen, owner, repoName, onCloneStateChange]);
+
   const handleSelectFolder = () => {
     if (window.electronAPI?.invoke) {
       window.electronAPI.invoke('select-output-folder')
