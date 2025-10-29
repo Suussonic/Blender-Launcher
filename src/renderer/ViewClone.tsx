@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ViewBuild from './ViewBuild';
 
 interface ViewCloneProps {
   isOpen: boolean;
@@ -13,7 +14,8 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
   const [selectedBranch, setSelectedBranch] = useState('main');
   const [targetLocation, setTargetLocation] = useState('');
   const [folderName, setFolderName] = useState('');
-  const [branches, setBranches] = useState<string[]>(['main']);
+    const [branches, setBranches] = useState<string[]>(['main']);
+    const [showBuildModal, setShowBuildModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [cloning, setCloning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,72 +108,102 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
   const handleClone = async () => {
     if (!targetLocation || !folderName.trim()) return;
     
-    setCloning(true);
-    setError(null);
-    
-    // Notify parent component that cloning started
-    onCloneStateChange?.({
-      isCloning: true,
-      progress: 0,
-      text: 'Clonage en cours...',
-      repoName: `${owner}/${repoName}`
-    });
-    
+    // Before cloning, ensure build tools are present in Roaming
     try {
-      console.log('Début du clonage avec:', {
-        url: repoUrl,
-        branch: selectedBranch,
-        targetPath: targetLocation,
-        folderName: folderName.trim()
-      });
-      
-      const result = await window.electronAPI?.invoke('clone-repository', {
-        url: repoUrl,
-        branch: selectedBranch,
-        targetPath: targetLocation,
-        folderName: folderName.trim()
-      });
-      
-      console.log('Résultat du clonage:', result);
-      
-      if (result?.success) {
-        onCloneStateChange?.({
-          isCloning: false,
-          progress: 100,
-          text: 'Clonage terminé avec succès !',
-          repoName: `${owner}/${repoName}`
-        });
-        
-        // Garder le succès visible pendant 2 secondes
-        setTimeout(() => {
-          onCloneStateChange?.(null);
-        }, 2000);
-        
-        setCloning(false);
-        setError(null);
+      const check = await window.electronAPI?.invoke('check-build-tools');
+      if (check && check.present) {
+        // proceed
       } else {
-        throw new Error(result?.error || 'Erreur lors du clonage');
+        // Open build install modal
+        setShowBuildModal(true);
+        return;
       }
-    } catch (error) {
-      console.error('Erreur lors du clonage:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
-      setError(errorMsg);
-      
+    } catch (e) {
+      // If check fails, still open the modal to offer installation
+      setShowBuildModal(true);
+      return;
+    }
+
+    // Do the actual clone flow in a helper so we can call it after installing build tools
+    const doClone = async () => {
+      setCloning(true);
+      setError(null);
+
+      // Notify parent component that cloning started
       onCloneStateChange?.({
-        isCloning: false,
+        isCloning: true,
         progress: 0,
-        text: `Erreur: ${errorMsg}`,
+        text: 'Clonage en cours...',
         repoName: `${owner}/${repoName}`
       });
-      
-      setCloning(false);
-      
-      // Clear error state after delay
-      setTimeout(() => {
-        onCloneStateChange?.(null);
-      }, 5000);
+
+      try {
+        console.log('Début du clonage avec:', {
+          url: repoUrl,
+          branch: selectedBranch,
+          targetPath: targetLocation,
+          folderName: folderName.trim()
+        });
+
+        const result = await window.electronAPI?.invoke('clone-repository', {
+          url: repoUrl,
+          branch: selectedBranch,
+          targetPath: targetLocation,
+          folderName: folderName.trim()
+        });
+
+        console.log('Résultat du clonage:', result);
+
+        if (result?.success) {
+          onCloneStateChange?.({
+            isCloning: false,
+            progress: 100,
+            text: 'Clonage terminé avec succès !',
+            repoName: `${owner}/${repoName}`
+          });
+
+          // Garder le succès visible pendant 2 secondes
+          setTimeout(() => {
+            onCloneStateChange?.(null);
+          }, 2000);
+
+          setCloning(false);
+          setError(null);
+        } else {
+          throw new Error(result?.error || 'Erreur lors du clonage');
+        }
+      } catch (error) {
+        console.error('Erreur lors du clonage:', error);
+        const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
+        setError(errorMsg);
+
+        onCloneStateChange?.({
+          isCloning: false,
+          progress: 0,
+          text: `Erreur: ${errorMsg}`,
+          repoName: `${owner}/${repoName}`
+        });
+
+        setCloning(false);
+
+        // Clear error state after delay
+        setTimeout(() => {
+          onCloneStateChange?.(null);
+        }, 5000);
+      }
+    };
+
+    await doClone();
+  };
+
+  const onBuildInstalled = async (success: boolean) => {
+    setShowBuildModal(false);
+    if (success) {
+      // Retry clone now that build tools are marked installed
+      try { await handleClone(); } catch {}
     }
   };
+  
 
   const getFolderName = () => {
     return folderName || `${repoName}-${selectedBranch}`;
@@ -180,6 +212,7 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
   if (!isOpen) return null;
 
   return (
+    <>
     <div style={{
       position: 'fixed',
       top: 0,
@@ -387,6 +420,8 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
         </div>
       </div>
     </div>
+    <ViewBuild isOpen={showBuildModal} onClose={() => setShowBuildModal(false)} onInstalled={onBuildInstalled} />
+    </>
   );
 };
 

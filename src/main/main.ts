@@ -713,6 +713,81 @@ app.whenReady().then(() => {
     }
   });
 
+  // Check whether build tools are installed (presence of a marker folder in Roaming)
+  ipcMain.handle('check-build-tools', async () => {
+    try {
+      const appData = app.getPath('appData'); // Roaming on Windows
+      const buildToolsPath = path.join(appData, 'Blender Launcher', 'build-tools');
+      const present = fs.existsSync(buildToolsPath);
+      return { present, path: buildToolsPath };
+    } catch (e) {
+      console.warn('[IPC] check-build-tools erreur:', e);
+      return { present: false, error: String(e) };
+    }
+  });
+
+  // Install build tools helper: create backend helper files and optionally run a PowerShell installer
+  ipcMain.handle('install-build-tools', async () => {
+    try {
+      // Create a helper folder inside the project backend and also mark the roaming folder
+      const candidates = [
+        path.join(__dirname, '../../backend'),
+        path.join(process.cwd(), 'backend'),
+        path.join(__dirname, '..', '..', 'backend')
+      ];
+      let backendBase = candidates.find(p => { try { return fs.existsSync(p); } catch { return false; } }) || path.join(process.cwd(), 'backend');
+      const helperDir = path.join(backendBase, 'build_tools');
+      try { fs.mkdirSync(helperDir, { recursive: true }); } catch (e) { /* ignore */ }
+
+      // Write a basic PowerShell installer script that attempts to use winget to install common tools
+      const psPath = path.join(helperDir, 'install_build_tools.ps1');
+      const psContent = `# Install common build tools for Blender on Windows\r\n` +
+        `Write-Host "Starting build tools installer (attempting winget)..."\r\n` +
+        `if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {\r\n` +
+        `  Write-Host "winget not found on this system. Please install winget or follow the README in the build_tools folder."\r\n` +
+        `} else {\r\n` +
+        `  Write-Host "winget found - attempting to install: Git, Python, CMake, Ninja, Visual Studio Build Tools"\r\n` +
+        `  & winget install --id Git.Git -e --accept-package-agreements --accept-source-agreements; if ($LASTEXITCODE -ne 0) { Write-Host "Git install failed or already present (exit $LASTEXITCODE)" }\r\n` +
+        `  & winget install --id Python.Python.3 -e --accept-package-agreements --accept-source-agreements; if ($LASTEXITCODE -ne 0) { Write-Host "Python install failed or already present (exit $LASTEXITCODE)" }\r\n` +
+        `  & winget install --id Kitware.CMake -e --accept-package-agreements --accept-source-agreements; if ($LASTEXITCODE -ne 0) { Write-Host "CMake install failed or already present (exit $LASTEXITCODE)" }\r\n` +
+        `  & winget install --id Kitware.Ninja -e --accept-package-agreements --accept-source-agreements; if ($LASTEXITCODE -ne 0) { Write-Host "Ninja install failed or already present (exit $LASTEXITCODE)" }\r\n` +
+        `  & winget install --id Microsoft.VisualStudio.2022.BuildTools -e --accept-package-agreements --accept-source-agreements; if ($LASTEXITCODE -ne 0) { Write-Host "VS Build Tools install may require manual steps or elevated permissions (exit $LASTEXITCODE)" }\r\n` +
+        `  Write-Host "Installer finished (some installs may require further configuration or reboot)."\r\n` +
+        `}\r\n`;
+      try { fs.writeFileSync(psPath, psContent, { encoding: 'utf8' }); } catch (e) { console.warn('[install-build-tools] ecriture script fail', e); }
+
+      // Write a README with manual instructions
+      const readmePath = path.join(helperDir, 'README.md');
+      const readme = `Build tools helper\n\nThis folder contains helper scripts to automate installation of common build tools required to compile Blender on Windows.\n\nFiles:\n- install_build_tools.ps1 : PowerShell script attempting to install Git, Python, CMake, Ninja and Visual Studio Build Tools via winget.\n\nIf you prefer manual installation, please follow Blender's official build instructions: https://wiki.blender.org/wiki/Building_Blender\n`;
+      try { fs.writeFileSync(readmePath, readme, { encoding: 'utf8' }); } catch (e) { console.warn('[install-build-tools] ecriture README fail', e); }
+
+      // Also mark the roaming area as 'installed' by creating a marker folder under %APPDATA%\Blender Launcher\build-tools
+      try {
+        const appData = app.getPath('appData');
+        const roamingMark = path.join(appData, 'Blender Launcher', 'build-tools');
+        fs.mkdirSync(roamingMark, { recursive: true });
+      } catch (e) { console.warn('[install-build-tools] cannot create roaming mark', e); }
+
+      // Try to run the PowerShell script to perform installations (best-effort)
+      const cp = require('child_process');
+      let installLog = '';
+      try {
+        const proc = cp.spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', psPath], { windowsHide: true });
+        proc.stdout.on('data', (d: any) => { installLog += String(d); console.log('[install-build-tools stdout]', String(d).trim()); });
+        proc.stderr.on('data', (d: any) => { installLog += String(d); console.error('[install-build-tools stderr]', String(d).trim()); });
+        const exitCode: number = await new Promise((res) => proc.on('close', res));
+        const success = exitCode === 0;
+        return { success, exitCode, log: installLog, helperPath: helperDir };
+      } catch (e) {
+        console.warn('[install-build-tools] spawn exception', e);
+        return { success: false, error: String(e), helperPath: helperDir };
+      }
+    } catch (e) {
+      console.error('[IPC] install-build-tools exception:', e);
+      return { success: false, error: String(e) };
+    }
+  });
+
   ipcMain.handle('start-render', async (_event, cfg) => {
     try {
       const exePath: string | undefined = cfg?.blender?.path;

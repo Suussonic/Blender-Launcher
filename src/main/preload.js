@@ -56,6 +56,9 @@ const api = {
       , 'install-addon-on'
       // Clone repository
       , 'clone-repository'
+      // Build tools helpers
+      , 'check-build-tools'
+      , 'install-build-tools'
     ];
     if (validChannels.includes(channel)) {
       // Retry wrapper: some races in packaged builds caused the renderer
