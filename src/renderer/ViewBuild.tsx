@@ -4,9 +4,10 @@ interface ViewBuildProps {
   isOpen: boolean;
   onClose: () => void;
   onInstalled?: (success: boolean) => void;
+  missingTools?: string[];
 }
 
-const ViewBuild: React.FC<ViewBuildProps> = ({ isOpen, onClose, onInstalled }) => {
+const ViewBuild: React.FC<ViewBuildProps> = ({ isOpen, onClose, onInstalled, missingTools }) => {
   const [installing, setInstalling] = useState(false);
   const [log, setLog] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +19,7 @@ const ViewBuild: React.FC<ViewBuildProps> = ({ isOpen, onClose, onInstalled }) =
     setError(null);
     setLog('');
     try {
-      const res = await window.electronAPI?.invoke('install-build-tools');
+      const res = await window.electronAPI?.invoke('install-build-tools', { tools: missingTools });
       if (res) {
         const success = !!res.success;
         setLog(String(res.log || res.message || 'Installation terminée.'));

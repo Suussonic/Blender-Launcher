@@ -16,6 +16,7 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
   const [folderName, setFolderName] = useState('');
     const [branches, setBranches] = useState<string[]>(['main']);
     const [showBuildModal, setShowBuildModal] = useState(false);
+    const [missingTools, setMissingTools] = useState<string[] | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [cloning, setCloning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,18 +109,19 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
   const handleClone = async () => {
     if (!targetLocation || !folderName.trim()) return;
     
-    // Before cloning, ensure build tools are present in Roaming
+    // Before cloning, ensure required build tools are present on the system
     try {
       const check = await window.electronAPI?.invoke('check-build-tools');
-      if (check && check.present) {
-        // proceed
-      } else {
-        // Open build install modal
+      if (check && Array.isArray(check.missing) && check.missing.length > 0) {
+        // Open build install modal with missing list
+        setMissingTools(check.missing);
         setShowBuildModal(true);
         return;
       }
+      // otherwise proceed
     } catch (e) {
-      // If check fails, still open the modal to offer installation
+      // If check fails, open modal to let the user decide
+      setMissingTools(undefined);
       setShowBuildModal(true);
       return;
     }
@@ -420,7 +422,7 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
         </div>
       </div>
     </div>
-    <ViewBuild isOpen={showBuildModal} onClose={() => setShowBuildModal(false)} onInstalled={onBuildInstalled} />
+    <ViewBuild isOpen={showBuildModal} onClose={() => setShowBuildModal(false)} onInstalled={onBuildInstalled} missingTools={missingTools} />
     </>
   );
 };
