@@ -23,6 +23,32 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
   const [extraStats, setExtraStats] = useState<{ branches:number; commits:number; tags:number } | null>(null);
   const [showCloneModal, setShowCloneModal] = useState(false);
 
+  // Global listener to route clone-build progress to the bottom progress bar
+  useEffect(() => {
+    if (!onCloneStateChange) return;
+    let initialSet = false;
+    const handler = (_: any, payload: any) => {
+      const tag = payload?.event || payload?.tag;
+      const text = payload?.text || (tag === 'START' ? 'Préparation…' : (tag === 'DONE' ? 'Terminé' : (tag === 'ERROR' ? `Erreur: ${payload?.message || 'Echec'}` : '')));
+      const progress = typeof payload?.progress === 'number' ? Math.max(0, Math.min(100, Math.floor(payload.progress))) : (tag === 'DONE' ? 100 : (tag === 'START' ? 0 : undefined));
+      if (tag === 'START' || typeof progress === 'number' || text) {
+        onCloneStateChange({ isCloning: true, progress: progress ?? 0, text: text || '', repoName: (meta?.full_name || repo.link.split('/').slice(-2).join('/')) });
+        initialSet = true;
+      }
+      if (tag === 'DONE') {
+        // brief completion state then clear
+        setTimeout(() => onCloneStateChange(null), 1200);
+      }
+      if (tag === 'ERROR') {
+        // show error for a bit then clear
+        setTimeout(() => onCloneStateChange(null), 3000);
+      }
+    };
+    (window as any).electronAPI?.on?.('clone-progress', handler);
+    return () => { (window as any).electronAPI?.off?.('clone-progress', handler); if (initialSet) try { onCloneStateChange(null); } catch {} };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onCloneStateChange, meta?.full_name, repo.link]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -173,14 +199,14 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
                 }}
                 onMouseOver={e => e.currentTarget.style.background = '#15803d'}
                 onMouseOut={e => e.currentTarget.style.background = '#16a34a'}
-                title="Cloner ce dépôt"
+                title="Cloner une branche et construire Blender depuis l'application"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                   <polyline points="7 10 12 15 17 10"/>
                   <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
-                Installer
+                Cloner & Build
               </button>
               <div style={{ display:'flex', marginLeft:'auto', gap:0, border:'1px solid #2f3740', borderRadius:8, overflow:'hidden', background:'#161c22' }}>
                 {['readme','license'].map(tab=> (
@@ -220,15 +246,21 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
         )}
       </div>
       
-      {/* Clone Modal */}
-      <ViewClone
-        isOpen={showCloneModal}
-        onClose={() => setShowCloneModal(false)}
-        repoName={meta?.full_name?.split('/')[1] || repo.link.split('/').slice(-1)[0]}
-        repoUrl={repo.link}
-        owner={meta?.owner?.login || repo.link.split('/').slice(-2)[0]}
-        onCloneStateChange={onCloneStateChange}
-      />
+      {showCloneModal && (() => {
+        const m = repo.link.match(/github.com\/(.+?)\/(.+?)(?:$|\?|#|\/)/i);
+        const owner = m ? m[1] : '';
+        const name = m ? m[2] : repo.name;
+        return (
+          <ViewClone
+            isOpen={showCloneModal}
+            onClose={() => setShowCloneModal(false)}
+            owner={owner}
+            repoName={name}
+            repoUrl={repo.link}
+            onCloneStateChange={onCloneStateChange}
+          />
+        );
+      })()}
     </div>
   );
 };

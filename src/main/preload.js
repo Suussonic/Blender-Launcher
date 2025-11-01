@@ -12,7 +12,7 @@ const api = {
     }
   },
   on: (channel, func) => {
-    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress', 'navigate-home', 'open-settings', 'toast', 'clone-progress'];
+  const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress', 'navigate-home', 'open-settings', 'toast', 'install-progress', 'clone-progress', 'build-tools-progress'];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, func);
     } else {
@@ -20,7 +20,7 @@ const api = {
     }
   },
   off: (channel, func) => {
-    const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress', 'navigate-home', 'open-settings', 'toast', 'clone-progress'];
+  const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress', 'navigate-home', 'open-settings', 'toast', 'install-progress', 'clone-progress', 'build-tools-progress'];
     if (validChannels.includes(channel)) {
       ipcRenderer.off(channel, func);
     } else {
@@ -28,7 +28,7 @@ const api = {
     }
   },
   invoke: (channel, ...args) => {
-    const validChannels = [
+  const validChannels = [
       'get-blenders',
   'reorder-blenders',
       'update-executable-title',
@@ -54,11 +54,13 @@ const api = {
       , 'enable-addon'
       , 'remove-addon'
       , 'install-addon-on'
-      // Clone repository
-      , 'clone-repository'
-      // Build tools helpers
-      , 'check-build-tools'
-      , 'install-build-tools'
+      // Installer
+      , 'install-from-download'
+      , 'build-from-source'
+  // Clone & Build via Python
+  , 'clone-repository'
+  , 'check-build-tools'
+  , 'install-build-tools'
     ];
     if (validChannels.includes(channel)) {
       // Retry wrapper: some races in packaged builds caused the renderer

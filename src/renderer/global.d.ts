@@ -1,7 +1,7 @@
 interface ElectronAPI {
   send: (channel: string, data?: any) => void; // inclut open-blend-file, reveal-in-folder
-  on: (channel: 'selected-blender-folder' | 'config-updated' | 'executable-updated' | 'executable-deleted' | 'delete-executable-result' | 'clone-progress', func: (...args: any[]) => void) => void;
-  off: (channel: 'selected-blender-folder' | 'config-updated' | 'executable-updated' | 'executable-deleted' | 'delete-executable-result' | 'clone-progress', func: (...args: any[]) => void) => void;
+  on: (channel: 'selected-blender-folder' | 'config-updated' | 'executable-updated' | 'executable-deleted' | 'delete-executable-result' | 'render-progress' | 'navigate-home' | 'open-settings' | 'toast' | 'install-progress' | 'clone-progress' | 'build-tools-progress', func: (...args: any[]) => void) => void;
+  off: (channel: 'selected-blender-folder' | 'config-updated' | 'executable-updated' | 'executable-deleted' | 'delete-executable-result' | 'render-progress' | 'navigate-home' | 'open-settings' | 'toast' | 'install-progress' | 'clone-progress' | 'build-tools-progress', func: (...args: any[]) => void) => void;
   invoke: (channel: string, data?: any) => Promise<any>;
   getBlenders: () => Promise<any[]>;
   reorderBlenders?: (paths: string[]) => Promise<{success:boolean}>;
