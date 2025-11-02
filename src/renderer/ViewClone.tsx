@@ -54,6 +54,12 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 			const pct = typeof progressData?.progress === 'number' ? progressData.progress : 0;
 			const text = progressData?.text || '';
 			onCloneStateChange?.({ isCloning: true, progress: pct, text, repoName: `${owner}/${repoName}` });
+			// If main preflight reports missing tools, open the build tools modal here
+			if (progressData?.event === 'MISSING_TOOLS') {
+				const miss = Array.isArray(progressData?.missing) ? progressData.missing as string[] : undefined;
+				setMissingTools(miss);
+				setShowBuildModal(true);
+			}
 		};
 		(window as any).electronAPI?.on?.('clone-progress', handler);
 		return () => { (window as any).electronAPI?.off?.('clone-progress', handler); };

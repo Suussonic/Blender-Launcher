@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import sys, os, subprocess, argparse, shutil, time
+import sys, os, subprocess, argparse, shutil, time, glob
 try:
     import winreg  # type: ignore
 except Exception:
@@ -24,9 +24,9 @@ def echo(tag: str, **kv):
         except Exception:
             pass
 
-def run(cmd, cwd=None, shell=False):
+def run(cmd, cwd=None, shell=False, env=None):
     try:
-        p = subprocess.Popen(cmd, cwd=cwd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+        p = subprocess.Popen(cmd, cwd=cwd, shell=shell, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
         out = []
         while True:
             line = p.stdout.readline()
@@ -45,101 +45,57 @@ def ensure_dir(path: str):
     if not os.path.isdir(path):
         os.makedirs(path, exist_ok=True)
 
-def find_svn_candidates():
-    if os.name != 'nt':
-        return []
-    cands = [
-        r"C:\\Program Files\\TortoiseSVN\\bin\\svn.exe",
-        r"C:\\Program Files (x86)\\TortoiseSVN\\bin\\svn.exe",
-        r"C:\\Program Files\\Subversion\\bin\\svn.exe",
-        r"C:\\Program Files\\SlikSvn\\bin\\svn.exe",
-        r"C:\\Program Files\\SlikSVN\\bin\\svn.exe",
-        r"C:\\Program Files\\Git\\usr\\bin\\svn.exe",
+# SVN is not required since Blender libraries are downloaded by make.bat.
+
+def find_vsdevcmd() -> tuple[str | None, str | None]:
+    """Locate VsDevCmd.bat for Visual Studio 2019/2022 to initialize MSVC env.
+    Prefer vswhere, then fall back to common install paths.
+    """
+    # Try vswhere
+    vswhere_candidates = [
+        r"C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
+        r"C:\\Program Files\\Microsoft Visual Studio\\Installer\\vswhere.exe",
     ]
-    existing = [p for p in cands if os.path.exists(p)]
-    # Shallow scan under Program Files for svn.exe if not found
-    if not existing:
-        for root in [os.environ.get('ProgramFiles', r'C:\\Program Files'), os.environ.get('ProgramFiles(x86)', r'C:\\Program Files (x86)')]:
+    product = None
+    for vswhere in vswhere_candidates:
+        if os.path.exists(vswhere):
             try:
-                if not root or not os.path.isdir(root):
-                    continue
-                for d1 in os.listdir(root):
-                    p1 = os.path.join(root, d1)
-                    if not os.path.isdir(p1):
-                        continue
-                    if 'svn' not in d1.lower() and 'tortoise' not in d1.lower():
-                        continue
-                    cand = os.path.join(p1, 'bin', 'svn.exe')
+                out = subprocess.check_output([
+                    vswhere,
+                    '-latest',
+                    '-products','*',
+                    '-requires','Microsoft.VisualStudio.Component.VC.Tools.x86.x64',
+                    '-property','installationPath'
+                ], stderr=subprocess.DEVNULL, text=True, timeout=10)
+                inst = (out or '').strip()
+                if inst:
+                    try:
+                        pid = subprocess.check_output([
+                            vswhere,
+                            '-latest',
+                            '-products','*',
+                            '-requires','Microsoft.VisualStudio.Component.VC.Tools.x86.x64',
+                            '-property','productId'
+                        ], stderr=subprocess.DEVNULL, text=True, timeout=10).strip()
+                        product = pid or None
+                    except Exception:
+                        product = None
+                    cand = os.path.join(inst, 'Common7', 'Tools', 'VsDevCmd.bat')
                     if os.path.exists(cand):
-                        existing.append(cand)
-                        break
+                        return cand, product
             except Exception:
                 pass
-    # Registry: TortoiseSVN InstallLocation
-    if winreg is not None:
-        try:
-            roots = [
-                (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
-                (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
-            ]
-            for hive, path in roots:
-                try:
-                    with winreg.OpenKey(hive, path) as root:
-                        for i in range(0, winreg.QueryInfoKey(root)[0]):
-                            try:
-                                subname = winreg.EnumKey(root, i)
-                                with winreg.OpenKey(root, subname) as sk:
-                                    try:
-                                        name = winreg.QueryValueEx(sk, 'DisplayName')[0]
-                                    except Exception:
-                                        continue
-                                    if name and 'tortoisesvn' in str(name).lower():
-                                        loc = None
-                                        try:
-                                            loc = winreg.QueryValueEx(sk, 'InstallLocation')[0]
-                                        except Exception:
-                                            pass
-                                        if not loc:
-                                            try:
-                                                icon = winreg.QueryValueEx(sk, 'DisplayIcon')[0]
-                                                loc = os.path.dirname(icon)
-                                            except Exception:
-                                                pass
-                                        if loc:
-                                            cand = os.path.join(loc, 'bin', 'svn.exe')
-                                            if os.path.exists(cand):
-                                                existing.insert(0, cand)
-                                                raise StopIteration
-                            except StopIteration:
-                                raise
-                            except Exception:
-                                continue
-                except StopIteration:
-                    break
-                except Exception:
-                    continue
-        except Exception:
-            pass
-    # AppData portable path
-    try:
-        appdata = os.environ.get('APPDATA')
-        if appdata:
-            p = os.path.join(appdata, 'blender-launcher', 'tools', 'svn')
-            if os.path.isdir(p):
-                # prefer bin if exists
-                pb = os.path.join(p, 'bin', 'svn.exe')
-                if os.path.exists(pb):
-                    existing.insert(0, pb)
-                else:
-                    # search extract folder
-                    for root, _dirs, files in os.walk(p):
-                        if 'svn.exe' in files:
-                            existing.insert(0, os.path.join(root, 'svn.exe'))
-                            break
-    except Exception:
-        pass
-    return existing
-
+    # Fallback to common paths
+    fallbacks = [
+        r"C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools\\Common7\\Tools\\VsDevCmd.bat",
+        r"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\Tools\\VsDevCmd.bat",
+        r"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\Common7\\Tools\\VsDevCmd.bat",
+        r"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\Tools\\VsDevCmd.bat",
+    ]
+    for pth in fallbacks:
+        if os.path.exists(pth):
+            return pth, product
+    return None, product
 
 def main():
     parser = argparse.ArgumentParser()
@@ -173,27 +129,46 @@ def main():
         base_name = f"{base_name}-{safe_branch}"
     clone_dir = os.path.join(target, base_name)
 
-    # If folder already exists, append timestamp
+    # If folder already exists, reuse it when it's already a Blender clone
+    skip_clone = False
     if os.path.exists(clone_dir):
-        clone_dir = clone_dir + '-' + str(int(time.time()))
+        # Detect if it's a git repo pointing to the requested remote
+        try:
+            code_remote, remote_out = run(['git', '-C', clone_dir, 'remote', 'get-url', 'origin'])
+            if code_remote == 0:
+                remote = (remote_out or '').strip()
+                def norm(u: str) -> str:
+                    u = u.strip().lower().rstrip('/')
+                    if u.endswith('.git'):
+                        u = u[:-4]
+                    return u
+                if norm(remote).endswith(norm(repo_url)) or norm(repo_url).endswith(norm(remote)):
+                    skip_clone = True
+        except Exception:
+            pass
+        if not skip_clone:
+            clone_dir = clone_dir + '-' + str(int(time.time()))
 
-    echo('PROGRESS', progress=1, text='Clonage du dépôt…')
+    if not skip_clone:
+        echo('PROGRESS', progress=1, text='Clonage du dépôt…')
 
-    # Install LFS in skip smudge mode if available
-    try:
-        subprocess.call(['git', 'lfs', 'install', '--skip-smudge'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except Exception:
-        pass
+        # Install LFS in skip smudge mode if available
+        try:
+            subprocess.call(['git', 'lfs', 'install', '--skip-smudge'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
 
-    # Clone
-    code, out = run(['git', 'clone', '--branch', branch, '--depth', '1', repo_url, clone_dir])
-    if code != 0:
-        # Fallback without LFS smudge
-        code2, out2 = run(['git', '-c', 'filter.lfs.smudge=', '-c', 'filter.lfs.required=false', 'clone', '--branch', branch, '--depth', '1', repo_url, clone_dir])
-        if code2 != 0:
-            echo('ERROR', message='Echec du clone', detail=(out2 or out)[-400:])
-            return 2
-    echo('PROGRESS', progress=20, text='Clone terminé')
+        # Clone
+        code, out = run(['git', 'clone', '--branch', branch, '--depth', '1', repo_url, clone_dir])
+        if code != 0:
+            # Fallback without LFS smudge
+            code2, out2 = run(['git', '-c', 'filter.lfs.smudge=', '-c', 'filter.lfs.required=false', 'clone', '--branch', branch, '--depth', '1', repo_url, clone_dir])
+            if code2 != 0:
+                echo('ERROR', message='Echec du clone', detail=(out2 or out)[-400:])
+                return 2
+        echo('PROGRESS', progress=20, text='Clone terminé')
+    else:
+        echo('PROGRESS', progress=20, text='Clone déjà présent')
 
     # Windows build using make.bat wrappers
     is_win = os.name == 'nt'
@@ -201,25 +176,85 @@ def main():
         echo('ERROR', message='Flux de build Windows uniquement pour le moment')
         return 3
 
-    # Ensure svn in PATH if we can locate it locally
-    svn_paths = find_svn_candidates()
-    if svn_paths:
-        svn_dir = os.path.dirname(svn_paths[0])
-        os.environ['PATH'] = svn_dir + os.pathsep + os.environ.get('PATH', '')
-        echo('PROGRESS', progress=24, text=f'SVN détecté localement → PATH +={svn_dir}')
+    # No SVN required; proceed directly to make update
 
-    # Run make update
+    # Run make update (initialize MSVC env via VsDevCmd if available)
     echo('PROGRESS', progress=25, text='Préparation des librairies (make update)…')
-    make_cmd = ['cmd.exe', '/c', 'make', 'update']
-    code, out = run(make_cmd, cwd=clone_dir)
+    vsdev, product = find_vsdevcmd()
+    vsver = None
+    try:
+        if vsdev:
+            low = vsdev.lower()
+            is_buildtools = 'buildtools' in low
+            if '2022' in low:
+                vsver = '2022b' if is_buildtools else '2022'
+            elif '2019' in low:
+                vsver = '2019b' if is_buildtools else '2019'
+    except Exception:
+        vsver = None
+    if vsdev and os.path.exists(vsdev):
+        # Use a temp .bat to avoid cmd parsing quirks
+        bat_path = os.path.join(clone_dir, '_bl_make_update.bat')
+        try:
+            with open(bat_path, 'w', encoding='utf-8') as f:
+                f.write('@echo off\r\n')
+                f.write(f'call "{vsdev}"\r\n')
+                # Prefer Ninja generator to avoid VS generator autodetection
+                f.write('set BLENDER_CMAKE_ARGS=-G Ninja\r\n')
+                f.write('set CMAKE_GENERATOR=Ninja\r\n')
+                # Use make.bat explicitly and add verbose for diagnostics
+                if vsver:
+                    f.write(f'call make.bat update {vsver} verbose\r\n')
+                else:
+                    f.write(f'call make.bat update verbose\r\n')
+        except Exception:
+            bat_path = None
+        make_cmd = ['cmd.exe', '/c', bat_path] if bat_path else ['cmd.exe', '/c', f'call "{vsdev}" && make update']
+    else:
+        make_cmd = ['cmd.exe', '/c', 'make.bat', 'update', 'verbose']
+    code, out = run(make_cmd, cwd=clone_dir, shell=False)
     if code != 0:
-        echo('ERROR', message='Echec make update', detail=out[-600:])
+        # Detect common VS missing workload error and provide an actionable hint
+        lower_out = (out or '').lower()
+        needs_vs_workload = (
+            'no suitable installation was found' in lower_out or
+            'desktop development with c++' in lower_out or
+            'visual studio 2022 not found' in lower_out or
+            'vs_installdir' in lower_out
+        )
+        if needs_vs_workload:
+            hint = (
+                'Ouvrez PowerShell en Administrateur puis lancez:\n'
+                'winget install --id Microsoft.VisualStudio.2022.Community -e '
+                '--accept-package-agreements --accept-source-agreements '
+                '--override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended"'
+            )
+            echo('ERROR', message='Echec make update (Visual Studio incomplet: workload C++ manquante)', detail=out[-600:], hint=hint)
+        else:
+            echo('ERROR', message='Echec make update', detail=out[-600:])
         return 4
     echo('PROGRESS', progress=60, text='Librairies récupérées')
 
-    # Run make release
-    echo('PROGRESS', progress=65, text='Compilation (make release)…')
-    code, out = run(['cmd.exe', '/c', 'make', 'release'], cwd=clone_dir)
+    # Compile (per docs, plain `make` builds and installs the binaries)
+    echo('PROGRESS', progress=65, text='Compilation (make)…')
+    if vsdev and os.path.exists(vsdev):
+        bat_path_b = os.path.join(clone_dir, '_bl_make_build.bat')
+        try:
+            with open(bat_path_b, 'w', encoding='utf-8') as f:
+                f.write('@echo off\r\n')
+                f.write(f'call "{vsdev}"\r\n')
+                f.write('set BLENDER_CMAKE_ARGS=-G Ninja\r\n')
+                f.write('set CMAKE_GENERATOR=Ninja\r\n')
+                if vsver:
+                    f.write(f'call make.bat {vsver} verbose\r\n')
+                else:
+                    f.write(f'call make.bat verbose\r\n')
+        except Exception:
+            bat_path_b = None
+        build_cmd = ['cmd.exe', '/c', bat_path_b] if bat_path_b else ['cmd.exe', '/c', f'call "{vsdev}" && call make.bat verbose']
+    else:
+        build_cmd = ['cmd.exe', '/c', 'make.bat', 'verbose']
+    code, out = run(build_cmd, cwd=clone_dir, shell=False)
     if code != 0:
         echo('ERROR', message='Echec make release', detail=out[-800:])
         return 5

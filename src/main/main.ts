@@ -1212,8 +1212,6 @@ app.whenReady().then(() => {
         git:   { id: 'Git.Git', display: 'Git', args: ['--silent'] },
         cmake: { id: 'Kitware.CMake', display: 'CMake', args: ['--silent'] },
         ninja: { id: 'Ninja-build.Ninja', display: 'Ninja', args: ['--silent'] },
-        // TortoiseSVN provides svn.exe when CLI tools are installed; ensure via override
-        svn:   { id: 'TortoiseSVN.TortoiseSVN', display: 'SVN', args: ['--override', 'ADDLOCAL=ALL /quiet /norestart'] },
         // Visual Studio Build Tools with C++ workload
         msvc:  { id: 'Microsoft.VisualStudio.2022.BuildTools', display: 'MSVC', args: ['--override', '--quiet --norestart --wait --nocache --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'] },
       };
@@ -1285,60 +1283,7 @@ app.whenReady().then(() => {
           }
         });
 
-        // Special fallback for SVN: if still missing, try alternative packages
-        if (tool === 'svn') {
-          const after = await detectTools();
-          const ok = after && after['svn'] === true;
-          if (!ok) {
-            const alternatives = [
-              { id: 'SlikSvn.SlikSvn', args: ['--silent'] },
-              { id: 'OpenCollab.SlikSVN', args: ['--silent'] },
-              { id: 'Subversion.SVN', args: ['--silent'] },
-              { id: 'Apache.Subversion', args: ['--silent'] },
-            ];
-            for (const alt of alternatives) {
-              send(baseProgress, `Installation alternative de SVN (${alt.id})…`);
-              console.log('[build-tools] winget fallback', alt.id);
-              await new Promise<void>((resolve) => {
-                try {
-                  const c = spawn('winget', ['install', '--id', alt.id, '-e', '--accept-package-agreements', '--accept-source-agreements'].concat(alt.args || []), { windowsHide: true });
-                  c.stdout.on('data', (d: Buffer) => console.log('[build-tools][stdout]', d.toString()))
-                  c.stderr.on('data', (d: Buffer) => console.warn('[build-tools][stderr]', d.toString()))
-                  c.on('error', () => resolve());
-                  c.on('close', () => resolve());
-                } catch { resolve(); }
-              });
-              const chk = await detectTools();
-              if (chk && chk['svn'] === true) break;
-            }
-            // If still missing and TortoiseSVN is installed without CLI, try MSI maintenance to add CLI tools
-            const chk2 = await detectTools();
-            const stillMissing = !(chk2 && chk2['svn'] === true);
-            if (stillMissing) {
-              send(baseProgress, 'Activation des outils en ligne de commande TortoiseSVN…');
-              const ps = [
-                '$ErrorActionPreference = "SilentlyContinue";',
-                '$paths = @("HKLM:SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall","HKLM:SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall");',
-                '$code = $null;',
-                'foreach ($p in $paths) { $k = Get-ChildItem $p | Where-Object { $_.GetValue("DisplayName") -like "TortoiseSVN*" } | Select-Object -First 1; if ($k) { $code = $k.PSChildName; break } }',
-                'if ($code) { Write-Output ("ProductCode=" + $code); Start-Process msiexec.exe -ArgumentList "/i $code ADDLOCAL=ALL REINSTALL=ALL REINSTALLMODE=vomus /qn" -Wait -Verb RunAs } else { Write-Output "ProductCode=NOTFOUND" }'
-              ].join(' ');
-              await new Promise<void>((resolve) => {
-                try {
-                  const p = spawn('powershell.exe', ['-NoProfile','-ExecutionPolicy','Bypass','-Command', ps], { windowsHide: true });
-                  p.stdout.on('data', (d: Buffer) => console.log('[build-tools][ps][stdout]', d.toString()));
-                  p.stderr.on('data', (d: Buffer) => console.warn('[build-tools][ps][stderr]', d.toString()));
-                  p.on('error', () => resolve());
-                  p.on('close', () => resolve());
-                } catch { resolve(); }
-              });
-              const chk3 = await detectTools();
-              if (!(chk3 && chk3['svn'] === true)) {
-                console.warn('[build-tools] SVN still not detected after MSI maintenance.');
-              }
-            }
-          }
-        }
+        // No SVN special handling; Blender Windows builds only need Git, CMake and MSVC (Ninja optional).
 
         installed.push(tool);
         const stepDone = Math.floor((index / total) * 100);
@@ -1364,7 +1309,63 @@ app.whenReady().then(() => {
         try { send('ERROR', { message: 'missing-params' }); } catch {}
         return { success: false, error: 'missing-params' };
       }
-      const script = resolveBackendScript('clone_and_build.py');
+
+      // Preflight: ensure required tools are present (Git, CMake, MSVC)
+      try {
+        const { spawn } = require('child_process');
+        const script = resolveBackendScript('check_build_tools.py');
+        if (script) {
+          const py = pythonCandidates();
+          const tools: any = await new Promise((resolve) => {
+            const next = () => {
+              const cmd = py.shift();
+              if (!cmd) return resolve(null);
+              try {
+                const c = spawn(cmd, [script], { windowsHide: true });
+                let out = '';
+                c.stdout.on('data', (d: Buffer) => out += d.toString());
+                c.on('error', () => next());
+                c.on('close', (code: number) => { if (code === 0) { try { resolve(JSON.parse(out.trim())); } catch { resolve(null); } } else next(); });
+              } catch { next(); }
+            };
+            next();
+          });
+          if (tools) {
+            const missing = Object.entries(tools).filter(([, v]) => v === false).map(([k]) => k);
+            const requiredMissing = missing.filter((t: any) => ['git','cmake','msvc'].includes(String(t)));
+            if (requiredMissing.length > 0) {
+              send('MISSING_TOOLS', { missing: requiredMissing });
+              return { success: false, error: 'missing-tools', missing: requiredMissing };
+            }
+          }
+        }
+        // Node-level fallback check in case Python preflight fails
+        const { spawnSync } = require('child_process');
+        const has = (cmd: string) => { try { const r = spawnSync('where', [cmd], { windowsHide: true }); return r && r.status === 0; } catch { return false; } };
+        const hasGit = has('git');
+        const hasCMake = has('cmake');
+        const hasCL = has('cl');
+        let hasMSVC = hasCL;
+        if (!hasMSVC) {
+          try {
+            const vsw = ['C\\\\Program Files (x86)\\\\Microsoft Visual Studio\\\\Installer\\\\vswhere.exe','C\\\\Program Files\\\\Microsoft Visual Studio\\\\Installer\\\\vswhere.exe'];
+            const found = vsw.find((p: string) => require('fs').existsSync(p.replace(/\\\\/g,'\\')));
+            if (found) {
+              const r = spawnSync(found.replace(/\\\\/g,'\\'), ['-latest','-products','*','-requires','Microsoft.VisualStudio.Component.VC.Tools.x86.x64','-property','installationPath'], { windowsHide: true });
+              hasMSVC = (r && r.status === 0 && String(r.stdout||'').trim().length > 0);
+            }
+          } catch {}
+        }
+        const missingHard: string[] = [];
+        if (!hasGit) missingHard.push('git');
+        if (!hasCMake) missingHard.push('cmake');
+        if (!hasMSVC) missingHard.push('msvc');
+        if (missingHard.length > 0) {
+          send('MISSING_TOOLS', { missing: missingHard });
+          return { success: false, error: 'missing-tools', missing: missingHard };
+        }
+      } catch { /* ignore preflight errors */ }
+  const script = resolveBackendScript('clone_and_build.py');
       if (!script) { try { send('ERROR', { message: 'script-missing' }); } catch {}; return { success: false, error: 'script-missing' }; }
       const { spawn } = require('child_process');
       const args = [script, '--repo', repoUrl, '--branch', branch, '--target', target].concat(name ? ['--name', name] : []);

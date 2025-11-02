@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-import os, sys, json, subprocess, glob
+import os, sys, json, subprocess, glob, argparse
+from typing import List
+try:
+    import ctypes  # for admin check on Windows
+except Exception:
+    ctypes = None
 try:
     import winreg  # type: ignore
 except Exception:
@@ -22,107 +27,14 @@ def exists_any(paths):
             return True
     return False
 
-def detect_svn() -> bool:
-    if have('svn'):
-        return True
-    if not IS_WIN:
-        return False
-    # Common Windows installs
-    candidates = [
-        r"C:\\Program Files\\TortoiseSVN\\bin\\svn.exe",
-        r"C:\\Program Files (x86)\\TortoiseSVN\\bin\\svn.exe",
-        r"C:\\Program Files\\Subversion\\bin\\svn.exe",
-        r"C:\\Program Files\\SlikSvn\\bin\\svn.exe",
-        r"C:\\Program Files\\SlikSVN\\bin\\svn.exe",
-        r"C:\\Program Files\\Git\\usr\\bin\\svn.exe",
-    ]
-    # App portable tool path
-    try:
-        appdata = os.environ.get('APPDATA')
-        if appdata:
-            candidates.append(os.path.join(appdata, 'blender-launcher', 'tools', 'svn', 'bin', 'svn.exe'))
-            candidates.append(os.path.join(appdata, 'blender-launcher', 'tools', 'svn', 'extract'))
-    except Exception:
-        pass
-    if exists_any(candidates):
-        return True
-    # Check registry InstallLocation for TortoiseSVN
-    if IS_WIN and winreg is not None:
-        try:
-            roots = [
-                (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
-                (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
-            ]
-            for hive, path in roots:
-                try:
-                    with winreg.OpenKey(hive, path) as root:
-                        for i in range(0, winreg.QueryInfoKey(root)[0]):
-                            try:
-                                subname = winreg.EnumKey(root, i)
-                                with winreg.OpenKey(root, subname) as sk:
-                                    name = ''
-                                    try:
-                                        name = winreg.QueryValueEx(sk, 'DisplayName')[0]
-                                    except Exception:
-                                        continue
-                                    if name and 'tortoisesvn' in str(name).lower():
-                                        loc = None
-                                        try:
-                                            loc = winreg.QueryValueEx(sk, 'InstallLocation')[0]
-                                        except Exception:
-                                            pass
-                                        if not loc:
-                                            try:
-                                                icon = winreg.QueryValueEx(sk, 'DisplayIcon')[0]
-                                                loc = os.path.dirname(icon)
-                                            except Exception:
-                                                pass
-                                        if loc:
-                                            cand = os.path.join(loc, 'bin', 'svn.exe')
-                                            if os.path.exists(cand):
-                                                return True
-                            except Exception:
-                                continue
-                except Exception:
-                    continue
-        except Exception:
-            pass
-
-    # Shallow recursive search under Program Files folders (depth <= 3)
-    roots = [os.environ.get('ProgramFiles', r'C:\\Program Files'), os.environ.get('ProgramFiles(x86)', r'C:\\Program Files (x86)')]
-    for root in roots:
-        try:
-            if not root or not os.path.isdir(root):
-                continue
-            for d1 in os.listdir(root):
-                p1 = os.path.join(root, d1)
-                if not os.path.isdir(p1):
-                    continue
-                # Only check likely folders to keep it fast
-                if 'svn' not in d1.lower() and 'tortoise' not in d1.lower():
-                    continue
-                # depth 1
-                cand = os.path.join(p1, 'bin', 'svn.exe')
-                if os.path.exists(cand):
-                    return True
-                # depth 2
-                try:
-                    for d2 in os.listdir(p1):
-                        p2 = os.path.join(p1, d2)
-                        if not os.path.isdir(p2):
-                            continue
-                        cand2 = os.path.join(p2, 'bin', 'svn.exe')
-                        if os.path.exists(cand2):
-                            return True
-                except Exception:
-                    pass
-        except Exception:
-            pass
-    return False
+# SVN is no longer required for Windows builds per current Blender docs.
 
 def detect_msvc() -> bool:
-    # Quick PATH check first
-    if have('cl') or have('devenv') or have('msbuild'):
+    """Return True only when Visual Studio with VC Tools is installed.
+    Conservative: PATH-only msbuild isn't enough; prefer cl.exe or vswhere with VC Tools.
+    """
+    # If cl.exe is in PATH, it's good enough
+    if have('cl'):
         return True
     if not IS_WIN:
         return False
@@ -158,15 +70,112 @@ def detect_msvc() -> bool:
     return False
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--install', action='store_true', help='Install missing tools using winget')
+    parser.add_argument('--tools', type=str, help='Comma-separated list of tools to install (git,cmake,ninja,msvc). Default: missing only')
+    args = parser.parse_args()
+
     tools = {
         'git': have('git'),
         'cmake': have('cmake'),
-        'svn': detect_svn(),
         'ninja': have('ninja'),
         'python': True,  # running under python
         'msvc': detect_msvc(),
     }
-    print(json.dumps(tools))
+
+    # Always include a simple list of missing tools when not installing
+    missing = [k for k, v in tools.items() if v is False]
+
+    if not args.install:
+        print(json.dumps({ 'success': True, 'tools': tools, 'missing': missing }))
+        return 0
+
+    # Install flow via winget
+    # Map tool -> winget id and optional override args
+    pkg_map = {
+        'git':   { 'id': 'Git.Git', 'args': ['--silent'] },
+        'cmake': { 'id': 'Kitware.CMake', 'args': ['--silent'] },
+        'ninja': { 'id': 'Ninja-build.Ninja', 'args': ['--silent'] },
+        # Full Visual Studio Community with Desktop C++ workload per Blender docs
+        'msvc':  { 'id': 'Microsoft.VisualStudio.2022.Community', 'override': '--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended' },
+    }
+
+    # Determine targets
+    if args.tools:
+        requested = [t.strip().lower() for t in args.tools.split(',') if t.strip()]
+    else:
+        requested = [k for k, v in tools.items() if k in ('git','cmake','ninja','msvc') and v is False]
+    requested = [t for t in requested if t in pkg_map]
+    if not requested:
+        print(json.dumps({ 'success': True, 'installed': [], 'note': 'nothing-to-install' }))
+        return 0
+
+    def run_winget(args_list):
+        try:
+            p = subprocess.Popen(['winget'] + args_list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+            out = []
+            while True:
+                line = p.stdout.readline()
+                if not line:
+                    if p.poll() is not None:
+                        break
+                    continue
+                out.append(line)
+            code = p.wait()
+            return code, ''.join(out)
+        except Exception as e:
+            return 1, str(e)
+
+    # Basic check: is winget available
+    try:
+        wg = subprocess.run(['winget','--version'], capture_output=True, text=True)
+        if wg.returncode != 0:
+            sys.stderr.write('[install] winget introuvable. Installez l\'Application Installer (winget) depuis le Microsoft Store.\n')
+    except Exception:
+        sys.stderr.write('[install] winget introuvable. Installez l\'Application Installer (winget) depuis le Microsoft Store.\n')
+
+    installed: List[str] = []
+    failed: List[str] = []
+
+    def is_admin() -> bool:
+        if os.name != 'nt' or ctypes is None:
+            return False
+        try:
+            return bool(ctypes.windll.shell32.IsUserAnAdmin())
+        except Exception:
+            return False
+    for t in requested:
+        pkg = pkg_map[t]
+        args_list = ['install', '--id', pkg['id'], '-e', '--accept-package-agreements', '--accept-source-agreements']
+        if 'args' in pkg and pkg['args']:
+            args_list += pkg['args']
+        if 'override' in pkg and pkg['override']:
+            args_list += ['--override', pkg['override']]
+        code, out = run_winget(args_list)
+        # Consider non-zero exit as soft-fail; continue to next tool
+        if code == 0:
+            installed.append(t)
+        else:
+            # include a short message to help troubleshooting (permission/admin)
+            sys.stderr.write(f'[install] {t} failed with code {code}\n')
+            failed.append(t)
+
+    # If MSVC failed, print a clear admin/elevated command hint
+    hint = None
+    if 'msvc' in failed:
+        hint = 'winget install --id Microsoft.VisualStudio.2022.Community -e --accept-package-agreements --accept-source-agreements --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended"'
+        sys.stderr.write('[install] Pour MSVC, exécutez PowerShell en Administrateur puis lancez:\n')
+        sys.stderr.write(f'  {hint}\n')
+
+    # After install attempt, return updated tool status too
+    refreshed = {
+        'git': have('git'),
+        'cmake': have('cmake'),
+        'ninja': have('ninja'),
+        'python': True,
+        'msvc': detect_msvc(),
+    }
+    print(json.dumps({ 'success': True, 'installed': installed, 'failed': failed, 'tools': refreshed, 'missing': [k for k,v in refreshed.items() if v is False], 'needs_admin': (len(failed) > 0 and not is_admin()), 'hint': hint }))
     return 0
 
 if __name__ == '__main__':

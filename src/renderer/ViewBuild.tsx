@@ -7,7 +7,7 @@ interface ViewBuildProps {
 	missingTools?: string[];
 }
 
-type Tools = { git?: boolean; cmake?: boolean; svn?: boolean; ninja?: boolean; python?: boolean; msvc?: boolean };
+type Tools = { git?: boolean; cmake?: boolean; ninja?: boolean; python?: boolean; msvc?: boolean };
 
 const ViewBuild: React.FC<ViewBuildProps> = ({ isOpen, onClose, onInstalled, missingTools }) => {
 	const [tools, setTools] = useState<Tools>({});
@@ -64,7 +64,7 @@ const ViewBuild: React.FC<ViewBuildProps> = ({ isOpen, onClose, onInstalled, mis
 				</div>
 
 				<div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-					{['git','cmake','svn','ninja','msvc'].map(k => (
+					{['git','cmake','msvc','ninja'].map(k => (
 						<div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8, border: '1px solid #253446', borderRadius: 8, background: '#0f1827' }}>
 							<div style={{ width: 10, height: 10, borderRadius: 999, background: tools[k as keyof Tools] ? '#22c55e' : '#ef4444' }} />
 							<div style={{ color: '#9fb0c2', fontSize: 13 }}>{k.toUpperCase()}</div>
