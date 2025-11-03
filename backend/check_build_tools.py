@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
+"""
+check_build_tools.py - Windows only
+Per Blender official Windows build docs (https://developer.blender.org/docs/handbook/building_blender/windows/):
+Required tools:
+  - Git (for cloning source)
+  - CMake (build configuration)
+  - Visual Studio 2019 or 2022 Community with "Desktop development with C++" workload
+"""
 import os, sys, json, subprocess, glob, argparse
 from typing import List
 try:
     import ctypes  # for admin check on Windows
 except Exception:
     ctypes = None
-try:
-    import winreg  # type: ignore
-except Exception:
-    winreg = None
 
 IS_WIN = os.name == 'nt'
 
@@ -21,27 +25,20 @@ def have(cmd: str) -> bool:
     except Exception:
         return False
 
-def exists_any(paths):
-    for p in paths:
-        if os.path.exists(p):
-            return True
-    return False
-
-# SVN is no longer required for Windows builds per current Blender docs.
-
-def detect_msvc() -> bool:
-    """Return True only when Visual Studio with VC Tools is installed.
-    Conservative: PATH-only msbuild isn't enough; prefer cl.exe or vswhere with VC Tools.
+def detect_visual_studio() -> bool:
     """
-    # If cl.exe is in PATH, it's good enough
-    if have('cl'):
-        return True
+    Per Blender docs: Visual Studio 2019 or 2022 Community with Desktop development with C++ workload.
+    Returns True only when VS is installed with the required C++ workload.
+    """
     if not IS_WIN:
         return False
-    # Use vswhere to detect Build Tools + VC workload
+    # Check cl.exe in PATH (means VS dev environment is active)
+    if have('cl'):
+        return True
+    # Use vswhere to detect VS with VC.Tools component
     vswhere_cands = [
-        r"C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe",
-        r"C:\\Program Files\\Microsoft Visual Studio\\Installer\\vswhere.exe",
+        r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe",
+        r"C:\Program Files\Microsoft Visual Studio\Installer\vswhere.exe",
     ]
     vswhere = next((p for p in vswhere_cands if os.path.exists(p)), None)
     if not vswhere:
@@ -57,7 +54,7 @@ def detect_msvc() -> bool:
         inst = out.strip()
         if not inst:
             return False
-        # Look for cl.exe under VC Tools tree
+        # Verify cl.exe exists in the installation
         patterns = [
             os.path.join(inst, 'VC', 'Tools', 'MSVC', '*', 'bin', 'Hostx64', 'x64', 'cl.exe'),
             os.path.join(inst, 'VC', 'Tools', 'MSVC', '*', 'bin', 'Hostx86', 'x86', 'cl.exe'),
@@ -72,39 +69,40 @@ def detect_msvc() -> bool:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--install', action='store_true', help='Install missing tools using winget')
-    parser.add_argument('--tools', type=str, help='Comma-separated list of tools to install (git,cmake,ninja,msvc). Default: missing only')
+    parser.add_argument('--tools', type=str, help='Comma-separated list of tools to install (git,cmake,visual_studio). Default: missing only')
     args = parser.parse_args()
 
+    # Blender Windows requirements: Git, CMake, Visual Studio 2019/2022 Community with Desktop C++ workload
     tools = {
         'git': have('git'),
         'cmake': have('cmake'),
-        'ninja': have('ninja'),
         'python': True,  # running under python
-        'msvc': detect_msvc(),
+        'visual_studio': detect_visual_studio(),
     }
 
-    # Always include a simple list of missing tools when not installing
     missing = [k for k, v in tools.items() if v is False]
 
     if not args.install:
         print(json.dumps({ 'success': True, 'tools': tools, 'missing': missing }))
         return 0
 
-    # Install flow via winget
-    # Map tool -> winget id and optional override args
+    # Install flow via winget (Windows only)
+    # Map tool -> winget id and optional override args per Blender docs
     pkg_map = {
         'git':   { 'id': 'Git.Git', 'args': ['--silent'] },
         'cmake': { 'id': 'Kitware.CMake', 'args': ['--silent'] },
-        'ninja': { 'id': 'Ninja-build.Ninja', 'args': ['--silent'] },
-        # Full Visual Studio Community with Desktop C++ workload per Blender docs
-        'msvc':  { 'id': 'Microsoft.VisualStudio.2022.Community', 'override': '--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended' },
+        # Visual Studio 2022 Community with Desktop development with C++ workload
+        'visual_studio':  { 
+            'id': 'Microsoft.VisualStudio.2022.Community', 
+            'override': '--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended' 
+        },
     }
 
     # Determine targets
     if args.tools:
         requested = [t.strip().lower() for t in args.tools.split(',') if t.strip()]
     else:
-        requested = [k for k, v in tools.items() if k in ('git','cmake','ninja','msvc') and v is False]
+        requested = [k for k, v in tools.items() if k in pkg_map and v is False]
     requested = [t for t in requested if t in pkg_map]
     if not requested:
         print(json.dumps({ 'success': True, 'installed': [], 'note': 'nothing-to-install' }))
@@ -152,30 +150,35 @@ def main():
         if 'override' in pkg and pkg['override']:
             args_list += ['--override', pkg['override']]
         code, out = run_winget(args_list)
-        # Consider non-zero exit as soft-fail; continue to next tool
         if code == 0:
             installed.append(t)
         else:
-            # include a short message to help troubleshooting (permission/admin)
             sys.stderr.write(f'[install] {t} failed with code {code}\n')
             failed.append(t)
 
-    # If MSVC failed, print a clear admin/elevated command hint
+    # If visual_studio failed, print a clear admin/elevated command hint
     hint = None
-    if 'msvc' in failed:
+    if 'visual_studio' in failed:
         hint = 'winget install --id Microsoft.VisualStudio.2022.Community -e --accept-package-agreements --accept-source-agreements --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended"'
-        sys.stderr.write('[install] Pour MSVC, exécutez PowerShell en Administrateur puis lancez:\n')
+        sys.stderr.write('[install] Pour Visual Studio, exécutez PowerShell en Administrateur puis lancez:\n')
         sys.stderr.write(f'  {hint}\n')
 
-    # After install attempt, return updated tool status too
+    # After install attempt, return updated tool status
     refreshed = {
         'git': have('git'),
         'cmake': have('cmake'),
-        'ninja': have('ninja'),
         'python': True,
-        'msvc': detect_msvc(),
+        'visual_studio': detect_visual_studio(),
     }
-    print(json.dumps({ 'success': True, 'installed': installed, 'failed': failed, 'tools': refreshed, 'missing': [k for k,v in refreshed.items() if v is False], 'needs_admin': (len(failed) > 0 and not is_admin()), 'hint': hint }))
+    print(json.dumps({ 
+        'success': True, 
+        'installed': installed, 
+        'failed': failed, 
+        'tools': refreshed, 
+        'missing': [k for k,v in refreshed.items() if v is False], 
+        'needs_admin': (len(failed) > 0 and not is_admin()), 
+        'hint': hint 
+    }))
     return 0
 
 if __name__ == '__main__':
