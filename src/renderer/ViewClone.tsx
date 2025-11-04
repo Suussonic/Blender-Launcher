@@ -44,7 +44,11 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 
 	// Default folder name from repo+branch
 	useEffect(() => {
-		if (repoName && selectedBranch) setFolderName(`${repoName}-${selectedBranch}`);
+		if (repoName && selectedBranch) {
+			// Clean folder name: just branch name, removing "blender-" prefix if present
+			const cleanBranch = selectedBranch.replace(/^blender-/i, '');
+			setFolderName(cleanBranch);
+		}
 	}, [repoName, selectedBranch]);
 
 	// Progress routing to bottom bar
@@ -74,28 +78,35 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 
 	const handleClone = async () => {
 		if (!targetLocation || !folderName.trim()) return;
+		
+		// Check only for Git (not CMake/MSVC since we're just cloning)
 		try {
 			const check = await (window as any).electronAPI?.invoke?.('check-build-tools');
-			if (check && Array.isArray(check.missing) && check.missing.length > 0) {
-				setMissingTools(check.missing);
+			if (check && Array.isArray(check.missing) && check.missing.includes('git')) {
+				setMissingTools(['git']);
 				setShowBuildModal(true);
 				return;
 			}
 		} catch (e) {
-			setMissingTools(undefined);
-			setShowBuildModal(true);
-			return;
+			// If check fails, continue anyway - simple_clone.py will error if git is missing
+			console.warn('[ViewClone] check-build-tools failed, continuing:', e);
 		}
 
 		const doClone = async () => {
 			setCloning(true); setError(null);
 			onCloneStateChange?.({ isCloning: true, progress: 0, text: 'Clonage en cours...', repoName: `${owner}/${repoName}` });
 			try {
-				console.log('[ViewClone] invoke clone-repository with', { repoUrl, branch: selectedBranch, target: targetLocation, name: folderName.trim() });
+				// Transform GitHub mirror URL to official Blender repository
+				let finalRepoUrl = repoUrl;
+				if (repoUrl.includes('github.com/blender/blender')) {
+					finalRepoUrl = 'https://projects.blender.org/blender/blender.git';
+				}
+				
+				console.log('[ViewClone] invoke clone-repository with', { repoUrl: finalRepoUrl, branch: selectedBranch, target: targetLocation, name: folderName.trim() });
 				// Fire and close immediately; bottom bar will track
 				(window as any).electronAPI?.invoke?.('clone-repository', {
 					// Accept both shapes in main: repoUrl/url, target/targetPath, name/folderName
-					repoUrl, url: repoUrl,
+					repoUrl: finalRepoUrl, url: finalRepoUrl,
 					branch: selectedBranch,
 					target: targetLocation, targetPath: targetLocation,
 					name: folderName.trim(), folderName: folderName.trim(),

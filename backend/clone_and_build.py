@@ -24,20 +24,28 @@ def echo(tag: str, **kv):
         except Exception:
             pass
 
-def run(cmd, cwd=None, shell=False, env=None):
+def run(cmd, cwd=None, shell=False, env=None, stream_output=False):
+    """Run command and capture output. If stream_output=True, print live to console."""
     try:
-        p = subprocess.Popen(cmd, cwd=cwd, shell=shell, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-        out = []
-        while True:
-            line = p.stdout.readline()
-            if not line:
-                if p.poll() is not None:
-                    break
-                time.sleep(0.05)
-                continue
-            out.append(line)
-        code = p.wait()
-        return code, ''.join(out)
+        if stream_output:
+            # For long operations like git clone, stream output directly
+            p = subprocess.Popen(cmd, cwd=cwd, shell=shell, env=env)
+            code = p.wait()
+            return code, ''
+        else:
+            # Capture output for error reporting
+            p = subprocess.Popen(cmd, cwd=cwd, shell=shell, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+            out = []
+            while True:
+                line = p.stdout.readline()
+                if not line:
+                    if p.poll() is not None:
+                        break
+                    time.sleep(0.05)
+                    continue
+                out.append(line)
+            code = p.wait()
+            return code, ''.join(out)
     except Exception as e:
         return 1, str(e)
 
@@ -152,20 +160,24 @@ def main():
     if not skip_clone:
         echo('PROGRESS', progress=1, text='Clonage du dépôt…')
 
-        # Install LFS in skip smudge mode if available
+        # Clone - use subprocess.run for simpler flow, no output capture
         try:
-            subprocess.call(['git', 'lfs', 'install', '--skip-smudge'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception:
-            pass
-
-        # Clone
-        code, out = run(['git', 'clone', '--branch', branch, '--depth', '1', repo_url, clone_dir])
-        if code != 0:
-            # Fallback without LFS smudge
-            code2, out2 = run(['git', '-c', 'filter.lfs.smudge=', '-c', 'filter.lfs.required=false', 'clone', '--branch', branch, '--depth', '1', repo_url, clone_dir])
-            if code2 != 0:
-                echo('ERROR', message='Echec du clone', detail=(out2 or out)[-400:])
+            result = subprocess.run(
+                ['git', 'clone', '--branch', branch, '--depth', '1', '--progress', repo_url, clone_dir],
+                capture_output=False,
+                text=True,
+                timeout=600  # 10 min max for clone
+            )
+            if result.returncode != 0:
+                echo('ERROR', message='Echec du clone')
                 return 2
+        except subprocess.TimeoutExpired:
+            echo('ERROR', message='Clone timeout (>10min)')
+            return 2
+        except Exception as e:
+            echo('ERROR', message='Echec du clone', detail=str(e))
+            return 2
+        
         echo('PROGRESS', progress=20, text='Clone terminé')
     else:
         echo('PROGRESS', progress=20, text='Clone déjà présent')
@@ -199,9 +211,7 @@ def main():
             with open(bat_path, 'w', encoding='utf-8') as f:
                 f.write('@echo off\r\n')
                 f.write(f'call "{vsdev}"\r\n')
-                # Prefer Ninja generator to avoid VS generator autodetection
-                f.write('set BLENDER_CMAKE_ARGS=-G Ninja\r\n')
-                f.write('set CMAKE_GENERATOR=Ninja\r\n')
+                # Don't force generator - let make.bat decide per official docs
                 # Use make.bat explicitly and add verbose for diagnostics
                 if vsver:
                     f.write(f'call make.bat update {vsver} verbose\r\n')
@@ -243,8 +253,7 @@ def main():
             with open(bat_path_b, 'w', encoding='utf-8') as f:
                 f.write('@echo off\r\n')
                 f.write(f'call "{vsdev}"\r\n')
-                f.write('set BLENDER_CMAKE_ARGS=-G Ninja\r\n')
-                f.write('set CMAKE_GENERATOR=Ninja\r\n')
+                # Don't force generator - let make.bat decide per official docs
                 if vsver:
                     f.write(f'call make.bat {vsver} verbose\r\n')
                 else:

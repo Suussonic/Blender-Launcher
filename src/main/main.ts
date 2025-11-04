@@ -1310,62 +1310,18 @@ app.whenReady().then(() => {
         return { success: false, error: 'missing-params' };
       }
 
-      // Preflight: ensure required tools are present (Git, CMake, MSVC)
+      // Preflight: ensure Git is present (only Git needed for clone)
       try {
-        const { spawn } = require('child_process');
-        const script = resolveBackendScript('check_build_tools.py');
-        if (script) {
-          const py = pythonCandidates();
-          const tools: any = await new Promise((resolve) => {
-            const next = () => {
-              const cmd = py.shift();
-              if (!cmd) return resolve(null);
-              try {
-                const c = spawn(cmd, [script], { windowsHide: true });
-                let out = '';
-                c.stdout.on('data', (d: Buffer) => out += d.toString());
-                c.on('error', () => next());
-                c.on('close', (code: number) => { if (code === 0) { try { resolve(JSON.parse(out.trim())); } catch { resolve(null); } } else next(); });
-              } catch { next(); }
-            };
-            next();
-          });
-          if (tools) {
-            const missing = Object.entries(tools).filter(([, v]) => v === false).map(([k]) => k);
-            const requiredMissing = missing.filter((t: any) => ['git','cmake','msvc'].includes(String(t)));
-            if (requiredMissing.length > 0) {
-              send('MISSING_TOOLS', { missing: requiredMissing });
-              return { success: false, error: 'missing-tools', missing: requiredMissing };
-            }
-          }
-        }
-        // Node-level fallback check in case Python preflight fails
         const { spawnSync } = require('child_process');
         const has = (cmd: string) => { try { const r = spawnSync('where', [cmd], { windowsHide: true }); return r && r.status === 0; } catch { return false; } };
         const hasGit = has('git');
-        const hasCMake = has('cmake');
-        const hasCL = has('cl');
-        let hasMSVC = hasCL;
-        if (!hasMSVC) {
-          try {
-            const vsw = ['C\\\\Program Files (x86)\\\\Microsoft Visual Studio\\\\Installer\\\\vswhere.exe','C\\\\Program Files\\\\Microsoft Visual Studio\\\\Installer\\\\vswhere.exe'];
-            const found = vsw.find((p: string) => require('fs').existsSync(p.replace(/\\\\/g,'\\')));
-            if (found) {
-              const r = spawnSync(found.replace(/\\\\/g,'\\'), ['-latest','-products','*','-requires','Microsoft.VisualStudio.Component.VC.Tools.x86.x64','-property','installationPath'], { windowsHide: true });
-              hasMSVC = (r && r.status === 0 && String(r.stdout||'').trim().length > 0);
-            }
-          } catch {}
-        }
-        const missingHard: string[] = [];
-        if (!hasGit) missingHard.push('git');
-        if (!hasCMake) missingHard.push('cmake');
-        if (!hasMSVC) missingHard.push('msvc');
-        if (missingHard.length > 0) {
-          send('MISSING_TOOLS', { missing: missingHard });
-          return { success: false, error: 'missing-tools', missing: missingHard };
+        if (!hasGit) {
+          send('MISSING_TOOLS', { missing: ['git'] });
+          return { success: false, error: 'missing-tools', missing: ['git'] };
         }
       } catch { /* ignore preflight errors */ }
-  const script = resolveBackendScript('clone_and_build.py');
+  // Use simple_clone.py for just cloning (no build)
+  const script = resolveBackendScript('simple_clone.py');
       if (!script) { try { send('ERROR', { message: 'script-missing' }); } catch {}; return { success: false, error: 'script-missing' }; }
       const { spawn } = require('child_process');
       const args = [script, '--repo', repoUrl, '--branch', branch, '--target', target].concat(name ? ['--name', name] : []);
@@ -1381,7 +1337,8 @@ app.whenReady().then(() => {
             send('START', { text: 'Préparation…', progress: 0 });
             chosen = cmd;
             console.log('[clone] spawn', { python: cmd, script, args });
-            const child = spawn(cmd, args, { windowsHide: true });
+            // Remove windowsHide to allow git progress output
+            const child = spawn(cmd, args, { windowsHide: false, shell: false });
             child.stdout.on('data', (d: Buffer) => {
               const lines = d.toString().split(/\r?\n/).filter(Boolean);
               for (const line of lines) {
