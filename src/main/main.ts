@@ -1310,18 +1310,36 @@ app.whenReady().then(() => {
         return { success: false, error: 'missing-params' };
       }
 
-      // Preflight: ensure Git is present (only Git needed for clone)
+      // Preflight: ensure Git, CMake, and Visual Studio are present (needed for compilation)
       try {
         const { spawnSync } = require('child_process');
         const has = (cmd: string) => { try { const r = spawnSync('where', [cmd], { windowsHide: true }); return r && r.status === 0; } catch { return false; } };
         const hasGit = has('git');
-        if (!hasGit) {
-          send('MISSING_TOOLS', { missing: ['git'] });
-          return { success: false, error: 'missing-tools', missing: ['git'] };
+        const hasCMake = has('cmake');
+        
+        // Check for Visual Studio with C++ workload
+        let hasMSVC = false;
+        try {
+          const vsw = ['C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe','C:\\Program Files\\Microsoft Visual Studio\\Installer\\vswhere.exe'];
+          const found = vsw.find((p: string) => require('fs').existsSync(p));
+          if (found) {
+            const r = spawnSync(found, ['-latest','-products','*','-requires','Microsoft.VisualStudio.Component.VC.Tools.x86.x64','-property','installationPath'], { windowsHide: true });
+            hasMSVC = (r && r.status === 0 && String(r.stdout||'').trim().length > 0);
+          }
+        } catch {}
+        
+        const missing: string[] = [];
+        if (!hasGit) missing.push('git');
+        if (!hasCMake) missing.push('cmake');
+        if (!hasMSVC) missing.push('msvc');
+        
+        if (missing.length > 0) {
+          send('MISSING_TOOLS', { missing });
+          return { success: false, error: 'missing-tools', missing };
         }
       } catch { /* ignore preflight errors */ }
-  // Use simple_clone.py for just cloning (no build)
-  const script = resolveBackendScript('simple_clone.py');
+  // Use clone_and_compile.py for clone + full build
+  const script = resolveBackendScript('clone_and_compile.py');
       if (!script) { try { send('ERROR', { message: 'script-missing' }); } catch {}; return { success: false, error: 'script-missing' }; }
       const { spawn } = require('child_process');
       const args = [script, '--repo', repoUrl, '--branch', branch, '--target', target].concat(name ? ['--name', name] : []);

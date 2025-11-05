@@ -59,8 +59,20 @@ const ViewBuild: React.FC<ViewBuildProps> = ({ isOpen, onClose, onInstalled, mis
 		<div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
 			<div style={{ width: 720, maxWidth: '94vw', background: '#0b1220', borderRadius: 12, padding: 20, color: '#e6eef6', border: '1px solid #1f2a3a' }}>
 				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-					<h3 style={{ margin: 0 }}>Outils de build</h3>
+					<h3 style={{ margin: 0 }}>Outils de build requis</h3>
 					<button onClick={onClose} disabled={installing} style={{ background: 'transparent', border: 'none', color: '#9fb0c2', cursor: 'pointer' }} title="Fermer">✕</button>
+				</div>
+
+				<div style={{ marginTop: 12, padding: 12, background: '#1a0f0f', border: '1px solid #3a1f1f', borderRadius: 8, fontSize: 13, color: '#fca5a5', lineHeight: 1.5 }}>
+					<strong style={{ color: '#ef4444' }}>⚠️ Installation requise</strong>
+					<br/>
+					Les outils suivants sont nécessaires pour compiler Blender (make update + make compile) :
+					<br/>• <strong>Git</strong> : Clonage du code source
+					<br/>• <strong>CMake</strong> : Génération des fichiers de build
+					<br/>• <strong>Visual Studio 2022</strong> (MSVC) : Compilateur C++ (avec "Desktop development with C++")
+					<br/>• <strong>Ninja</strong> : Outil de build rapide
+					<br/><br/>
+					Sans ces outils, le clonage et la compilation ne peuvent pas aboutir.
 				</div>
 
 				<div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -78,8 +90,20 @@ const ViewBuild: React.FC<ViewBuildProps> = ({ isOpen, onClose, onInstalled, mis
 				</div>
 
 						{Array.isArray(missingTools) && missingTools.length > 0 && (
-							<div style={{ marginTop: 10, color: '#eab308', fontSize: 13 }}>
-								Outils manquants: {missingTools.join(', ')}
+							<div style={{ marginTop: 10, padding: 10, background: '#1a0a0a', border: '1px solid #3a1a1a', borderRadius: 8 }}>
+								<div style={{ color: '#ef4444', fontSize: 14, fontWeight: 600, marginBottom: 6 }}>❌ Impossible de cloner et compiler</div>
+								<div style={{ color: '#fca5a5', fontSize: 13 }}>
+									Outils manquants détectés : <strong>{missingTools.join(', ')}</strong>
+									<br/><br/>
+									<strong>Que faire ?</strong>
+									<br/>1. Cliquez sur "Installer les prérequis" pour les installer automatiquement
+									<br/>2. OU installez-les manuellement :
+									<br/>   • <strong>Git</strong> : <a href="https://git-scm.com/download/win" target="_blank" style={{ color: '#60a5fa' }}>git-scm.com</a>
+									<br/>   • <strong>CMake</strong> : <a href="https://cmake.org/download/" target="_blank" style={{ color: '#60a5fa' }}>cmake.org</a>
+									<br/>   • <strong>Visual Studio 2022</strong> : <a href="https://visualstudio.microsoft.com/fr/downloads/" target="_blank" style={{ color: '#60a5fa' }}>visualstudio.com</a> (version Community gratuite, avec "Desktop development with C++")
+									<br/><br/>
+									Une fois installés, cliquez sur "Re-vérifier" puis retentez le clonage.
+								</div>
 							</div>
 						)}
 

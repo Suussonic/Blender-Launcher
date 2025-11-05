@@ -79,19 +79,24 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 	const handleClone = async () => {
 		if (!targetLocation || !folderName.trim()) return;
 		
-		// Check only for Git (not CMake/MSVC since we're just cloning)
+		// Vérifier que TOUS les build tools sont présents avant de cloner
 		try {
 			const check = await (window as any).electronAPI?.invoke?.('check-build-tools');
-			if (check && Array.isArray(check.missing) && check.missing.includes('git')) {
-				setMissingTools(['git']);
+			if (check && Array.isArray(check.missing) && check.missing.length > 0) {
+				// Des outils manquent - ouvrir la popup
+				setMissingTools(check.missing);
 				setShowBuildModal(true);
 				return;
 			}
 		} catch (e) {
-			// If check fails, continue anyway - simple_clone.py will error if git is missing
-			console.warn('[ViewClone] check-build-tools failed, continuing:', e);
+			console.error('[ViewClone] check-build-tools failed:', e);
+			// En cas d'erreur de vérification, bloquer aussi
+			setMissingTools(['git', 'cmake', 'msvc']);
+			setShowBuildModal(true);
+			return;
 		}
 
+		// Tous les outils sont présents, on peut cloner
 		const doClone = async () => {
 			setCloning(true); setError(null);
 			onCloneStateChange?.({ isCloning: true, progress: 0, text: 'Clonage en cours...', repoName: `${owner}/${repoName}` });
@@ -166,6 +171,15 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 							</div>
 						)}
 					</div>
+					{/* Avertissement sur la durée de compilation */}
+					{targetLocation && folderName.trim() && (
+						<div style={{ padding: '12px 16px', borderTop: '1px solid #1f2932', background:'#1a1a0f' }}>
+							<div style={{ fontSize: 13, color: '#fde68a', lineHeight: 1.4 }}>
+								💡 <strong>Compilation automatique</strong> : Clone → make update (libraries, 10-30 min) → make compile (30-60 min).
+								<br/>Durée totale : <strong>40-90 minutes</strong>. L'exécutable compilé sera ajouté automatiquement à votre liste.
+							</div>
+						</div>
+					)}
 					{error && (
 						<div style={{ padding: '16px 24px', borderTop: '1px solid #1f2932', borderBottom:'1px solid #1f2932', background:'#1a0f0f' }}>
 							<div style={{ fontSize: 14, color: '#ef4444', marginBottom: 8 }}>❌ Erreur de clonage</div>
@@ -174,7 +188,7 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 					)}
 					<div style={{ padding:'16px 24px', borderTop:'1px solid #1f2932', display:'flex', gap:12, justifyContent:'flex-end' }}>
 						<button onClick={handleClone} disabled={!targetLocation || !folderName.trim() || cloning} style={{ padding:'8px 16px', background:(!targetLocation || !folderName.trim() || cloning) ? '#1a232b' : (error ? '#dc2626' : '#2563eb'), border:'none', borderRadius:8, color:(!targetLocation || !folderName.trim() || cloning) ? '#64748b' : '#fff', cursor:(!targetLocation || !folderName.trim() || cloning) ? 'not-allowed':'pointer', fontSize:14, fontWeight:500 }}>
-							{cloning ? 'Clonage...' : (error ? 'Réessayer' : 'Cloner')}
+							{cloning ? 'Clonage et compilation...' : (error ? 'Réessayer' : 'Cloner et Compiler')}
 						</button>
 					</div>
 				</div>

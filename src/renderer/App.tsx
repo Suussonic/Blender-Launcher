@@ -448,15 +448,18 @@ const App: React.FC = () => {
             <div style={{ flex: 1, height: 8, background: '#1f2937', borderRadius: 6, overflow: 'hidden' }}>
               <div style={{ width: `${Math.min(100, cloneState.progress)}%`, height: '100%', background: '#3b82f6', transition: 'width .25s ease' }} />
             </div>
-            <div style={{ color: '#cbd5e1', fontSize: 12, minWidth: 120, textAlign: 'right' }}>
+            <div style={{ color: '#cbd5e1', fontSize: 12, minWidth: 180, textAlign: 'right' }}>
+              {Math.min(100, cloneState.progress).toFixed(0)}%
+            </div>
+          </div>
+          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ color: '#94a3b8', fontSize: 11 }}>
+              {cloneState.repoName && `${cloneState.repoName}`}
+            </div>
+            <div style={{ color: '#cbd5e1', fontSize: 12, fontWeight: 500 }}>
               {cloneState.text}
             </div>
           </div>
-          {cloneState.repoName && (
-            <div style={{ marginTop: 4, color: '#94a3b8', fontSize: 11, textAlign: 'left' }}>
-              Clonage de {cloneState.repoName}
-            </div>
-          )}
         </div>
       )}
       {/* Bottom render progress bar */}
