@@ -1295,6 +1295,165 @@ app.whenReady().then(() => {
     } catch (e) { return { success: false, error: String(e) }; }
   });
 
+  ipcMain.handle('download-official-blender', async (_event, payload) => {
+    console.log('[BACKEND] download-official-blender IPC handler appelé');
+    console.log('[BACKEND] Payload reçu:', JSON.stringify(payload, null, 2));
+    
+    try {
+      const { version, url, type, targetPath, folderName } = payload;
+      const wc = mainWindow?.webContents;
+      const send = (event: string, data: any) => { 
+        console.log('[BACKEND] Envoi événement:', event, data);
+        try { wc?.send('download-progress', { event, ...data }); } catch (e) {
+          console.error('[BACKEND] Erreur envoi événement:', e);
+        }
+      };
+      
+      console.log('[BACKEND] Paramètres extraits:', { version, url, type, targetPath, folderName });
+      
+      if (!url || !targetPath || !folderName || !version) {
+        console.error('[BACKEND] Paramètres manquants');
+        send('ERROR', { message: 'missing-params' });
+        return { success: false, error: 'missing-params' };
+      }
+      
+      // Call Python script to handle download
+      const scriptPath = path.join(__dirname, '..', '..', 'backend', 'download_blender.py');
+      console.log('[BACKEND] Script Python:', scriptPath);
+      
+      send('PROGRESS', { progress: 5, text: 'Démarrage du téléchargement...' });
+      
+      // Resolve Python command robustly
+      const { spawn, spawnSync } = require('child_process');
+      const candidates: Array<{cmd: string; args: string[]}> = [
+        { cmd: 'py', args: ['-3'] },
+        { cmd: 'py', args: [] },
+        { cmd: 'python', args: [] },
+        { cmd: 'python3', args: [] },
+      ];
+      let pythonCmd: {cmd: string; args: string[]} | null = null;
+      for (const c of candidates) {
+        try {
+          const res = spawnSync(c.cmd, [...c.args, '--version'], { stdio: 'ignore', shell: process.platform === 'win32' });
+          if (res && res.status === 0) { pythonCmd = c; break; }
+        } catch {}
+      }
+      if (!pythonCmd) {
+        console.error('[BACKEND] Python introuvable sur le système');
+        send('ERROR', { message: 'python-not-found' });
+        return { success: false, error: 'python-not-found' };
+      }
+      console.log('[BACKEND] Python détecté:', pythonCmd);
+      const python = spawn(pythonCmd.cmd, [...pythonCmd.args, scriptPath, version, url, targetPath, folderName], { shell: process.platform === 'win32' });
+      
+      let blenderExePath = '';
+      
+      python.stdout.on('data', (data: Buffer) => {
+        const lines = data.toString().split('\n');
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const msg = JSON.parse(line);
+            console.log('[BACKEND] Message Python:', msg);
+            
+            if (msg.type === 'progress') {
+              send('PROGRESS', { progress: msg.progress, text: msg.text });
+            } else if (msg.type === 'error') {
+              send('ERROR', { message: msg.message });
+            } else if (msg.type === 'complete') {
+              blenderExePath = msg.path;
+            } else if (msg.type === 'log') {
+              console.log('[BACKEND] Python log:', msg.message);
+            }
+          } catch (e) {
+            console.log('[BACKEND] Python output:', line);
+          }
+        }
+      });
+      
+      python.stderr.on('data', (data: Buffer) => {
+        console.error('[BACKEND] Python stderr:', data.toString());
+      });
+      
+      await new Promise<void>((resolve, reject) => {
+        python.on('close', (code: number) => {
+          console.log('[BACKEND] Python script terminé avec code:', code);
+          if (code === 0) {
+            resolve();
+          } else {
+            reject(new Error(`Python script exited with code ${code}`));
+          }
+        });
+      });
+      
+      if (!blenderExePath) {
+        console.error('[BACKEND] Chemin exe non reçu du script Python');
+        send('ERROR', { message: 'exe-not-found' });
+        return { success: false, error: 'exe-not-found' };
+      }
+      
+      console.log('[BACKEND] Exécutable trouvé:', blenderExePath);
+      send('PROGRESS', { progress: 95, text: 'Ajout à la configuration...' });
+      
+      // Ajouter à config.json
+      const configPath = getConfigPath();
+      console.log('[BACKEND] Chemin config:', configPath);
+      let config: any = {};
+      try {
+        if (fs.existsSync(configPath)) {
+          config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+          console.log('[BACKEND] Config existante chargée');
+        } else {
+          console.log('[BACKEND] Création nouvelle config');
+        }
+      } catch (e) {
+        console.error('[BACKEND] Erreur lecture config:', e);
+      }
+      
+      if (!config.executables) config.executables = [];
+      
+      // Extraire l'icône si possible
+      let iconPath = '';
+      try {
+        if (process.platform === 'win32') {
+          console.log('[BACKEND] Extraction icône Windows...');
+          const { extractIcon } = require('./blender_addon_action');
+          const iconBuffer = extractIcon(blenderExePath, 256) || extractIcon(blenderExePath, 64) || extractIcon(blenderExePath, 32);
+          if (iconBuffer) {
+            const iconsDir = path.join(app.getPath('userData'), 'icons');
+            if (!fs.existsSync(iconsDir)) fs.mkdirSync(iconsDir, { recursive: true });
+            const iconFile = path.join(iconsDir, `icon_${Date.now()}.png`);
+            fs.writeFileSync(iconFile, iconBuffer);
+            iconPath = pathToFileURL(iconFile).toString();
+          }
+        }
+      } catch (e) {
+        console.warn('[BACKEND] Icon extraction failed:', e);
+      }
+      
+      console.log('[BACKEND] Ajout de l\'exécutable à la config...');
+      config.executables.push({
+        path: blenderExePath,
+        name: path.basename(blenderExePath),
+        title: `Blender ${version}`,
+        icon: iconPath || '',
+      });
+      
+      console.log('[BACKEND] Nouvelle config:', JSON.stringify(config, null, 2));
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      console.log('[BACKEND] Config sauvegardée');
+      
+      send('PROGRESS', { progress: 100, text: 'Installation terminée!' });
+      send('COMPLETE', { path: blenderExePath });
+      
+      console.log('[BACKEND] Installation terminée avec succès:', blenderExePath);
+      return { success: true, path: blenderExePath };
+    } catch (e) {
+      console.error('[BACKEND] Erreur globale:', e);
+      return { success: false, error: String(e) };
+    }
+  });
+
   ipcMain.handle('clone-repository', async (_event, payload) => {
     try {
       // Accept both shapes from renderer

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { FiHome, FiDownload, FiSettings, FiMinus, FiMaximize2, FiX, FiGithub, FiFolder, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiHome, FiDownload, FiSettings, FiMinus, FiMaximize2, FiX, FiGithub, FiFolder, FiChevronLeft, FiChevronRight, FiPlus } from 'react-icons/fi';
 
 
 const iconBtnStyle: React.CSSProperties = {
@@ -158,6 +158,7 @@ type NavbarProps = {
   onHome?: () => void;
   onSettings?: () => void;
   onSelectRepo?: (repo:{ name:string; link:string }) => void;
+  onOpenCloneBuild?: () => void;
   canGoBack?: boolean;
   canGoForward?: boolean;
   onBack?: () => void;
@@ -167,7 +168,7 @@ type NavbarProps = {
   onClearWebHistory?: () => void;
 };
 
-const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, canGoBack, canGoForward, onBack, onForward, isOnWebPage, onWebHome, onClearWebHistory }) => {
+const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onOpenCloneBuild, canGoBack, canGoForward, onBack, onForward, isOnWebPage, onWebHome, onClearWebHistory }) => {
   const { t } = useTranslation();
   const navbarRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -291,6 +292,10 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, canGo
             </div>
           )}
         </div>
+        {/* Bouton + (Clone & Build) */}
+        <button style={iconBtnStyle} className="no-drag" title="Clone & Build" onClick={onOpenCloneBuild}>
+          <FiPlus size={22} />
+        </button>
         {/* Bouton import */}
         <button style={iconBtnStyle} className="no-drag" title="Importer" onClick={() => setShowImport(true)}>
           <FiDownload size={22} />

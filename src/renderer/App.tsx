@@ -6,6 +6,7 @@ import ViewPages from './ViewPages';
 import Home from './Home';
 import InAppWeb, { InAppWebHandle } from './InAppWeb';
 import ViewRepo, { SimpleRepoRef } from './ViewRepo';
+import ViewOfficial from './ViewOfficial';
 import Loading from './Loading';
 import SettingsPage from './SettingsPage';
 
@@ -33,13 +34,59 @@ const App: React.FC = () => {
   const [toast, setToast] = useState<{ msg: string; type: 'info' | 'error'; } | null>(null);
   const [selectedRepo, setSelectedRepo] = useState<SimpleRepoRef | null>(null);
   
-  // Clone progress state
+  // Clone/Build popup state
+  const [showCloneBuildPopup, setShowCloneBuildPopup] = useState(false);
+  
+  // Clone/Download progress state (supports both clone and download)
   const [cloneState, setCloneState] = useState<{ 
-    isCloning: boolean; 
+    isCloning?: boolean;
+    isDownloading?: boolean;
     progress: number; 
     text: string; 
-    repoName?: string; 
+    repoName?: string;
+    version?: string;
   } | null>(null);
+
+  // Global listener for download progress (official builds)
+  useEffect(() => {
+    const handler = (_: any, data: any) => {
+      if (!data) return;
+      if (data.event === 'ERROR') {
+        setCloneState({
+          isDownloading: true,
+          progress: data.progress ?? 0,
+          text: data.message || 'Erreur de téléchargement',
+          version: cloneState?.version || undefined
+        });
+        return;
+      }
+      if (data.event === 'COMPLETE') {
+        setCloneState({
+          isDownloading: true,
+          progress: 100,
+          text: 'Terminé',
+          version: cloneState?.version || undefined
+        });
+        // Clear after short delay
+        setTimeout(() => setCloneState(null), 3000);
+        // Rafraîchir la liste des exécutables
+        if (window.electronAPI?.getBlenders) {
+          window.electronAPI.getBlenders().catch(()=>{});
+        }
+        return;
+      }
+      if (data.event === 'PROGRESS') {
+        setCloneState({
+          isDownloading: true,
+            progress: typeof data.progress === 'number' ? data.progress : 0,
+            text: data.text || 'Téléchargement...',
+            version: cloneState?.version || undefined
+        });
+      }
+    };
+    (window as any).electronAPI?.on?.('download-progress', handler);
+    return () => (window as any).electronAPI?.off?.('download-progress', handler);
+  }, []);
 
   console.log('[App] Rendu - page:', page, 'selectedBlender:', selectedBlender);
 
@@ -366,6 +413,7 @@ const App: React.FC = () => {
     onHome={handleHome}
     onSettings={() => pushAppEntry({ page: 'settings' })}
     onSelectRepo={(r)=> { setSelectedRepo(r); setSelectedBlender(null); pushAppEntry({ page: 'repo', repo: r }); }}
+    onOpenCloneBuild={() => setShowCloneBuildPopup(true)}
     canGoBack={appIndex > 0}
     canGoForward={appIndex < appHistory.length - 1}
     onBack={() => { if (appIndex > 0) restoreAppEntry(appIndex - 1); }}
@@ -441,7 +489,7 @@ const App: React.FC = () => {
             : <Home selectedBlender={selectedBlender} onLaunch={(b) => setLastLaunched(b)} onOpenLink={openWeb} />}
         </div>
       </div>
-      {/* Bottom clone progress bar */}
+      {/* Bottom clone/download progress bar */}
       {cloneState && (
         <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '8px 14px', background: '#0b1016', borderTop: '1px solid #1f2937', zIndex: 4000 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -455,6 +503,7 @@ const App: React.FC = () => {
           <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ color: '#94a3b8', fontSize: 11 }}>
               {cloneState.repoName && `${cloneState.repoName}`}
+              {cloneState.version && `Blender ${cloneState.version}`}
             </div>
             <div style={{ color: '#cbd5e1', fontSize: 12, fontWeight: 500 }}>
               {cloneState.text}
@@ -480,6 +529,12 @@ const App: React.FC = () => {
           )}
         </div>
       )}
+      {/* Clone & Build Popup */}
+      <ViewOfficial
+        isOpen={showCloneBuildPopup}
+        onClose={() => setShowCloneBuildPopup(false)}
+        onDownloadStateChange={setCloneState}
+      />
     </div>
   );
 };
