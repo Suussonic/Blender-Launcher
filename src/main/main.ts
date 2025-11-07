@@ -1334,7 +1334,7 @@ app.whenReady().then(() => {
       let pythonCmd: {cmd: string; args: string[]} | null = null;
       for (const c of candidates) {
         try {
-          const res = spawnSync(c.cmd, [...c.args, '--version'], { stdio: 'ignore', shell: process.platform === 'win32' });
+          const res = spawnSync(c.cmd, [...c.args, '--version'], { stdio: 'ignore', shell: false });
           if (res && res.status === 0) { pythonCmd = c; break; }
         } catch {}
       }
@@ -1344,9 +1344,17 @@ app.whenReady().then(() => {
         return { success: false, error: 'python-not-found' };
       }
       console.log('[BACKEND] Python détecté:', pythonCmd);
-      const python = spawn(pythonCmd.cmd, [...pythonCmd.args, scriptPath, version, url, targetPath, folderName], { shell: process.platform === 'win32' });
+      if (!fs.existsSync(scriptPath)) {
+        console.error('[BACKEND] Script Python introuvable:', scriptPath);
+        send('ERROR', { message: 'script-not-found' });
+        return { success: false, error: 'script-not-found' };
+      }
+      // Avoid shell so that spaces in path are preserved
+      const pythonArgs = [...pythonCmd.args, scriptPath, version, url, targetPath, folderName];
+      console.log('[BACKEND] Lancement Python:', pythonCmd.cmd, pythonArgs);
+      const python = spawn(pythonCmd.cmd, pythonArgs, { shell: false, windowsVerbatimArguments: false });
       
-      let blenderExePath = '';
+    let blenderExePath = '';
       
       python.stdout.on('data', (data: Buffer) => {
         const lines = data.toString().split('\n');
@@ -1360,6 +1368,9 @@ app.whenReady().then(() => {
               send('PROGRESS', { progress: msg.progress, text: msg.text });
             } else if (msg.type === 'error') {
               send('ERROR', { message: msg.message });
+            } else if (msg.type === 'config-updated') {
+              // Trigger a refresh of blenders list on renderer side
+              try { wc?.send('blenders-updated', { path: msg.path, title: msg.title }); } catch {}
             } else if (msg.type === 'complete') {
               blenderExePath = msg.path;
             } else if (msg.type === 'log') {

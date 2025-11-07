@@ -88,6 +88,17 @@ const App: React.FC = () => {
     return () => (window as any).electronAPI?.off?.('download-progress', handler);
   }, []);
 
+  // Refresh blenders list when new one added
+  useEffect(() => {
+    const handler = async () => {
+      if (window.electronAPI?.getBlenders) {
+        try { await window.electronAPI.getBlenders(); } catch {}
+      }
+    };
+    (window as any).electronAPI?.on?.('blenders-updated', handler);
+    return () => (window as any).electronAPI?.off?.('blenders-updated', handler);
+  }, []);
+
   console.log('[App] Rendu - page:', page, 'selectedBlender:', selectedBlender);
 
   // Écran de chargement au démarrage

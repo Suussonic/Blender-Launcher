@@ -9,6 +9,45 @@ import zipfile
 import shutil
 from pathlib import Path
 
+def get_config_path():
+    """Resolve config.json path relative to project root."""
+    # backend/ -> project root one level up
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'config.json'))
+
+def update_config(blender_exe: str, version: str):
+    """Append the blender executable entry into config.json under 'blenders' avoiding duplicates."""
+    cfg_path = get_config_path()
+    title = f"Blender {version}".strip()
+    try:
+        if not os.path.exists(cfg_path):
+            log(f"config.json non trouvé, création: {cfg_path}")
+            data = {"blenders": []}
+        else:
+            with open(cfg_path, 'r', encoding='utf-8') as f:
+                raw = f.read().strip() or '{}'
+            data = json.loads(raw)
+        if not isinstance(data, dict):
+            data = {"blenders": []}
+        if "blenders" not in data or not isinstance(data["blenders"], list):
+            data["blenders"] = []
+        # Deduplicate by path
+        already = any(entry.get('path') == blender_exe for entry in data["blenders"] if isinstance(entry, dict))
+        if already:
+            log("Entrée déjà présente dans config.json, pas d'ajout")
+        else:
+            data["blenders"].append({
+                "path": blender_exe,
+                "name": os.path.basename(blender_exe),
+                "title": title
+            })
+            with open(cfg_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2)
+            log("config.json mis à jour avec l'exécutable")
+        # Emit separate message for config update
+        print(json.dumps({"type": "config-updated", "path": blender_exe, "title": title}), flush=True)
+    except Exception as e:
+        error(f"config-update-failed: {e}")
+
 def log(msg):
     """Log message to stdout for IPC"""
     print(json.dumps({"type": "log", "message": msg}), flush=True)
@@ -82,8 +121,9 @@ def download_blender(version, url, target_path, folder_name):
             return False
         
         log(f"Found blender.exe: {blender_exe}")
+        # Update config.json before completion
+        update_config(blender_exe, version)
         progress(100, "Installation terminée!")
-        
         complete(blender_exe)
         return True
         

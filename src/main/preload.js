@@ -12,7 +12,7 @@ const api = {
     }
   },
   on: (channel, func) => {
-  const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress', 'navigate-home', 'open-settings', 'toast', 'install-progress', 'clone-progress', 'build-tools-progress'];
+  const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress', 'navigate-home', 'open-settings', 'toast', 'install-progress', 'clone-progress', 'build-tools-progress', 'download-progress', 'blenders-updated'];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, func);
     } else {
@@ -20,7 +20,7 @@ const api = {
     }
   },
   off: (channel, func) => {
-  const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress', 'navigate-home', 'open-settings', 'toast', 'install-progress', 'clone-progress', 'build-tools-progress'];
+  const validChannels = ['selected-blender-folder', 'config-updated', 'executable-updated', 'executable-deleted', 'delete-executable-result', 'render-progress', 'navigate-home', 'open-settings', 'toast', 'install-progress', 'clone-progress', 'build-tools-progress', 'download-progress', 'blenders-updated'];
     if (validChannels.includes(channel)) {
       ipcRenderer.off(channel, func);
     } else {
@@ -61,6 +61,7 @@ const api = {
   , 'clone-repository'
   , 'check-build-tools'
   , 'install-build-tools'
+  , 'download-official-blender'
     ];
     if (validChannels.includes(channel)) {
       // Retry wrapper: some races in packaged builds caused the renderer
