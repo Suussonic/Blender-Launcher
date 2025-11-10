@@ -67,7 +67,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
     };
   }, [isOpen, selectedVersion, onDownloadStateChange]);
 
-  // Charger les versions disponibles selon le type
+  // Charger les versions disponibles selon le type via fetch backend
   useEffect(() => {
     if (!isOpen) return;
     
@@ -76,27 +76,54 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
       setError(null);
       
       try {
-        // TODO: Remplacer par l'API réelle de Blender
-        // Pour l'instant, données mock
-        const mockVersions: BlenderVersion[] = 
-          versionType === 'stable' ? [
-            { version: '4.3.0', url: 'https://download.blender.org/release/Blender4.3/blender-4.3.0-windows-x64.zip', type: 'stable', date: '2024-11-05' },
-            { version: '4.2.3', url: 'https://download.blender.org/release/Blender4.2/blender-4.2.3-windows-x64.zip', type: 'stable', date: '2024-10-15' },
-            { version: '4.1.1', url: 'https://download.blender.org/release/Blender4.1/blender-4.1.1-windows-x64.zip', type: 'stable', date: '2024-04-16' },
-          ] : versionType === 'lts' ? [
-            { version: '4.2.0 LTS', url: 'https://download.blender.org/release/Blender4.2/blender-4.2.0-windows-x64.zip', type: 'lts', date: '2024-07-16' },
-            { version: '3.6.0 LTS', url: 'https://download.blender.org/release/Blender3.6/blender-3.6.0-windows-x64.zip', type: 'lts', date: '2023-06-27' },
-          ] : versionType === 'experimental' ? [
-            { version: '4.4.0 Alpha', url: 'https://builder.blender.org/download/experimental/', type: 'experimental', date: '2024-11-01' },
-          ] : [
-            { version: 'Daily Build', url: 'https://builder.blender.org/download/daily/', type: 'daily', date: new Date().toISOString().split('T')[0] },
-          ];
+        console.log('[ViewOfficial] Fetching versions for type:', versionType);
         
-        setVersions(mockVersions);
-        setSelectedVersion(mockVersions[0] || null);
+        if (window.electronAPI && window.electronAPI.invoke) {
+          const result = await window.electronAPI.invoke('fetch-blender-versions', versionType);
+          
+          if (result.success && result.versions) {
+            let fetchedVersions: BlenderVersion[] = [];
+            
+            // Get versions for the current type
+            if (result.versions[versionType]) {
+              fetchedVersions = result.versions[versionType].map((v: any) => ({
+                version: v.version,
+                url: v.url,
+                type: v.type as 'stable' | 'lts' | 'experimental' | 'daily',
+                date: v.date
+              }));
+            }
+            
+            // For LTS, filter stable versions that are LTS
+            if (versionType === 'lts' && result.versions['stable']) {
+              const ltsVersions = result.versions['stable']
+                .filter((v: any) => v.version.includes('LTS') || isLTSVersion(v.version))
+                .map((v: any) => ({
+                  version: v.version + (v.version.includes('LTS') ? '' : ' LTS'),
+                  url: v.url,
+                  type: 'lts' as const,
+                  date: v.date
+                }));
+              fetchedVersions = ltsVersions;
+            }
+            
+            console.log('[ViewOfficial] Fetched versions:', fetchedVersions.length);
+            setVersions(fetchedVersions);
+            setSelectedVersion(fetchedVersions[0] || null);
+          } else {
+            console.error('[ViewOfficial] Fetch failed:', result.error);
+            setError(`Impossible de charger les versions: ${result.error}`);
+            // Fallback to empty array
+            setVersions([]);
+          }
+        } else {
+          setError('API non disponible');
+          setVersions([]);
+        }
       } catch (e) {
         console.error('[ViewOfficial] Erreur chargement versions:', e);
         setError('Impossible de charger les versions');
+        setVersions([]);
       } finally {
         setLoading(false);
       }
@@ -104,6 +131,14 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
     
     loadVersions();
   }, [isOpen, versionType]);
+
+  // Helper function to determine if a version is LTS
+  const isLTSVersion = (version: string): boolean => {
+    // LTS versions are typically X.Y.0 where Y is even and the version is marked as LTS
+    // For now, we'll use known LTS versions
+    const knownLTS = ['4.2.0', '3.6.0', '3.3.0', '2.93.0', '2.83.0'];
+    return knownLTS.includes(version);
+  };
 
   const handleSelectFolder = async () => {
     if (window.electronAPI && window.electronAPI.invoke) {

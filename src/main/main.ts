@@ -1465,6 +1465,90 @@ app.whenReady().then(() => {
     }
   });
 
+  ipcMain.handle('fetch-blender-versions', async (_event, versionType: string) => {
+    console.log('[BACKEND] fetch-blender-versions appelé pour:', versionType);
+    
+    try {
+      const scriptPath = path.join(__dirname, '..', '..', 'backend', 'fetch_blender_versions.py');
+      console.log('[BACKEND] Script fetch Python:', scriptPath);
+      
+      if (!fs.existsSync(scriptPath)) {
+        console.error('[BACKEND] Script fetch Python introuvable:', scriptPath);
+        return { success: false, error: 'script-not-found' };
+      }
+      
+      // Resolve Python command robustly
+      const { spawn, spawnSync } = require('child_process');
+      const candidates: Array<{cmd: string; args: string[]}> = [
+        { cmd: 'py', args: ['-3'] },
+        { cmd: 'py', args: [] },
+        { cmd: 'python', args: [] },
+        { cmd: 'python3', args: [] },
+      ];
+      let pythonCmd: {cmd: string; args: string[]} | null = null;
+      for (const c of candidates) {
+        try {
+          const res = spawnSync(c.cmd, [...c.args, '--version'], { stdio: 'ignore', shell: false });
+          if (res && res.status === 0) { pythonCmd = c; break; }
+        } catch {}
+      }
+      if (!pythonCmd) {
+        console.error('[BACKEND] Python introuvable pour fetch');
+        return { success: false, error: 'python-not-found' };
+      }
+      
+      const pythonArgs = [...pythonCmd.args, scriptPath, versionType];
+      console.log('[BACKEND] Lancement fetch Python:', pythonCmd.cmd, pythonArgs);
+      
+      return new Promise((resolve) => {
+        const python = spawn(pythonCmd.cmd, pythonArgs, { shell: false });
+        
+        let allVersions: { [key: string]: any[] } = {};
+        let hasError = false;
+        
+        python.stdout.on('data', (data: Buffer) => {
+          const lines = data.toString().split('\n');
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const msg = JSON.parse(line);
+              console.log('[BACKEND] Fetch Python message:', msg);
+              
+              if (msg.type === 'versions') {
+                allVersions[msg.version_type] = msg.versions;
+              } else if (msg.type === 'error') {
+                console.error('[BACKEND] Fetch Python error:', msg.message);
+                hasError = true;
+              } else if (msg.type === 'log') {
+                console.log('[BACKEND] Fetch Python log:', msg.message);
+              }
+            } catch (e) {
+              console.log('[BACKEND] Fetch Python output:', line);
+            }
+          }
+        });
+        
+        python.stderr.on('data', (data: Buffer) => {
+          console.error('[BACKEND] Fetch Python stderr:', data.toString());
+          hasError = true;
+        });
+        
+        python.on('close', (code: number) => {
+          console.log('[BACKEND] Fetch Python script terminé avec code:', code);
+          if (code === 0 && !hasError) {
+            resolve({ success: true, versions: allVersions });
+          } else {
+            resolve({ success: false, error: `Script exited with code ${code}` });
+          }
+        });
+      });
+      
+    } catch (e) {
+      console.error('[BACKEND] Erreur fetch versions:', e);
+      return { success: false, error: String(e) };
+    }
+  });
+
   ipcMain.handle('clone-repository', async (_event, payload) => {
     try {
       // Accept both shapes from renderer

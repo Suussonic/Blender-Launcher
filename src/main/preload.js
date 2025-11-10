@@ -62,6 +62,7 @@ const api = {
   , 'check-build-tools'
   , 'install-build-tools'
   , 'download-official-blender'
+  , 'fetch-blender-versions'
     ];
     if (validChannels.includes(channel)) {
       // Retry wrapper: some races in packaged builds caused the renderer
