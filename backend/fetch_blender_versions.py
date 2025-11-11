@@ -49,8 +49,6 @@ class BlenderVersionParser(HTMLParser):
             self.process_stable_link(href)
         elif self.version_type == 'daily':
             self.process_daily_link(href)
-        elif self.version_type == 'experimental':
-            self.process_experimental_link(href)
     
     def process_stable_link(self, href: str):
         """Process stable release links"""
@@ -107,32 +105,7 @@ class BlenderVersionParser(HTMLParser):
                     "date": None  # Could extract from file timestamp if available
                 })
     
-    def process_experimental_link(self, href: str):
-        """Process experimental build links"""
-        # Skip SHA256 files and non-zip files
-        if '.sha256' in href or not href.endswith('.zip'):
-            return
-            
-        # Pattern for experimental: similar to daily but may have branch names
-        pattern = r'blender-(\d+\.\d+\.\d+(?:-[a-zA-Z]+)?(?:\+[^-]+)?(?:\.[a-f0-9]+)?)-windows\.amd64-release\.zip'
-        match = re.search(pattern, href)
-        
-        if match:
-            version = match.group(1)
-            if href.startswith('http'):
-                url = href
-            else:
-                url = urllib.parse.urljoin(self.base_url, href)
-            
-            # Check for duplicates
-            existing_versions = [v['version'] for v in self.versions]
-            if version not in existing_versions:
-                self.versions.append({
-                    "version": version,
-                    "url": url,
-                    "type": "experimental",
-                    "date": None
-                })
+
 
 def fetch_stable_versions() -> List[Dict[str, Any]]:
     """Fetch stable versions from download.blender.org"""
@@ -226,33 +199,11 @@ def fetch_daily_versions() -> List[Dict[str, Any]]:
         error(f"Failed to fetch daily builds: {e}")
         return []
 
-def fetch_experimental_versions() -> List[Dict[str, Any]]:
-    """Fetch experimental builds from builder.blender.org"""
-    try:
-        log("Fetching experimental builds...")
-        
-        url = "https://builder.blender.org/download/experimental/"
-        req = urllib.request.Request(url)
-        req.add_header('User-Agent', 'Blender-Launcher/1.0')
-        
-        with urllib.request.urlopen(req) as response:
-            content = response.read().decode('utf-8')
-        
-        parser = BlenderVersionParser(url, 'experimental')
-        parser.feed(content)
-        
-        # Sort by version (newest first)
-        parser.versions.sort(key=lambda x: x['version'], reverse=True)
-        log(f"Found {len(parser.versions)} experimental builds")
-        return parser.versions[:50]  # Limit to 50 most recent
-        
-    except Exception as e:
-        error(f"Failed to fetch experimental builds: {e}")
-        return []
+
 
 def main():
     if len(sys.argv) < 2:
-        error("Usage: fetch_blender_versions.py <stable|daily|experimental|all>")
+        error("Usage: fetch_blender_versions.py <stable|daily|patch|all>")
         sys.exit(1)
     
     version_type = sys.argv[1].lower()
@@ -267,9 +218,11 @@ def main():
         daily_versions = fetch_daily_versions()
         versions_found('daily', daily_versions)
     
-    if version_type == 'experimental' or version_type == 'all':
-        experimental_versions = fetch_experimental_versions()
-        versions_found('experimental', experimental_versions)
+    if version_type == 'patch' or version_type == 'all':
+        # Patch builds are filtered daily builds (beta, rc, candidate versions)
+        daily_versions = fetch_daily_versions()
+        patch_versions = [v for v in daily_versions if 'beta' in v['version'] or 'rc' in v['version'] or 'candidate' in v['version']]
+        versions_found('patch', patch_versions)
     
     log("Version fetch completed")
 

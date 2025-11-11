@@ -5,7 +5,7 @@ interface BlenderVersion {
   version: string;
   url: string;
   date?: string;
-  type: 'stable' | 'lts' | 'experimental' | 'daily';
+  type: 'stable' | 'lts' | 'patch' | 'daily';
 }
 
 interface ViewOfficialProps {
@@ -16,7 +16,7 @@ interface ViewOfficialProps {
 }
 
 const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDownload, onDownloadStateChange }) => {
-  const [versionType, setVersionType] = useState<'stable' | 'lts' | 'experimental' | 'daily'>('stable');
+  const [versionType, setVersionType] = useState<'stable' | 'lts' | 'patch' | 'daily'>('stable');
   const [versions, setVersions] = useState<BlenderVersion[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<BlenderVersion | null>(null);
   const [targetDir, setTargetDir] = useState('');
@@ -89,7 +89,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
               fetchedVersions = result.versions[versionType].map((v: any) => ({
                 version: v.version,
                 url: v.url,
-                type: v.type as 'stable' | 'lts' | 'experimental' | 'daily',
+                type: v.type as 'stable' | 'lts' | 'patch' | 'daily',
                 date: v.date
               }));
             }
@@ -105,6 +105,19 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                   date: v.date
                 }));
               fetchedVersions = ltsVersions;
+            }
+            
+            // For patch builds, use daily builds but filter for patch-like versions
+            if (versionType === 'patch' && result.versions['daily']) {
+              const patchVersions = result.versions['daily']
+                .filter((v: any) => v.version.includes('beta') || v.version.includes('rc') || v.version.includes('candidate'))
+                .map((v: any) => ({
+                  version: v.version,
+                  url: v.url,
+                  type: 'patch' as const,
+                  date: v.date
+                }));
+              fetchedVersions = patchVersions;
             }
             
             console.log('[ViewOfficial] Fetched versions:', fetchedVersions.length);
@@ -244,7 +257,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
   const versionTypeLabels = {
     stable: { icon: FiPackage, label: 'Stable Releases', color: '#3b82f6' },
     lts: { icon: FiClock, label: 'LTS (Long-Term Support)', color: '#8b5cf6' },
-    experimental: { icon: FiZap, label: 'Experimental', color: '#f59e0b' },
+    patch: { icon: FiZap, label: 'Patch Builds', color: '#f59e0b' },
     daily: { icon: FiZap, label: 'Daily Builds', color: '#ef4444' },
   };
 
@@ -339,7 +352,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
               Type de version
             </label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {(['stable', 'lts', 'experimental', 'daily'] as const).map((type) => {
+              {(['stable', 'lts', 'patch', 'daily'] as const).map((type) => {
                 const TypeIcon = versionTypeLabels[type].icon;
                 const isActive = versionType === type;
                 return (
