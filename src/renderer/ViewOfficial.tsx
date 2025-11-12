@@ -25,12 +25,21 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Auto-generate folder name from selected version
+  // Auto-generate standard Blender installation path
   useEffect(() => {
     if (selectedVersion) {
-      // Clean version name for folder: "4.3.0" -> "blender-4.3.0"
-      const cleanVersion = selectedVersion.version.replace(/\s+/g, '-').toLowerCase();
-      setFolderName(`blender-${cleanVersion}`);
+      // Extract major.minor version for standard path: "4.3.0" -> "4.3"
+      const versionMatch = selectedVersion.version.match(/^(\d+\.\d+)/);
+      const majorMinor = versionMatch ? versionMatch[1] : selectedVersion.version.split(/[^0-9.]/)[0];
+      
+      // Generate standard Blender Foundation path
+      const standardPath = `C:\\Program Files\\Blender Foundation\\Blender ${majorMinor}`;
+      setTargetDir(standardPath);
+      
+      // Clean version name for folder: "4.3.0" -> "Blender ${majorMinor}"
+      setFolderName(`Blender ${majorMinor}`);
+      
+      console.log(`[ViewOfficial] Auto-generated path for ${selectedVersion.version}: ${standardPath}`);
     }
   }, [selectedVersion]);
 
