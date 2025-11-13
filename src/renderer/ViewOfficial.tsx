@@ -5,7 +5,7 @@ interface BlenderVersion {
   version: string;
   url: string;
   date?: string;
-  type: 'stable' | 'lts' | 'patch' | 'daily';
+  type: 'stable' | 'patch' | 'daily';
 }
 
 interface ViewOfficialProps {
@@ -16,7 +16,7 @@ interface ViewOfficialProps {
 }
 
 const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDownload, onDownloadStateChange }) => {
-  const [versionType, setVersionType] = useState<'stable' | 'lts' | 'patch' | 'daily'>('stable');
+  const [versionType, setVersionType] = useState<'stable' | 'patch' | 'daily'>('stable');
   const [versions, setVersions] = useState<BlenderVersion[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<BlenderVersion | null>(null);
   const [targetDir, setTargetDir] = useState('');
@@ -98,35 +98,9 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
               fetchedVersions = result.versions[versionType].map((v: any) => ({
                 version: v.version,
                 url: v.url,
-                type: v.type as 'stable' | 'lts' | 'patch' | 'daily',
+                type: versionType as 'stable' | 'patch' | 'daily',
                 date: v.date
               }));
-            }
-            
-            // For LTS, filter stable versions that are LTS
-            if (versionType === 'lts' && result.versions['stable']) {
-              const ltsVersions = result.versions['stable']
-                .filter((v: any) => v.version.includes('LTS') || isLTSVersion(v.version))
-                .map((v: any) => ({
-                  version: v.version + (v.version.includes('LTS') ? '' : ' LTS'),
-                  url: v.url,
-                  type: 'lts' as const,
-                  date: v.date
-                }));
-              fetchedVersions = ltsVersions;
-            }
-            
-            // For patch builds, use daily builds but filter for patch-like versions
-            if (versionType === 'patch' && result.versions['daily']) {
-              const patchVersions = result.versions['daily']
-                .filter((v: any) => v.version.includes('beta') || v.version.includes('rc') || v.version.includes('candidate'))
-                .map((v: any) => ({
-                  version: v.version,
-                  url: v.url,
-                  type: 'patch' as const,
-                  date: v.date
-                }));
-              fetchedVersions = patchVersions;
             }
             
             console.log('[ViewOfficial] Fetched versions:', fetchedVersions.length);
@@ -154,13 +128,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
     loadVersions();
   }, [isOpen, versionType]);
 
-  // Helper function to determine if a version is LTS
-  const isLTSVersion = (version: string): boolean => {
-    // LTS versions are typically X.Y.0 where Y is even and the version is marked as LTS
-    // For now, we'll use known LTS versions
-    const knownLTS = ['4.2.0', '3.6.0', '3.3.0', '2.93.0', '2.83.0'];
-    return knownLTS.includes(version);
-  };
+
 
   const handleSelectFolder = async () => {
     if (window.electronAPI && window.electronAPI.invoke) {
@@ -265,7 +233,6 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
 
   const versionTypeLabels = {
     stable: { icon: FiPackage, label: 'Stable Releases', color: '#3b82f6' },
-    lts: { icon: FiClock, label: 'LTS (Long-Term Support)', color: '#8b5cf6' },
     patch: { icon: FiZap, label: 'Patch Builds', color: '#f59e0b' },
     daily: { icon: FiZap, label: 'Daily Builds', color: '#ef4444' },
   };
@@ -360,50 +327,90 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
             >
               Type de version
             </label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {(['stable', 'lts', 'patch', 'daily'] as const).map((type) => {
-                const TypeIcon = versionTypeLabels[type].icon;
-                const isActive = versionType === type;
-                return (
-                  <button
-                    key={type}
-                    onClick={() => setVersionType(type)}
-                    style={{
-                      flex: '1 1 calc(50% - 4px)',
-                      minWidth: 140,
-                      background: isActive ? versionTypeLabels[type].color : '#1a1f26',
-                      border: `1px solid ${isActive ? versionTypeLabels[type].color : '#30363d'}`,
-                      color: '#fff',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      padding: '10px 12px',
-                      borderRadius: 10,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 6,
-                      transition: 'all 0.2s',
-                      boxShadow: isActive ? `0 0 12px ${versionTypeLabels[type].color}40` : 'none',
-                    }}
-                    onMouseOver={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.background = '#242a32';
-                        e.currentTarget.style.borderColor = '#3d4650';
-                      }
-                    }}
-                    onMouseOut={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.background = '#1a1f26';
-                        e.currentTarget.style.borderColor = '#30363d';
-                      }
-                    }}
-                  >
-                    <TypeIcon size={14} />
-                    <span style={{ fontSize: 11, letterSpacing: 0.3 }}>{versionTypeLabels[type].label}</span>
-                  </button>
-                );
-              })}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Première ligne : Stable Releases (pleine largeur) */}
+              <button
+                onClick={() => setVersionType('stable')}
+                style={{
+                  width: '100%',
+                  background: versionType === 'stable' ? versionTypeLabels.stable.color : '#1a1f26',
+                  border: `1px solid ${versionType === 'stable' ? versionTypeLabels.stable.color : '#30363d'}`,
+                  color: '#fff',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  transition: 'all 0.2s',
+                  boxShadow: versionType === 'stable' ? `0 0 12px ${versionTypeLabels.stable.color}40` : 'none',
+                }}
+                onMouseOver={(e) => {
+                  if (versionType !== 'stable') {
+                    e.currentTarget.style.background = '#242a32';
+                    e.currentTarget.style.borderColor = '#3d4650';
+                  }
+                }}
+                onMouseOut={(e) => {
+                  if (versionType !== 'stable') {
+                    e.currentTarget.style.background = '#1a1f26';
+                    e.currentTarget.style.borderColor = '#30363d';
+                  }
+                }}
+              >
+                <FiPackage size={14} />
+                <span style={{ fontSize: 11, letterSpacing: 0.3 }}>{versionTypeLabels.stable.label}</span>
+              </button>
+
+              {/* Deuxième ligne : Patch et Daily côte à côte */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(['patch', 'daily'] as const).map((type) => {
+                  const TypeIcon = versionTypeLabels[type].icon;
+                  const isActive = versionType === type;
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setVersionType(type)}
+                      style={{
+                        flex: 1,
+                        minWidth: 120,
+                        background: isActive ? versionTypeLabels[type].color : '#1a1f26',
+                        border: `1px solid ${isActive ? versionTypeLabels[type].color : '#30363d'}`,
+                        color: '#fff',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        padding: '10px 12px',
+                        borderRadius: 10,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        transition: 'all 0.2s',
+                        boxShadow: isActive ? `0 0 12px ${versionTypeLabels[type].color}40` : 'none',
+                      }}
+                      onMouseOver={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.background = '#242a32';
+                          e.currentTarget.style.borderColor = '#3d4650';
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (!isActive) {
+                          e.currentTarget.style.background = '#1a1f26';
+                          e.currentTarget.style.borderColor = '#30363d';
+                        }
+                      }}
+                    >
+                      <TypeIcon size={14} />
+                      <span style={{ fontSize: 11, letterSpacing: 0.3 }}>{versionTypeLabels[type].label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

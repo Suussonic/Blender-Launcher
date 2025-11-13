@@ -219,9 +219,19 @@ def main():
         versions_found('daily', daily_versions)
     
     if version_type == 'patch' or version_type == 'all':
-        # Patch builds are filtered daily builds (beta, rc, candidate versions)
+        # Patch builds include all daily builds except stable ones
         daily_versions = fetch_daily_versions()
-        patch_versions = [v for v in daily_versions if 'beta' in v['version'] or 'rc' in v['version'] or 'candidate' in v['version']]
+        # Filter out stable versions and keep alpha, beta, rc, candidate versions
+        patch_versions = []
+        for v in daily_versions:
+            version_str = v['version'].lower()
+            # Keep versions that are NOT stable builds
+            if '-stable+' not in version_str:
+                patch_versions.append(v)
+            # Or keep versions that explicitly contain patch-related keywords
+            elif any(keyword in version_str for keyword in ['alpha', 'beta', 'rc', 'candidate']):
+                patch_versions.append(v)
+        
         versions_found('patch', patch_versions)
     
     log("Version fetch completed")
