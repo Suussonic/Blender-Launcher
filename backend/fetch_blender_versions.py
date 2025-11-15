@@ -1,6 +1,7 @@
 """
 Blender version scraper for official builds
-Fetches stable, daily, and experimental builds from official sources
+Fetches stable, daily, and patch builds from official sources
+Uses the new archive URLs for improved data access
 """
 import sys
 import json
@@ -24,179 +25,323 @@ def versions_found(version_type: str, versions: List[Dict[str, Any]]):
     """Send found versions"""
     print(json.dumps({"type": "versions", "version_type": version_type, "versions": versions}), flush=True)
 
-class BlenderVersionParser(HTMLParser):
-    """Parse Blender download pages to extract version links"""
+class BlenderArchiveParser(HTMLParser):
+    """Parse Blender archive pages to extract version information"""
     
-    def __init__(self, base_url: str, version_type: str):
+    def __init__(self, version_type: str):
         super().__init__()
-        self.base_url = base_url
         self.version_type = version_type
         self.versions = []
-        self.current_tag = None
-        self.current_attrs = {}
+        self.in_version_row = False
+        self.current_version_data = {}
+        self.current_data_type = None
+        self.html_content = ""
+        self.current_date = None
+        
+    def set_html_content(self, content: str):
+        """Store HTML content for date extraction"""
+        self.html_content = content
+        
+    def extract_date_from_html(self):
+        """Extract current date being processed from HTML context"""
+        if self.current_date:
+            return self.current_date
+        return datetime.now().strftime('%d %b %H:%M')
         
     def handle_starttag(self, tag, attrs):
-        self.current_tag = tag
-        self.current_attrs = dict(attrs)
+        attrs_dict = dict(attrs)
         
-        if tag == 'a' and 'href' in self.current_attrs:
-            href = self.current_attrs['href']
-            self.process_link(href)
-    
-    def process_link(self, href: str):
-        """Process a link to extract version info"""
-        if self.version_type == 'stable':
-            self.process_stable_link(href)
-        elif self.version_type == 'daily':
-            self.process_daily_link(href)
-    
-    def process_stable_link(self, href: str):
-        """Process stable release links"""
-        # Pattern: blender-4.3.0-windows-x64.zip
-        pattern = r'blender-(\d+\.\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z]+\d*)?)-windows-x64\.zip'
-        match = re.search(pattern, href)
-        
-        if match:
-            version = match.group(1)
-            # Build full URL
-            if href.startswith('http'):
-                url = href
-            else:
-                url = urllib.parse.urljoin(self.base_url, href)
-            
-            # Extract major.minor for folder structure
-            version_parts = version.split('.')
-            if len(version_parts) >= 2:
-                major_minor = f"{version_parts[0]}.{version_parts[1]}"
-                # Ensure URL follows correct pattern
-                expected_url = f"https://download.blender.org/release/Blender{major_minor}/blender-{version}-windows-x64.zip"
+        # Look for download links to Windows builds
+        if tag == 'a' and 'href' in attrs_dict:
+            href = attrs_dict['href']
+            if self.is_windows_build(href):
+                # Try to extract date from the URL or nearby context
+                self.extract_date_from_url(href)
+                self.process_windows_build(href)
                 
-                self.versions.append({
-                    "version": version,
-                    "url": expected_url,
-                    "type": "stable",
-                    "date": None  # Will be populated if we can extract date
-                })
-    
-    def process_daily_link(self, href: str):
-        """Process daily build links"""
-        # Skip SHA256 files and non-zip files
-        if '.sha256' in href or not href.endswith('.zip'):
-            return
+    def handle_data(self, data):
+        """Handle text data to extract dates"""
+        # Look for date patterns in the HTML text
+        date_pattern = r'(\d{1,2} \w{3} \d{2}:\d{2})'
+        m = re.search(date_pattern, data.strip())
+        if m:
+            raw = m.group(1)
+            try:
+                # Parse like '14 Nov 02:10' using current year as default
+                dt = dateutil.parser.parse(raw, default=datetime(datetime.now().year, 1, 1))
+                self.current_date = dt.isoformat()
+            except Exception:
+                self.current_date = raw
             
-        # Pattern for daily builds: blender-4.4.0-alpha+main.a1b2c3d4e5f6-windows.amd64-release.zip
-        pattern = r'blender-(\d+\.\d+\.\d+(?:-[a-zA-Z]+)?(?:\+[^-]+)?(?:\.[a-f0-9]+)?)-windows\.amd64-release\.zip'
+    def extract_date_from_url(self, href: str):
+        """Try to extract date information from URL or context"""
+        # Look for date patterns in the URL itself
+        date_patterns = [
+            r'(\d{2} \w{3} \d{2}:\d{2})',  # 14 Nov 02:10
+            r'(\d{4}-\d{2}-\d{2})',        # 2024-11-14
+            r'(\w{3} \d{1,2})',             # Nov 14
+        ]
+        
+        for pattern in date_patterns:
+            match = re.search(pattern, href)
+            if match:
+                raw = match.group(1)
+                try:
+                    dt = dateutil.parser.parse(raw, default=datetime(datetime.now().year, 1, 1))
+                    self.current_date = dt.isoformat()
+                except Exception:
+                    self.current_date = raw
+                return
+    
+    def is_windows_build(self, href: str) -> bool:
+        """Check if link is a Windows build"""
+        return ('windows' in href.lower() and 
+                'amd64' in href.lower() and 
+                href.endswith('.zip'))
+    
+    def process_windows_build(self, href: str):
+        """Extract version info from Windows build URL"""
+        # Parse different URL patterns for patch and daily builds
+        if self.version_type == 'patch':
+            self.process_patch_build(href)
+        elif self.version_type == 'daily':
+            self.process_daily_build(href)
+            
+    def process_patch_build(self, href: str):
+        """Process patch build URL"""
+        # Pattern: blender-X.X.X-alpha+main-PRXXXXX.hash-windows.amd64-release.zip
+        pattern = r'blender-(\d+\.\d+\.\d+)-(\w+)\+main-([^.]+)\.([^-]+)-windows\.amd64-release\.zip'
         match = re.search(pattern, href)
         
         if match:
             version = match.group(1)
-            if href.startswith('http'):
-                url = href
-            else:
-                url = urllib.parse.urljoin(self.base_url, href)
+            variant = match.group(2)  # alpha, beta, rc
+            pr_info = match.group(3)  # PR number or branch info
+            commit_hash = match.group(4)
             
-            # Check for duplicates
-            existing_versions = [v['version'] for v in self.versions]
-            if version not in existing_versions:
-                self.versions.append({
-                    "version": version,
-                    "url": url,
-                    "type": "daily",
-                    "date": None  # Could extract from file timestamp if available
-                })
+            # Create unique version identifier with hash
+            unique_version = f"{version}-{variant} ({commit_hash[:8]})"
+            
+            version_info = {
+                'version': unique_version,
+                'url': href,
+                'date': self.extract_date_from_html(),
+                'type': f"{variant.title()} Patch",
+                'description': f"Patch build {pr_info}",
+                'hash': commit_hash[:8],
+                'architecture': 'x64',
+                'pr': pr_info
+            }
+            
+            # Only add if not already present (avoid duplicates)
+            if not any(v['hash'] == version_info['hash'] for v in self.versions):
+                self.versions.append(version_info)
     
+    def process_daily_build(self, href: str):
+        """Process daily build URL"""
+        # Pattern: blender-X.X.X-type+branch.hash-windows.amd64-release.zip
+        pattern = r'blender-(\d+\.\d+\.\d+)-(\w+)\+([^.]+)\.([^-]+)-windows\.amd64-release\.zip'
+        match = re.search(pattern, href)
+        
+        if match:
+            version = match.group(1)
+            build_type = match.group(2)  # alpha, beta
+            branch = match.group(3)      # main, v50, etc.
+            commit_hash = match.group(4)
+            
+            # Create unique version identifier with hash
+            unique_version = f"{version}-{build_type} ({commit_hash[:8]})"
+            
+            version_info = {
+                'version': unique_version,
+                'url': href,
+                'date': self.extract_date_from_html(),
+                'type': f"{build_type.title()} Daily",
+                'description': f"Daily build from {branch}",
+                'hash': commit_hash[:8],
+                'architecture': 'x64',
+                'branch': branch
+            }
+            
+            # Only add if not already present
+            if not any(v['hash'] == version_info['hash'] for v in self.versions):
+                self.versions.append(version_info)
 
 
 def fetch_stable_versions() -> List[Dict[str, Any]]:
-    """Fetch stable versions from download.blender.org"""
+    """Fetch stable Blender versions from official releases"""
     try:
-        log("Fetching stable versions...")
+        log("Fetching stable versions from download.blender.org...")
         
-        # Get main release page to find version folders
-        main_url = "https://download.blender.org/release/"
-        req = urllib.request.Request(main_url)
-        req.add_header('User-Agent', 'Blender-Launcher/1.0')
-        
-        with urllib.request.urlopen(req) as response:
-            content = response.read().decode('utf-8')
-        
-        # Find Blender version folders (Blender4.3, Blender4.2, etc.)
-        folder_pattern = r'href="(Blender\d+\.\d+)/"'
-        folders = re.findall(folder_pattern, content)
-        
-        all_versions = []
-        
-        # Sort folders by version number (newest first) and take recent ones
-        def folder_version_key(folder):
-            try:
-                # Extract version number from "BlenderX.Y"
-                version_match = re.match(r'Blender(\d+)\.(\d+)', folder)
-                if version_match:
-                    major, minor = version_match.groups()
-                    return (int(major), int(minor))
-                return (0, 0)
-            except:
-                return (0, 0)
-        
-        folders.sort(key=folder_version_key, reverse=True)
-        recent_folders = folders[:15]  # Take the 15 most recent versions
-        
-        for folder in recent_folders:
-            folder_url = f"{main_url}{folder}/"
-            try:
-                req = urllib.request.Request(folder_url)
-                req.add_header('User-Agent', 'Blender-Launcher/1.0')
-                
-                with urllib.request.urlopen(req) as response:
-                    folder_content = response.read().decode('utf-8')
-                
-                parser = BlenderVersionParser(folder_url, 'stable')
-                parser.feed(folder_content)
-                all_versions.extend(parser.versions)
-                
-            except Exception as e:
-                log(f"Error fetching folder {folder}: {e}")
-                continue
-        
-        # Sort versions by version number (newest first)  
-        def version_key(v):
-            try:
-                parts = v['version'].split('.')
-                return [int(p) for p in parts if p.isdigit()]
-            except:
-                return [0]
-        
-        all_versions.sort(key=version_key, reverse=True)
-        log(f"Found {len(all_versions)} stable versions")
-        
-        return all_versions
-        
-    except Exception as e:
-        error(f"Failed to fetch stable versions: {e}")
-        return []
-
-def fetch_daily_versions() -> List[Dict[str, Any]]:
-    """Fetch daily builds from builder.blender.org"""
-    try:
-        log("Fetching daily builds...")
-        
-        url = "https://builder.blender.org/download/daily/"
+        # Keep using the main release page for stable versions
+        url = "https://download.blender.org/release/"
         req = urllib.request.Request(url)
         req.add_header('User-Agent', 'Blender-Launcher/1.0')
         
         with urllib.request.urlopen(req) as response:
-            content = response.read().decode('utf-8')
+            html_content = response.read().decode('utf-8')
         
-        parser = BlenderVersionParser(url, 'daily')
-        parser.feed(content)
+        # Extract version folders from HTML
+        versions = []
+        folder_pattern = r'href="(Blender(\d+\.\d+))/"'
+        matches = re.findall(folder_pattern, html_content)
         
-        # Sort by version (newest first)
-        parser.versions.sort(key=lambda x: x['version'], reverse=True)
-        log(f"Found {len(parser.versions)} daily builds")
-        return parser.versions[:50]  # Limit to 50 most recent
+        for folder_name, version in matches:
+            version_info = {
+                'version': version,
+                'url': f"https://download.blender.org/release/{folder_name}/blender-{version}-windows-x64.zip",
+                'date': 'Official Release',
+                'type': 'Stable Release',
+                'description': f'Blender {version} stable release',
+                'architecture': 'x64'
+            }
+            versions.append(version_info)
+        
+        # Sort by version number (descending)
+        def version_sort_key(v):
+            try:
+                parts = v['version'].split('.')
+                return [int(p) for p in parts]
+            except:
+                return [0]
+        
+        stable_versions = sorted(versions, key=version_sort_key, reverse=True)
+        
+        log(f"Found {len(stable_versions)} stable versions")
+        return stable_versions
         
     except Exception as e:
-        error(f"Failed to fetch daily builds: {e}")
+        error(f"Failed to fetch stable versions: {str(e)}")
+        return []
+
+def fetch_patch_versions() -> List[Dict[str, Any]]:
+    """Fetch patch build versions from archive"""
+    try:
+        log("Fetching patch builds from builder.blender.org archive...")
+        
+        # Use the new archive URL for patch builds
+        url = "https://builder.blender.org/download/patch/archive/"
+        req = urllib.request.Request(url)
+        req.add_header('User-Agent', 'Blender-Launcher/1.0')
+        
+        with urllib.request.urlopen(req) as response:
+            html_content = response.read().decode('utf-8')
+        
+        # Extract date and version info using regex on the raw HTML
+        versions = []
+        
+        # Pattern to match table rows with version info
+        # Looking for: Blender version, variant, date, architecture, download link
+        row_pattern = r'<tr[^>]*>.*?blender-(\d+\.\d+\.\d+)-(\w+)\+main-([^.]+)\.([^-]+)-windows\.amd64-release\.zip.*?(\d{2} \w{3} \d{2}:\d{2}).*?</tr>'
+        matches = re.findall(row_pattern, html_content, re.DOTALL)
+        
+        for match in matches:
+            version, variant, pr_info, commit_hash, date_str = match
+            
+            # Build the download URL
+            download_url = f"https://cdn.builder.blender.org/download/patch/archive/blender-{version}-{variant}+main-{pr_info}.{commit_hash}-windows.amd64-release.zip"
+            
+            unique_version = f"{version}-{variant} ({commit_hash[:8]})"
+            
+            # Try to parse the found date into ISO format (add current year if missing)
+            try:
+                parsed_dt = dateutil.parser.parse(date_str, default=datetime(datetime.now().year, 1, 1))
+                date_iso = parsed_dt.isoformat()
+            except Exception:
+                date_iso = None
+
+            version_info = {
+                'version': unique_version,
+                'url': download_url,
+                'date': date_iso,
+                'type': f"{variant.title()} Patch",
+                'description': f"Patch build {pr_info}",
+                'hash': commit_hash[:8],
+                'architecture': 'x64',
+                'pr': pr_info
+            }
+
+            versions.append(version_info)
+        
+        # If regex parsing failed, fall back to HTML parser
+        if not versions:
+            parser = BlenderArchiveParser('patch')
+            parser.set_html_content(html_content)
+            parser.feed(html_content)
+            versions = parser.versions
+        
+        # Sort and limit patch versions (most recent first)
+        patch_versions = sorted(versions, key=lambda x: x.get('date', ''), reverse=True)[:15]
+        
+        log(f"Found {len(patch_versions)} patch builds")
+        return patch_versions
+        
+    except Exception as e:
+        error(f"Failed to fetch patch versions: {str(e)}")
+        return []
+
+def fetch_daily_versions() -> List[Dict[str, Any]]:
+    """Fetch daily build versions from archive"""
+    try:
+        log("Fetching daily builds from builder.blender.org archive...")
+        
+        # Use the new archive URL for daily builds
+        url = "https://builder.blender.org/download/daily/archive/"
+        req = urllib.request.Request(url)
+        req.add_header('User-Agent', 'Blender-Launcher/1.0')
+        
+        with urllib.request.urlopen(req) as response:
+            html_content = response.read().decode('utf-8')
+        
+        # Extract date and version info using regex on the raw HTML
+        versions = []
+        
+        # Pattern to match table rows with version info
+        row_pattern = r'<tr[^>]*>.*?blender-(\d+\.\d+\.\d+)-(\w+)\+([^.]+)\.([^-]+)-windows\.amd64-release\.zip.*?(\d{2} \w{3} \d{2}:\d{2}).*?</tr>'
+        matches = re.findall(row_pattern, html_content, re.DOTALL)
+        
+        for match in matches:
+            version, build_type, branch, commit_hash, date_str = match
+            
+            # Build the download URL
+            download_url = f"https://cdn.builder.blender.org/download/daily/archive/blender-{version}-{build_type}+{branch}.{commit_hash}-windows.amd64-release.zip"
+            
+            unique_version = f"{version}-{build_type} ({commit_hash[:8]})"
+            # Try to parse the found date into ISO format (add current year if missing)
+            try:
+                parsed_dt = dateutil.parser.parse(date_str, default=datetime(datetime.now().year, 1, 1))
+                date_iso = parsed_dt.isoformat()
+            except Exception:
+                date_iso = None
+
+            version_info = {
+                'version': unique_version,
+                'url': download_url,
+                'date': date_iso,
+                'type': f"{build_type.title()} Daily",
+                'description': f"Daily build from {branch}",
+                'hash': commit_hash[:8],
+                'architecture': 'x64',
+                'branch': branch
+            }
+
+            versions.append(version_info)
+        
+        # If regex parsing failed, fall back to HTML parser
+        if not versions:
+            parser = BlenderArchiveParser('daily')
+            parser.set_html_content(html_content)
+            parser.feed(html_content)
+            versions = parser.versions
+        
+        # Sort and limit daily versions (most recent first) 
+        daily_versions = sorted(versions, key=lambda x: x.get('date', ''), reverse=True)[:25]
+        
+        log(f"Found {len(daily_versions)} daily builds")
+        return daily_versions
+        
+    except Exception as e:
+        error(f"Failed to fetch daily versions: {str(e)}")
         return []
 
 
@@ -219,19 +364,7 @@ def main():
         versions_found('daily', daily_versions)
     
     if version_type == 'patch' or version_type == 'all':
-        # Patch builds include all daily builds except stable ones
-        daily_versions = fetch_daily_versions()
-        # Filter out stable versions and keep alpha, beta, rc, candidate versions
-        patch_versions = []
-        for v in daily_versions:
-            version_str = v['version'].lower()
-            # Keep versions that are NOT stable builds
-            if '-stable+' not in version_str:
-                patch_versions.append(v)
-            # Or keep versions that explicitly contain patch-related keywords
-            elif any(keyword in version_str for keyword in ['alpha', 'beta', 'rc', 'candidate']):
-                patch_versions.append(v)
-        
+        patch_versions = fetch_patch_versions()
         versions_found('patch', patch_versions)
     
     log("Version fetch completed")
