@@ -228,9 +228,12 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
               }}>
                 <span style={{
                   minWidth: 0,
-                  whiteSpace: 'nowrap',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2 as any,
+                  WebkitBoxOrient: 'vertical' as any,
                   overflow: 'hidden',
-                  textOverflow: 'ellipsis'
+                  textOverflow: 'ellipsis',
+                  wordBreak: 'break-word'
                 }}>
                   {selectedBlender.title || selectedBlender.name}
                 </span>
@@ -256,10 +259,13 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                 fontSize: 14,
                 color: '#888',
                 margin: '0 0 12px 0',
-                whiteSpace: 'nowrap',
                 overflow: 'hidden',
+                display: '-webkit-box',
+                WebkitLineClamp: 2 as any,
+                WebkitBoxOrient: 'vertical' as any,
                 textOverflow: 'ellipsis',
                 lineHeight: 1.35,
+                wordBreak: 'break-all'
               }}>
                 {selectedBlender.path}
               </p>
