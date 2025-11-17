@@ -201,10 +201,20 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
               <img
                 src={b.icon ? b.icon : require('../../public/logo/png/Blender-Launcher-64x64.png')}
                 alt="icon"
-                style={{ width: 36, height: 36, borderRadius: 7, marginRight: 2, background: 'transparent' }}
+                style={{ width: 36, height: 36, borderRadius: 7, marginRight: 8, background: 'transparent', flexShrink: 0 }}
                 draggable={false}
               />
-              {b.title || b.name}
+              <div style={{
+                minWidth: 0,
+                flex: 1,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: 14,
+                lineHeight: '20px'
+              }} title={b.title || b.name}>
+                {b.title || b.name}
+              </div>
 
               {/* Drag handle: six small dots on the right — pointer handlers live here */}
               <div
