@@ -6,6 +6,7 @@ interface BlenderVersion {
   url: string;
   date?: string;
   type: 'stable' | 'patch' | 'daily';
+  architecture?: string;
 }
 
 interface ViewOfficialProps {
@@ -99,7 +100,8 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 version: v.version,
                 url: v.url,
                 type: versionType as 'stable' | 'patch' | 'daily',
-                date: v.date
+                date: v.date,
+                architecture: v.architecture
               }));
             }
             
@@ -468,9 +470,23 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600, fontSize: 14, color: '#e2e8f0' }}>
-                          {v.version}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontWeight: 600, fontSize: 14, color: '#e2e8f0' }}>
+                            {v.version}
+                          </span>
+                          {v.architecture && versionType === 'daily' && (
+                            <span style={{ 
+                              fontSize: 10, 
+                              color: '#64748b', 
+                              background: '#1e293b', 
+                              padding: '2px 6px', 
+                              borderRadius: 4,
+                              fontWeight: 600
+                            }}>
+                              {v.architecture}
+                            </span>
+                          )}
+                        </div>
                         {v.date && (
                           <span style={{ fontSize: 11, color: '#94a3b8' }}>
                             {new Date(v.date).toLocaleDateString('fr-FR')}

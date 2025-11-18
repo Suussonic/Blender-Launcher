@@ -232,14 +232,17 @@ def fetch_patch_versions() -> List[Dict[str, Any]]:
         
         # Pattern to match table rows with version info
         # Looking for: Blender version, variant, date, architecture, download link
-        row_pattern = r'<tr[^>]*>.*?blender-(\d+\.\d+\.\d+)-(\w+)\+main-([^.]+)\.([^-]+)-windows\.amd64-release\.zip.*?(\d{2} \w{3} \d{2}:\d{2}).*?</tr>'
+        row_pattern = r'<tr[^>]*>.*?blender-(\d+\.\d+\.\d+)-(\w+)\+main-([^.]+)\.([^-]+)-windows\.(\w+)-release\.zip.*?(\d{2} \w{3} \d{2}:\d{2}).*?</tr>'
         matches = re.findall(row_pattern, html_content, re.DOTALL)
         
         for match in matches:
-            version, variant, pr_info, commit_hash, date_str = match
+            version, variant, pr_info, commit_hash, architecture, date_str = match
             
             # Build the download URL
-            download_url = f"https://cdn.builder.blender.org/download/patch/archive/blender-{version}-{variant}+main-{pr_info}.{commit_hash}-windows.amd64-release.zip"
+            download_url = f"https://cdn.builder.blender.org/download/patch/archive/blender-{version}-{variant}+main-{pr_info}.{commit_hash}-windows.{architecture}-release.zip"
+            
+            # Map architecture names
+            arch_display = 'x64' if architecture == 'amd64' else ('ARM64' if architecture == 'arm64' else architecture.upper())
             
             unique_version = f"{version}-{variant} ({commit_hash[:8]})"
             
@@ -248,7 +251,7 @@ def fetch_patch_versions() -> List[Dict[str, Any]]:
                 parsed_dt = dateutil.parser.parse(date_str, default=datetime(datetime.now().year, 1, 1))
                 date_iso = parsed_dt.isoformat()
             except Exception:
-                date_iso = None
+                date_iso = date_str
 
             version_info = {
                 'version': unique_version,
@@ -257,7 +260,7 @@ def fetch_patch_versions() -> List[Dict[str, Any]]:
                 'type': f"{variant.title()} Patch",
                 'description': f"Patch build {pr_info}",
                 'hash': commit_hash[:8],
-                'architecture': 'x64',
+                'architecture': arch_display,
                 'pr': pr_info
             }
 
@@ -296,15 +299,18 @@ def fetch_daily_versions() -> List[Dict[str, Any]]:
         # Extract date and version info using regex on the raw HTML
         versions = []
         
-        # Pattern to match table rows with version info
-        row_pattern = r'<tr[^>]*>.*?blender-(\d+\.\d+\.\d+)-(\w+)\+([^.]+)\.([^-]+)-windows\.amd64-release\.zip.*?(\d{2} \w{3} \d{2}:\d{2}).*?</tr>'
+        # Pattern to match table rows with version info - capture ALL Windows builds (any architecture)
+        row_pattern = r'<tr[^>]*>.*?blender-(\d+\.\d+\.\d+)-(\w+)\+([^.]+)\.([^-]+)-windows\.(\w+)-release\.zip.*?(\d{2} \w{3} \d{2}:\d{2}).*?</tr>'
         matches = re.findall(row_pattern, html_content, re.DOTALL)
         
         for match in matches:
-            version, build_type, branch, commit_hash, date_str = match
+            version, build_type, branch, commit_hash, architecture, date_str = match
             
             # Build the download URL
-            download_url = f"https://cdn.builder.blender.org/download/daily/archive/blender-{version}-{build_type}+{branch}.{commit_hash}-windows.amd64-release.zip"
+            download_url = f"https://cdn.builder.blender.org/download/daily/archive/blender-{version}-{build_type}+{branch}.{commit_hash}-windows.{architecture}-release.zip"
+            
+            # Map architecture names
+            arch_display = 'x64' if architecture == 'amd64' else ('ARM64' if architecture == 'arm64' else architecture.upper())
             
             unique_version = f"{version}-{build_type} ({commit_hash[:8]})"
             # Try to parse the found date into ISO format (add current year if missing)
@@ -312,7 +318,7 @@ def fetch_daily_versions() -> List[Dict[str, Any]]:
                 parsed_dt = dateutil.parser.parse(date_str, default=datetime(datetime.now().year, 1, 1))
                 date_iso = parsed_dt.isoformat()
             except Exception:
-                date_iso = None
+                date_iso = date_str
 
             version_info = {
                 'version': unique_version,
@@ -321,7 +327,7 @@ def fetch_daily_versions() -> List[Dict[str, Any]]:
                 'type': f"{build_type.title()} Daily",
                 'description': f"Daily build from {branch}",
                 'hash': commit_hash[:8],
-                'architecture': 'x64',
+                'architecture': arch_display,
                 'branch': branch
             }
 
@@ -334,8 +340,18 @@ def fetch_daily_versions() -> List[Dict[str, Any]]:
             parser.feed(html_content)
             versions = parser.versions
         
-        # Sort and limit daily versions (most recent first) 
-        daily_versions = sorted(versions, key=lambda x: x.get('date', ''), reverse=True)[:25]
+        # Sort daily versions (most recent first) - use datetime objects for proper sorting
+        def sort_key(v):
+            date_val = v.get('date', '')
+            if not date_val:
+                return datetime.min
+            try:
+                # Try to parse as ISO datetime
+                return dateutil.parser.parse(date_val)
+            except:
+                return datetime.min
+        
+        daily_versions = sorted(versions, key=sort_key, reverse=True)
         
         log(f"Found {len(daily_versions)} daily builds")
         return daily_versions
