@@ -488,8 +488,9 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                           )}
                         </div>
                         {v.date && (
-                          <span style={{ fontSize: 11, color: '#94a3b8' }}>
-                            {new Date(v.date).toLocaleDateString('fr-FR')}
+                          <span style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 11, color: '#94a3b8' }}>
+                            <span>{new Date(v.date).toLocaleDateString('fr-FR')}</span>
+                            <span style={{ fontSize: 11, color: '#94a3b8', opacity: 0.95 }}>{new Date(v.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                           </span>
                         )}
                       </div>
