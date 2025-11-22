@@ -187,10 +187,29 @@ def fetch_stable_versions() -> List[Dict[str, Any]]:
         matches = re.findall(folder_pattern, html_content)
         
         for folder_name, version in matches:
+            download_url = f"https://download.blender.org/release/{folder_name}/blender-{version}-windows-x64.zip"
+
+            # Try to get Last-Modified from the CDN using a HEAD request to obtain a proper timestamp
+            date_iso = 'Official Release'
+            try:
+                head_req = urllib.request.Request(download_url, method='HEAD')
+                head_req.add_header('User-Agent', 'Blender-Launcher/1.0')
+                with urllib.request.urlopen(head_req, timeout=8) as head_resp:
+                    lm = head_resp.getheader('Last-Modified')
+                    if lm:
+                        try:
+                            parsed = dateutil.parser.parse(lm)
+                            date_iso = parsed.isoformat()
+                        except Exception:
+                            date_iso = lm
+            except Exception:
+                # network/404/timeouts: fall back to generic label
+                date_iso = 'Official Release'
+
             version_info = {
                 'version': version,
-                'url': f"https://download.blender.org/release/{folder_name}/blender-{version}-windows-x64.zip",
-                'date': 'Official Release',
+                'url': download_url,
+                'date': date_iso,
                 'type': 'Stable Release',
                 'description': f'Blender {version} stable release',
                 'architecture': 'x64'
