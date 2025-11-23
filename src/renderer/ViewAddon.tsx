@@ -17,6 +17,7 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
   const [debugOpen, setDebugOpen] = useState(false);
   const [lastProbeStdout, setLastProbeStdout] = useState<string | null>(null);
   const [lastProbeStderr, setLastProbeStderr] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [activeField, setActiveField] = useState<string | null>(null);
   const [activeDir, setActiveDir] = useState<'asc'|'desc'>('asc');
 
@@ -104,9 +105,13 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
           const usedStr = '';
           const sizeStr = '';
           const exists = !!a.path;
+          const keyId = a.module || a.path || String(idx);
+          const isExpanded = !!expanded[keyId];
+          const bl = a.bl_info || {};
           return (
+            <React.Fragment key={keyId}>
             <div
-              key={a.path || a.module || idx}
+              onClick={() => { if (exists) setExpanded(prev => ({ ...prev, [keyId]: !prev[keyId] })); }}
               role={exists ? 'button' : undefined}
               tabIndex={exists ? 0 : -1}
               onKeyDown={(e) => { if (exists && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); } }}
@@ -145,8 +150,14 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
               >
                 {a.name || a.module}
               </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, color: '#64748b', fontSize: 12 }}>
-                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: 0.85, display: 'inline-block', direction: 'rtl', textAlign: 'left' }} title={a.path}>{a.module} · {a.path ? a.path : ''}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#64748b', fontSize: 12 }}>
+                  <span style={{ opacity: 0.9 }}>{a.module}</span>
+                  {bl.version && <span style={{ background: '#0b1220', color: '#9ccfd8', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.version)}</span>}
+                  {bl.author && <span style={{ background: '#0b1220', color: '#c9d6a4', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.author)}</span>}
+                  {bl.category && <span style={{ background: '#0b1220', color: '#d6c9f9', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.category)}</span>}
+                </div>
+                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: 0.7, display: 'inline-block' }} title={a.path}>{a.path ? a.path : ''}</span>
               </div>
             </div>
             {/* Col 2: Statut (Activé / Désactivé) - center under header */}
@@ -160,6 +171,17 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
             {/* Col 5: placeholder for alignment (no duplicate status) */}
             <div style={{ width: 140 }} />
             </div>
+            {isExpanded && (
+            <div style={{ marginTop: 8, marginBottom: 8, padding: 12, background: '#071018', border: '1px solid #17202a', borderRadius: 8 }}>
+              {bl.description && (
+                <div style={{ color: '#cbd5e1', marginBottom: 8 }}><strong>Description:</strong> <span style={{ color: '#9fb0c6' }}>{bl.description}</span></div>
+              )}
+              <div style={{ color: '#9fb0c6', fontSize: 13, overflowX: 'auto' }}>
+                <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, margin: 0 }}>{JSON.stringify(bl, null, 2)}</pre>
+              </div>
+            </div>
+            )}
+            </React.Fragment>
           );
         })}
       {/* Action popups removed - view-only mode */}
