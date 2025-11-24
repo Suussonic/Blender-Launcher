@@ -127,17 +127,25 @@ const Filter: React.FC<FilterProps> = ({ files, onSorted, query }) => {
 export const TableHeader: React.FC<{ activeField?: string | null, activeDir?: SortDir, onToggle?: (f: string) => void, variant?: 'recent' | 'addons' }> = ({ activeField, activeDir = 'asc', onToggle, variant = 'recent' }) => {
   const active = (f: string) => activeField === f;
   if (variant === 'addons') {
-    // smaller header: Name | Status | (actions)
-    const addonHeaderStyle: React.CSSProperties = { ...headerStyle, gridTemplateColumns: 'minmax(160px, 1fr) 110px 140px' };
+    // Use the same 5-column grid as recent files so headers align with rows.
+    const addonHeaderStyle: React.CSSProperties = { ...headerStyle, gridTemplateColumns: 'minmax(160px, 1fr) 170px 170px 110px 140px' };
     return (
       <div style={addonHeaderStyle}>
         <div style={{...cellBase, color: active('name') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('name')}>
           <span style={{flexShrink:0}}>Nom</span>{active('name') ? arrow(true, activeDir) : null}
         </div>
-        <div style={{...cellBase, color: active('status') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('status')}>
+        <div style={{...cellBase, color: active('version') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('version')}>
+          <span>Version</span>{active('version') ? arrow(true, activeDir) : null}
+        </div>
+        <div style={{...cellBase, color: active('author') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('author')}>
+          <span>Auteur</span>{active('author') ? arrow(true, activeDir) : null}
+        </div>
+        <div style={{...cellBase, color: active('category') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('category')}>
+          <span>Catégorie</span>{active('category') ? arrow(true, activeDir) : null}
+        </div>
+        <div style={{...cellBase, justifyContent: 'flex-end', color: active('status') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('status')}>
           <span>Statut</span>{active('status') ? arrow(true, activeDir) : null}
         </div>
-        <div />
       </div>
     );
   }

@@ -150,26 +150,22 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
               >
                 {a.name || a.module}
               </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#64748b', fontSize: 12 }}>
-                  <span style={{ opacity: 0.9 }}>{a.module}</span>
-                  {bl.version && <span style={{ background: '#0b1220', color: '#9ccfd8', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.version)}</span>}
-                  {bl.author && <span style={{ background: '#0b1220', color: '#c9d6a4', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.author)}</span>}
-                  {bl.category && <span style={{ background: '#0b1220', color: '#d6c9f9', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.category)}</span>}
-                </div>
-                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: 0.7, display: 'inline-block' }} title={a.path}>{a.path ? a.path : ''}</span>
-              </div>
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: 0.7, display: 'inline-block' }} title={a.path}>{a.path ? a.path : ''}</span>
             </div>
-            {/* Col 2: Statut (Activé / Désactivé) - center under header */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#94a3b8', fontSize: 12 }}>
-              <div style={{ height: 6 }} />
-              <div>{a.enabled ? 'Activé' : 'Désactivé'}</div>
+            {/* Col 2: Version badge */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#64748b', fontSize: 12 }}>
+              {bl.version ? <span style={{ background: '#0b1220', color: '#9ccfd8', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.version)}</span> : <span style={{ opacity: 0.6 }}>—</span>}
             </div>
-            {/* Col 3 & 4: empty placeholders to match spacing */}
-            <div />
-            <div />
-            {/* Col 5: placeholder for alignment (no duplicate status) */}
-            <div style={{ width: 140 }} />
+            {/* Col 3: Author */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#64748b', fontSize: 12, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={String(bl.author || '')}>
+              {bl.author ? <span style={{ opacity: 0.9 }}>{String(bl.author)}</span> : <span style={{ opacity: 0.6 }}>—</span>}
+            </div>
+            {/* Col 4: Category */}
+            <div style={{ color: '#64748b', fontSize: 12 }}>{bl.category ? <span style={{ background: '#0b1220', color: '#d6c9f9', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.category)}</span> : <span style={{ opacity: 0.6 }}>—</span>}</div>
+            {/* Col 5: Statut */}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: 140, justifyContent: 'flex-end', flexShrink: 0 }}>
+              <div style={{ color: '#94a3b8', fontSize: 12 }}>{a.enabled ? 'Activé' : 'Désactivé'}</div>
+            </div>
             </div>
             {isExpanded && (
             <div style={{ marginTop: 8, marginBottom: 8, padding: 12, background: '#071018', border: '1px solid #17202a', borderRadius: 8 }}>
