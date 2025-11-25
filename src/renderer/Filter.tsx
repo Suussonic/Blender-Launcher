@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
+import useSort, { SortDir } from './useSort';
 
 export interface RecentBlendFile {
   path: string;
@@ -11,7 +12,6 @@ export interface RecentBlendFile {
 }
 
 export type SortField = 'name' | 'ctime' | 'order' | 'size';
-export type SortDir = 'asc' | 'desc';
 
 interface FilterProps {
   files: RecentBlendFile[];
@@ -53,20 +53,7 @@ const arrow = (active: boolean, dir: SortDir) => {
 };
 
 const Filter: React.FC<FilterProps> = ({ files, onSorted, query }) => {
-  const [sortField, setSortField] = useState<SortField | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
-
-  const toggle = (field: SortField) => {
-    setSortField(prev => {
-      if (prev === field) {
-        setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-        return prev; // same field toggled
-      } else {
-        setSortDir('asc');
-        return field;
-      }
-    });
-  };
+  const { field: sortField, dir: sortDir, toggle } = useSort(null, 'asc');
 
   const sorted = useMemo(() => {
     if (!sortField) return files; // no sort
@@ -76,9 +63,10 @@ const Filter: React.FC<FilterProps> = ({ files, onSorted, query }) => {
       let av: any; let bv: any;
       switch (sortField) {
         case 'name': av = a.name.toLowerCase(); bv = b.name.toLowerCase(); break;
-  case 'size': av = a.size || 0; bv = b.size || 0; break;
-  case 'order': av = a.order ?? 0; bv = b.order ?? 0; break;
+        case 'size': av = a.size || 0; bv = b.size || 0; break;
+        case 'order': av = a.order ?? 0; bv = b.order ?? 0; break;
         case 'ctime': av = a.ctime || 0; bv = b.ctime || 0; break;
+        default: av = 0; bv = 0; break;
       }
       if (av < bv) return -1 * dirMul;
       if (av > bv) return 1 * dirMul;

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { TableHeader } from './Filter';
+import useSort from './useSort';
 
 type BlenderExe = { path: string } | null;
 
@@ -18,8 +19,7 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
   const [lastProbeStdout, setLastProbeStdout] = useState<string | null>(null);
   const [lastProbeStderr, setLastProbeStderr] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [activeField, setActiveField] = useState<string | null>(null);
-  const [activeDir, setActiveDir] = useState<'asc'|'desc'>('asc');
+  const { field: activeField, dir: activeDir, toggle } = useSort(null, 'asc');
 
   const loadAddons = async () => {
     if (!selectedBlender) return;
@@ -53,28 +53,15 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
 
   useEffect(() => { if (selectedBlender) loadAddons(); }, [selectedBlender?.path]);
 
-  useEffect(() => {
-    const handler = (e: any) => {
-      const field = e?.detail?.field;
-      if (!field) return;
-      setActiveField((prev) => {
-        if (prev === field) {
-          setActiveDir(d => d === 'asc' ? 'desc' : 'asc');
-          return prev;
-        }
-        setActiveDir('asc');
-        return field;
-      });
-    };
-    window.addEventListener('blender-launcher-addon-sort', handler as EventListener);
-    return () => window.removeEventListener('blender-launcher-addon-sort', handler as EventListener);
-  }, []);
+  // header rendered inside this component so we can pass current sort state and toggle
 
   // ACTIONS REMOVED: enable/disable, install-on-other, reveal, delete
   // We focus only on displaying addons and caching scan results for speed.
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
+      {/* Header for addons list — shows sort icons and handles toggling */}
+      <TableHeader variant="addons" activeField={activeField} activeDir={activeDir} onToggle={(f) => toggle(f)} />
       {addonsLoading && <div style={{ color: '#94a3b8' }}>Scan en cours...</div>}
       {addonsError && <div style={{ color: '#f87171' }}>Erreur: {addonsError}</div>}
       {!addonsLoading && addons.length === 0 && <div style={{ color: '#64748b' }}>Aucun add‑on détecté</div>}
@@ -93,6 +80,27 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
             const sa = a.enabled ? 1 : 0;
             const sb = b.enabled ? 1 : 0;
             return (sa - sb) * dir;
+          }
+          if (activeField === 'version') {
+            const va = String((a.bl_info && a.bl_info.version) || '')
+            const vb = String((b.bl_info && b.bl_info.version) || '')
+            if (va < vb) return -1 * dir;
+            if (va > vb) return 1 * dir;
+            return 0;
+          }
+          if (activeField === 'author') {
+            const aa = String((a.bl_info && a.bl_info.author) || '').toLowerCase();
+            const ab = String((b.bl_info && b.bl_info.author) || '').toLowerCase();
+            if (aa < ab) return -1 * dir;
+            if (aa > ab) return 1 * dir;
+            return 0;
+          }
+          if (activeField === 'category') {
+            const ca = String((a.bl_info && a.bl_info.category) || '').toLowerCase();
+            const cb = String((b.bl_info && b.bl_info.category) || '').toLowerCase();
+            if (ca < cb) return -1 * dir;
+            if (ca > cb) return 1 * dir;
+            return 0;
           }
           return 0;
         }).filter(a => {
@@ -162,9 +170,31 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
             </div>
             {/* Col 4: Category */}
             <div style={{ color: '#64748b', fontSize: 12 }}>{bl.category ? <span style={{ background: '#0b1220', color: '#d6c9f9', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.category)}</span> : <span style={{ opacity: 0.6 }}>—</span>}</div>
-            {/* Col 5: Statut */}
+            {/* Col 5: Statut + actions */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: 140, justifyContent: 'flex-end', flexShrink: 0 }}>
-              <div style={{ color: '#94a3b8', fontSize: 12 }}>{a.enabled ? 'Activé' : 'Désactivé'}</div>
+              <div style={{ color: '#94a3b8', fontSize: 12, marginRight: 6 }}>{a.enabled ? 'Activé' : 'Désactivé'}</div>
+              <button
+                onClick={(e) => { e.stopPropagation(); if (a.path) { (window as any).electronAPI?.send?.('reveal-in-folder', { path: a.path }); } }}
+                title="Ouvrir le dossier"
+                style={{
+                  background: '#1e2530',
+                  border: 'none',
+                  color: '#94a3b8',
+                  width: 34,
+                  height: 34,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 8,
+                  cursor: a.path ? 'pointer' : 'default',
+                  opacity: a.path ? 1 : 0.5
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 7h5l2 3h11v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+                  <path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v3" />
+                </svg>
+              </button>
             </div>
             </div>
             {isExpanded && (

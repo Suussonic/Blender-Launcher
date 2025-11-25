@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import ViewSettings from './ViewSettings';
 import ViewOpenWith from './ViewOpenWith';
-import Filter, { RecentBlendFile, TableHeader } from './Filter';
+import Filter, { RecentBlendFile } from './Filter';
 import FindBar from './FindBar';
 import ViewRecentFile from './ViewRecentFile';
 import ViewAddon from './ViewAddon';
@@ -385,17 +385,6 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
             </>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
-              {/* Keep the column header in the same position as the Filter header for parity */}
-              <TableHeader
-                variant="addons"
-                activeField={undefined}
-                activeDir={'asc'}
-                onToggle={(f) => {
-                  // Relay header clicks down via a custom event — ViewAddon handles its own sorting locally.
-                  const ev = new CustomEvent('blender-launcher-addon-sort', { detail: { field: f } });
-                  window.dispatchEvent(ev);
-                }}
-              />
               <ViewAddon selectedBlender={selectedBlender} query={searchQuery} />
             </div>
           )}
