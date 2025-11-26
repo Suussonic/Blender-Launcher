@@ -116,6 +116,122 @@ export function initSettings(opts: {
     }
   });
 
+    // Enable or disable an addon by invoking Blender in background with a small python script.
+    ipcMain.handle('enable-addon', async (_event, params: { exePath?: string; module?: string; enable?: boolean }) => {
+    try {
+      const exePath = params?.exePath;
+      const moduleName = params?.module;
+      const enable = !!params?.enable;
+      if (!exePath || !fs.existsSync(exePath)) return { success: false, error: 'exe-not-found' };
+      if (!moduleName) return { success: false, error: 'missing-module' };
+
+      const script = `
+try:
+    import sys, traceback, types, importlib
+    # Small compatibility shims to reduce import-time failures
+    try:
+        import bgl
+    except Exception:
+        sys.modules['bgl'] = types.SimpleNamespace()
+    try:
+        import bpy
+        try:
+            if hasattr(bpy.types, 'ThemeView3D') and not hasattr(bpy.types.ThemeView3D, 'handle_sel_vect'):
+                setattr(bpy.types.ThemeView3D, 'handle_sel_vect', (0.0, 0.0, 1.0))
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    import addon_utils
+    MARK_OK='@@ACTION_OK@@'
+    MARK_FAIL='@@ACTION_FAIL@@'
+    mod = '${moduleName}'
+    desired = ${enable ? 'True' : 'False'}
+
+    # Tolerant check wrapper: don't let compatibility exceptions abort the flow
+    orig_check = getattr(addon_utils, 'check', None)
+    def tolerant_check(m):
+        try:
+            if orig_check:
+                return orig_check(m)
+            return (False, '')
+        except Exception as e:
+            return (False, str(e))
+    try:
+        addon_utils.check = tolerant_check
+    except Exception:
+        pass
+
+    try:
+        if desired:
+            try:
+                addon_utils.enable(mod)
+            except Exception:
+                # Fallback: try importing the module and calling register() directly
+                try:
+                    m = importlib.import_module(mod)
+                    if hasattr(m, 'register'):
+                        try:
+                            m.register()
+                        except Exception:
+                            traceback.print_exc()
+                except Exception:
+                    traceback.print_exc()
+        else:
+            try:
+                addon_utils.disable(mod, default_set=False, persistent=False)
+            except Exception:
+                try:
+                    addon_utils.disable(mod)
+                except Exception:
+                    traceback.print_exc()
+            try:
+                m = importlib.import_module(mod)
+                if hasattr(m, 'unregister'):
+                    try:
+                        m.unregister()
+                    except Exception:
+                        traceback.print_exc()
+            except Exception:
+                traceback.print_exc()
+    except Exception:
+        traceback.print_exc()
+
+    ok = False
+    try:
+        chk = addon_utils.check(mod)
+        if isinstance(chk, (list, tuple)) and len(chk) >= 1:
+            ok = bool(chk[0])
+        else:
+            try:
+                ok = bool(addon_utils.is_enabled(mod))
+            except Exception:
+                ok = False
+    except Exception:
+        try:
+            ok = bool(addon_utils.is_enabled(mod))
+        except Exception:
+            ok = False
+
+    if ok == desired:
+        print(MARK_OK)
+    else:
+        print(MARK_FAIL)
+except Exception:
+    traceback.print_exc()
+`;
+
+      const out = await runBlenderScriptAndCaptureJson(exePath, script, 20000);
+      const stdout = out.stdout || '';
+      const stderr = out.stderr || '';
+      const ok = stdout && stdout.indexOf('@@ACTION_OK@@') >= 0;
+      return { success: !!ok, stdout, stderr };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
+    });
+
   ipcMain.handle('update-general-config', async (_event, partial) => {
     try {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
@@ -983,81 +1099,40 @@ export function initSettings(opts: {
                     let dictStr = txt.substring(startPos, endPos + 1);
                     // strip python comments
                     dictStr = dictStr.replace(/#.*$/gm, '');
-                    // normalize booleans/null
-                    dictStr = dictStr.replace(/\bNone\b/g, 'null').replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false');
-                    // convert simple single-quoted strings to double-quoted strings (heuristic)
-                    dictStr = dictStr.replace(/'([^'\\]*)'/g, '"$1"');
-                    // remove trailing commas before } or ]
-                    dictStr = dictStr.replace(/,(\s*[}\]])/g, '$1');
-                    // convert simple tuples to arrays: ('a','b') -> ["a","b"] (heuristic)
-                    dictStr = dictStr.replace(/\(\s*([^\)]*?)\s*\)/g, (m: string, inner: string) => '[' + inner.replace(/'([^'\\]*)'/g, '"$1"').replace(/,\s*$/, '') + ']');
-                    // ensure bareword keys are quoted: key: -> "key":
-                    dictStr = dictStr.replace(/([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '"$1":');
-                    try { bl_info = JSON.parse(dictStr); if (bl_info && bl_info.name) name = bl_info.name; } catch (e) { bl_info = {}; }
+                    // Try to coerce the python dict literal into JSON by doing a few safe replacements.
+                    // This is tolerant and will fall back to an empty bl_info on parse failure.
+                    try {
+                      let jsonLike = dictStr
+                        .replace(/'/g, '"')
+                        .replace(/\bTrue\b/g, 'true')
+                        .replace(/\bFalse\b/g, 'false')
+                        .replace(/\bNone\b/g, 'null')
+                        // remove trailing commas before closing braces/brackets
+                        .replace(/,\s*([}\]])/g, '$1');
+                      try {
+                        const parsed = JSON.parse(jsonLike);
+                        bl_info = parsed || {};
+                      } catch (e) {
+                        bl_info = {};
+                      }
+                    } catch (e) {
+                      bl_info = {};
+                    }
+                    try { name = (bl_info && bl_info.name) ? bl_info.name : name; } catch {}
                   }
                 }
               }
-            } catch (e) { /* ignore parse errors */ }
-            addonList.push({ module: ch.name, name, bl_info, path: addonDir, exists: true, source: cand });
+            } catch (e) {
+              // ignore single-add-on parse errors
+            }
+            addonList.push({ path: addonDir, name, bl_info });
           }
-        } catch (e) { /* ignore folder read errors */ }
+        } catch (e) {
+          // ignore candidate directory errors
+        }
       }
       return { success: true, addons: addonList };
-    } catch (e) {
-      return { success: false, error: String(e), addons: [] };
-    }
-  });
-
-  ipcMain.handle('enable-addon', async (_event, params: { exePath: string; module: string; enable: boolean }) => {
-  try {
-    const { exePath, module, enable } = params || ({} as any);
-    if (!exePath || !module) return { success: false, error: 'missing-params' };
-    const action = enable ? 'enable' : 'disable';
-
-    // try to find backend script in a couple of likely locations
-    const backendCandidates = [
-      path.join(__dirname, '../../backend/blender_addon_action.py'),
-      path.join(process.cwd(), 'backend', 'blender_addon_action.py')
-    ];
-    let scriptContent = '';
-    for (const c of backendCandidates) {
-      try { if (fs.existsSync(c)) { scriptContent = fs.readFileSync(c, 'utf-8'); break; } } catch {}
-    }
-
-    if (!scriptContent) {
-      // fallback embedded tolerant script
-      scriptContent = `#!/usr/bin/env python3\nimport sys, traceback\ntry:\n    import addon_utils\n    MARK_OK='@@ACTION_OK@@'\n    MARK_FAIL='@@ACTION_FAIL@@'\n    args = sys.argv\n    if '--' in args:\n        idx = args.index('--')\n        a = args[idx+1:]\n    else:\n        a = args[1:]\n    params = {}\n    i = 0\n    while i < len(a):\n        k = a[i]\n        v = a[i+1] if i+1 < len(a) else None\n        params[k] = v\n        i += 2\n    action = params.get('action')\n    mod = params.get('module')\n    desired = (action == 'enable')\n    try:\n        if desired:\n            try:\n                addon_utils.enable(mod)\n            except Exception:\n                try:\n                    import bpy\n                    bpy.ops.preferences.addon_enable(module=mod)\n                except Exception:\n                    pass\n        else:\n            try:\n                addon_utils.disable(mod, default_set=False, persistent=False)\n            except TypeError:\n                try:\n                    addon_utils.disable(mod)\n                except Exception:\n                    pass\n            except Exception:\n                pass\n            try:\n                import bpy\n                bpy.ops.preferences.addon_disable(module=mod)\n            except Exception:\n                pass\n    except Exception:\n        traceback.print_exc()\n    ok = False\n    try:\n        chk = addon_utils.check(mod)\n        if isinstance(chk, (list, tuple)) and len(chk) >= 1:\n            ok = bool(chk[0])\n        else:\n            try:\n                ok = bool(addon_utils.is_enabled(mod))\n            except Exception:\n                ok = False\n    except Exception:\n        try:\n            ok = bool(addon_utils.is_enabled(mod))\n        except Exception:\n            ok = False\n    if ok == desired:\n        print(MARK_OK)\n    else:\n        print(MARK_FAIL)\nexcept Exception:\n    traceback.print_exc()\n`;
-    }
-
-    // write temp script to userData
-    const tmpDir = path.join(app.getPath('userData'), 'temp_blender_scripts');
-    try { if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true }); } catch {}
-    const tmpPath = path.join(tmpDir, `bl_action_${Date.now()}.py`);
-    try { fs.writeFileSync(tmpPath, scriptContent, 'utf-8'); } catch (e) { return { success: false, error: 'failed-write-temp-script', detail: String(e) }; }
-
-    // spawn blender with --python <tmpPath> -- action ...
-    console.log('[IPC enable-addon] exec=', exePath, 'tmpScript=', tmpPath, 'action=', action, 'module=', module);
-    const child = spawn(exePath, ['--background', '--python', tmpPath, '--', 'action', action, 'module', module], { windowsHide: true });
-    let stdout = '';
-    let stderr = '';
-    return await new Promise((resolve) => {
-      const to = setTimeout(() => { try { child.kill(); } catch {} }, 20000);
-      child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
-      child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
-      child.on('error', (err) => { clearTimeout(to); try { fs.unlinkSync(tmpPath); } catch {} ; resolve({ success: false, error: String(err), stdout, stderr }); });
-      child.on('close', (code) => {
-        clearTimeout(to);
-        try { fs.unlinkSync(tmpPath); } catch {}
-        console.log('[IPC enable-addon] stdout=', String(stdout).slice(0,8000));
-        console.log('[IPC enable-addon] stderr=', String(stderr).slice(0,8000));
-        const ok = stdout.indexOf('@@ACTION_OK@@') >= 0;
-        const fail = stdout.indexOf('@@ACTION_FAIL@@') >= 0;
-        if (ok) { resolve({ success: true, stdout, stderr }); }
-        else if (fail) { resolve({ success: false, error: 'validation-failed', stdout, stderr }); }
-        else { resolve({ success: false, error: 'no-confirmation', stdout, stderr }); }
-      });
-    });
-  } catch (e) { return { success: false, error: String(e) }; }
+    } catch (e) { return { success: false, error: String(e) }; }
   });
 
   ipcMain.handle('remove-addon', async (_event, params: { path: string }) => {

@@ -51,6 +51,34 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
     setAddonsLoading(false);
   };
 
+  // helper to enable/disable an addon via main process
+  const [updating, setUpdating] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
+  const setAddonEnabled = async (moduleName: string, enable: boolean) => {
+    if (!selectedBlender || !moduleName) return;
+    try {
+      setUpdating(prev => ({ ...prev, [moduleName]: true }));
+      const api: any = (window as any).electronAPI;
+      let res: any = null;
+      if (api?.enableAddon) {
+        res = await api.enableAddon({ exePath: selectedBlender.path, module: moduleName, enable });
+      } else if (api?.invoke) {
+        res = await api.invoke('enable-addon', { exePath: selectedBlender.path, module: moduleName, enable });
+      }
+      // show any error output to the user
+      const message = (res && (res.error || res.stderr || res.stdout)) ? String(res.error || res.stderr || res.stdout) : null;
+      setErrors(prev => ({ ...prev, [moduleName]: message }));
+      // refresh list to reflect real state (even if failed)
+      await loadAddons();
+      return res;
+    } catch (e) {
+      console.error('enable-addon error', e);
+      setErrors(prev => ({ ...prev, [moduleName]: String(e) }));
+    } finally {
+      setUpdating(prev => ({ ...prev, [moduleName]: false }));
+    }
+  };
+
   useEffect(() => { if (selectedBlender) loadAddons(); }, [selectedBlender?.path]);
 
   // header rendered inside this component so we can pass current sort state and toggle
@@ -116,6 +144,7 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
           const keyId = a.module || a.path || String(idx);
           const isExpanded = !!expanded[keyId];
           const bl = a.bl_info || {};
+          const errMsg = a.module ? (errors[a.module] ?? undefined) : undefined;
           return (
             <React.Fragment key={keyId}>
             <div
@@ -172,7 +201,24 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
             <div style={{ color: '#64748b', fontSize: 12 }}>{bl.category ? <span style={{ background: '#0b1220', color: '#d6c9f9', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.category)}</span> : <span style={{ opacity: 0.6 }}>—</span>}</div>
             {/* Col 5: Statut + actions */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: 140, justifyContent: 'flex-end', flexShrink: 0 }}>
-              <div style={{ color: '#94a3b8', fontSize: 12, marginRight: 6 }}>{a.enabled ? 'Activé' : 'Désactivé'}</div>
+              <div style={{ marginRight: 6 }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); if (a.module && !updating[a.module]) setAddonEnabled(a.module, !a.enabled); }}
+                  disabled={!a.module || !!updating[a.module]}
+                  title={a.enabled ? 'Désactiver' : 'Activer'}
+                  style={{
+                    background: a.enabled ? '#16221b' : '#14161a',
+                    border: a.enabled ? '1px solid #234d2f' : '1px solid #2a2f36',
+                    color: a.enabled ? '#9fe7b2' : '#94a3b8',
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    cursor: a.module && !updating[a.module] ? 'pointer' : 'default'
+                  }}
+                >
+                  {updating[a.module] ? '...' : (a.enabled ? 'Activé' : 'Désactivé')}
+                </button>
+              </div>
               <button
                 onClick={(e) => { e.stopPropagation(); if (a.path) { (window as any).electronAPI?.send?.('reveal-in-folder', { path: a.path }); } }}
                 title="Ouvrir le dossier"
@@ -196,6 +242,12 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
                 </svg>
               </button>
             </div>
+            {/* error / stdout / stderr for this addon (if any) */}
+            {errMsg && (
+              <div style={{ color: '#f87171', fontSize: 12, marginTop: 6, gridColumn: '1 / -1' }} title={errMsg}>
+                {errMsg.split('\n').slice(0,3).join(' ')}{errMsg.split('\n').length > 3 ? '…' : ''}
+              </div>
+            )}
             </div>
             {isExpanded && (
             <div style={{ marginTop: 8, marginBottom: 8, padding: 12, background: '#071018', border: '1px solid #17202a', borderRadius: 8 }}>
