@@ -6,8 +6,6 @@ import Filter, { RecentBlendFile } from './Filter';
 import FindBar from './FindBar';
 import ViewRecentFile from './ViewRecentFile';
 import ViewAddon from './ViewAddon';
-import ViewExtension from './ViewExtension';
-import ViewExtensionsResults from './ViewExtensionsResults';
 import ViewRender from './ViewRender';
 
 type BlenderExe = {
@@ -31,12 +29,6 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
   const [recentFiles, setRecentFiles] = useState<RecentBlendFile[]>([]);
   const [displayFiles, setDisplayFiles] = useState<RecentBlendFile[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [searchScope, setSearchScope] = useState<string>('all');
-  const [extensionUrl, setExtensionUrl] = useState<string | null>(null);
-  const [extensionQuery, setExtensionQuery] = useState<string | null>(null);
-  const [extSuggestions, setExtSuggestions] = useState<Array<{title:string;href:string;thumb?:string;author?:string}>>([]);
-  const [extLoading, setExtLoading] = useState(false);
-  let extDebounceRef: any = null;
   const [recentVersion, setRecentVersion] = useState<string | null>(null);
   const [openWithFile, setOpenWithFile] = useState<string | null>(null);
   const [renderForFile, setRenderForFile] = useState<string | null>(null);
@@ -74,59 +66,6 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
   };
 
   useEffect(() => { loadRecent(); }, [selectedBlender?.path]);
-
-  // Live search: when searchQuery changes and panel is addons, request suggestions from main
-  useEffect(() => {
-    if (panel !== 'addons') return;
-    const q = (searchQuery || '').trim();
-    // clear if empty
-    if (!q) { setExtSuggestions([]); setExtLoading(false); return; }
-    setExtLoading(true);
-    // debounce
-    if (extDebounceRef) clearTimeout(extDebounceRef);
-    extDebounceRef = setTimeout(async () => {
-      try {
-        const api: any = (window as any).electronAPI;
-        let res: any = null;
-        if (api?.searchExtensions) res = await api.searchExtensions(q);
-        else if (api?.invoke) res = await api.invoke('extensions-search', q);
-        const html = res?.html || '';
-        // parse HTML using DOMParser and extract anchors to /addon/
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const items: Array<{title:string;href:string;thumb?:string;author?:string}> = [];
-        try {
-          const anchors = Array.from(doc.querySelectorAll('a'));
-          for (const a of anchors) {
-            const href = a.getAttribute('href') || '';
-            if (!href.includes('/addon/')) continue;
-            // attempt to find title within anchor or descendants
-            let title = '';
-            const h = a.querySelector('h3') || a.querySelector('.card-title') || a.querySelector('.title');
-            if (h && h.textContent) title = h.textContent.trim();
-            if (!title) title = a.textContent ? a.textContent.trim().split('\n')[0].trim() : '';
-            // thumbnail
-            const img = a.querySelector('img');
-            const thumb = img ? (img.getAttribute('src') || '') : '';
-            // author - try to find element with author class
-            let author = '';
-            const au = a.querySelector('.author') || a.querySelector('.card-author') || a.querySelector('.meta .author');
-            if (au && au.textContent) author = au.textContent.trim();
-            const full = href.startsWith('http') ? href : ('https://extensions.blender.org' + href);
-            // avoid duplicates
-            if (!items.find(x => x.href === full)) items.push({ title: title || full, href: full, thumb, author });
-            if (items.length >= 10) break;
-          }
-        } catch (e) { /* ignore parse errors */ }
-        setExtSuggestions(items);
-      } catch (e) {
-        setExtSuggestions([]);
-      } finally {
-        setExtLoading(false);
-      }
-    }, 350);
-    return () => { try { if (extDebounceRef) clearTimeout(extDebounceRef); } catch {} };
-  }, [searchQuery, panel]);
 
   // Addon loading moved to ViewAddon
 
@@ -412,56 +351,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
             </div>
           </div>
           {/* Shared FindBar used for both Recent files and Addons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <FindBar
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Rechercher..."
-              scope={searchScope}
-              onScopeChange={setSearchScope}
-              onSubmit={async () => {
-                // When user presses Enter while viewing Add‑ons, open the in-app extensions results modal.
-                if (panel === 'addons' && searchQuery && searchQuery.trim() !== '') {
-                  setExtensionQuery(searchQuery.trim());
-                  return;
-                }
-              }}
-            />
-            {/* Live external suggestions when typing in Addons panel */}
-            {panel === 'addons' && searchQuery && searchQuery.trim() !== '' && (
-              <div style={{ position: 'relative', width: '100%', maxWidth: 1060 }}>
-                <div style={{ position: 'absolute', top: 48, left: 0, right: 0, background: '#071018', border: '1px solid #17202a', borderRadius: 8, padding: 8, zIndex: 40 }}>
-                  {extLoading && <div style={{ color: '#94a3b8', padding: 8 }}>Recherche…</div>}
-                  {!extLoading && extSuggestions.length === 0 && <div style={{ color: '#64748b', padding: 8 }}>Aucun résultat externe</div>}
-                  {!extLoading && extSuggestions.map((it, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 8px', cursor: 'pointer' }} onClick={async () => {
-                      try { if ((window as any).electronAPI?.openExternal) await (window as any).electronAPI.openExternal(it.href); else window.open(it.href, '_blank'); } catch { try { window.open(it.href, '_blank'); } catch {} }
-                    }}>
-                      <img src={it.thumb || ''} alt="" style={{ width: 48, height: 34, objectFit: 'cover', borderRadius: 6, background: '#0b1220' }} />
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ color: '#e6eef8', fontWeight: 600 }}>{it.title}</div>
-                        <div style={{ color: '#94a3b8', fontSize: 12 }}>{it.author || ''}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {panel === 'addons' && searchQuery && searchQuery.trim() !== '' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button onClick={async () => {
-                    const url = `https://extensions.blender.org/search/?q=${encodeURIComponent(searchQuery.trim())}`;
-                    try {
-                      if ((window as any).electronAPI?.openExternal) await (window as any).electronAPI.openExternal(url);
-                      else window.open(url, '_blank');
-                    } catch (e) { try { window.open(url, '_blank'); } catch {} }
-                  }}
-                  style={{ background: '#0b1220', border: '1px solid #22303a', color: '#cbd5e1', padding: '8px 10px', borderRadius: 8 }}>
-                  Rechercher sur extensions.blender.org
-                </button>
-              </div>
-            )}
-          </div>
+          <FindBar value={searchQuery} onChange={setSearchQuery} placeholder="Rechercher..." />
 
           {panel === 'recent' ? (
             <>
@@ -508,12 +398,6 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
             selectedBlender={selectedBlender}
             onSave={handleSaveSettings}
           />
-        )}
-        {extensionUrl && (
-          <ViewExtension url={extensionUrl} onClose={() => setExtensionUrl(null)} />
-        )}
-        {extensionQuery && (
-          <ViewExtensionsResults query={extensionQuery} onClose={() => setExtensionQuery(null)} />
         )}
         <ViewOpenWith
           isOpen={!!openWithFile}

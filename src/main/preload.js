@@ -63,7 +63,6 @@ const api = {
   , 'install-build-tools'
   , 'download-official-blender'
   , 'fetch-blender-versions'
-  , 'open-external-url'
     ];
     if (validChannels.includes(channel)) {
       // Retry wrapper: some races in packaged builds caused the renderer
@@ -104,8 +103,6 @@ const api = {
   enableAddon: (params) => ipcRenderer.invoke('enable-addon', params),
   removeAddon: (params) => ipcRenderer.invoke('remove-addon', params),
   installAddon: (params) => ipcRenderer.invoke('install-addon-on', params),
-  openExternal: (url) => ipcRenderer.invoke('open-external-url', url),
-  searchExtensions: (query) => ipcRenderer.invoke('extensions-search', query),
   debugInfo: () => ({
     keys: Object.keys(apiRef),
     hasInvoke: typeof apiRef.invoke === 'function'

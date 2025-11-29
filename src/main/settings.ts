@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import extractIcon = require('extract-file-icon');
@@ -231,37 +231,6 @@ except Exception:
       return { success: false, error: String(e) };
     }
     });
-
-  // Open an external URL in the user's default browser
-  ipcMain.handle('open-external-url', async (_event, url?: string) => {
-    try {
-      if (!url || typeof url !== 'string') return { success: false, error: 'missing-url' };
-      await shell.openExternal(url);
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: String(e) };
-    }
-  });
-
-  // Fetch extensions.blender.org search page HTML for a given query and return the HTML text
-  ipcMain.handle('extensions-search', async (_event, query?: string) => {
-    try {
-      if (!query || typeof query !== 'string') return { success: false, error: 'missing-query', html: '' };
-      const url = `https://extensions.blender.org/search/?q=${encodeURIComponent(query)}`;
-      // Use simple fetch via https
-      const https = require('https');
-      const body = await new Promise<string>((resolve, reject) => {
-        let data = '';
-        https.get(url, (res: any) => {
-          res.on('data', (chunk: any) => { data += chunk.toString(); });
-          res.on('end', () => resolve(data));
-        }).on('error', (err: any) => reject(err));
-      });
-      return { success: true, html: body };
-    } catch (e) {
-      return { success: false, error: String(e), html: '' };
-    }
-  });
 
   ipcMain.handle('update-general-config', async (_event, partial) => {
     try {
