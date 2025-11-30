@@ -186,9 +186,12 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onOpe
   const [importMode, setImportMode] = React.useState<'main' | 'github'>('main');
   const [githubUrl, setGithubUrl] = React.useState('');
 
-  // Repo search state
-  const [repoQuery, setRepoQuery] = React.useState('');
+  // Search state (repos + extensions)
+  const [searchQuery, setSearchQuery] = React.useState('');
   const [repoList, setRepoList] = React.useState<{ name:string; link:string; avatar?:string }[]>([]);
+  const [extensionResults, setExtensionResults] = React.useState<{title:string;href:string;thumb?:string;author?:string}[]>([]);
+  const [loadingExtensions, setLoadingExtensions] = React.useState(false);
+  
   React.useEffect(()=>{
     try {
       const data = require('./locales/link.json');
@@ -203,6 +206,49 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onOpe
       }
     } catch(e){ console.warn('Chargement link.json échoué', e); }
   },[]);
+  
+  // Search extensions dynamically as user types
+  React.useEffect(() => {
+    if (!searchQuery.trim()) {
+      setExtensionResults([]);
+      setLoadingExtensions(false);
+      return;
+    }
+    setLoadingExtensions(true);
+    const timeout = setTimeout(async () => {
+      try {
+        const api: any = (window as any).electronAPI;
+        if (!api) { setLoadingExtensions(false); return; }
+        const res = await (api.searchExtensions ? api.searchExtensions(searchQuery) : api.invoke('extensions-search', searchQuery));
+        const html = res?.html || '';
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const items: {title:string;href:string;thumb?:string;author?:string}[] = [];
+        const cardItems = Array.from(doc.querySelectorAll('.cards-item'));
+        for (const card of cardItems) {
+          const mainLink = card.querySelector('a[href*="/add-ons/"]');
+          if (!mainLink) continue;
+          const href = mainLink.getAttribute('href') || '';
+          if (!href) continue;
+          const titleEl = card.querySelector('h3.cards-item-title a, h3.cards-item-title');
+          const title = titleEl?.textContent?.trim() || 'Extension';
+          const img = card.querySelector('.cards-item-thumbnail img');
+          const thumb = img ? (img.getAttribute('src') || '') : '';
+          const authorLink = card.querySelector('.cards-item-extra ul li a[href*="/author/"], .cards-item-extra ul li a[href*="/team/"]');
+          const author = authorLink?.textContent?.trim() || '';
+          const full = href.startsWith('http') ? href : ('https://extensions.blender.org' + href);
+          if (!items.find(x => x.href === full)) items.push({ title, href: full, thumb, author });
+          if (items.length >= 8) break;
+        }
+        setExtensionResults(items);
+      } catch (e) {
+        setExtensionResults([]);
+      } finally {
+        setLoadingExtensions(false);
+      }
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
 
   return (
     <>
@@ -256,10 +302,19 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onOpe
   <div style={{ position:'relative', flex:1, margin:'0 24px', minWidth:260, display:'flex', gap:8 }} className="no-drag">
           <input
             type="text"
-            placeholder="Rechercher un repository..."
-            value={repoQuery}
-            onChange={e=> setRepoQuery(e.target.value)}
-            onKeyDown={e=> { if(e.key === 'Escape') setRepoQuery(''); }}
+            placeholder="Rechercher builds et extensions..."
+            value={searchQuery}
+            onChange={e=> setSearchQuery(e.target.value)}
+            onKeyDown={e=> { 
+              if(e.key === 'Escape') setSearchQuery('');
+              if(e.key === 'Enter' && searchQuery.trim()) {
+                const url = `https://extensions.blender.org/search/?q=${encodeURIComponent(searchQuery.trim())}`;
+                try {
+                  if((window as any).electronAPI?.openExternal) (window as any).electronAPI.openExternal(url);
+                  else window.open(url, '_blank');
+                } catch {}
+              }
+            }}
             style={{
               flex:1,
               height:36,
@@ -275,19 +330,59 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onOpe
             onFocus={e=>{ e.currentTarget.style.borderColor='#3c4652'; e.currentTarget.style.background='#262d34'; }}
             onBlur={e=>{ e.currentTarget.style.borderColor='#23272F'; e.currentTarget.style.background='#23272F'; }}
           />
-          {repoQuery && (
-            <div style={{ position:'absolute', top:40, left:0, right:0, background:'#1f242b', border:'1px solid #2a3036', borderRadius:12, padding:8, display:'flex', flexDirection:'column', gap:6, maxHeight:300, overflowY:'auto', zIndex:500 }}>
-              {repoList.filter(r=> r.name.toLowerCase().includes(repoQuery.toLowerCase())).map(r=> (
-                <div key={r.link} onClick={()=>{ setRepoQuery(''); onSelectRepo && onSelectRepo(r); }}
-                  style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 10px', background:'#232a31', border:'1px solid #2a3036', borderRadius:8, cursor:'pointer', fontSize:14, color:'#fff' }}
-                  onMouseOver={e=>{ e.currentTarget.style.background='#2b333b'; }}
-                  onMouseOut={e=>{ e.currentTarget.style.background='#232a31'; }}>
-                    {r.avatar ? <img src={r.avatar} style={{ width:26, height:26, borderRadius:'50%', display:'block' }} /> : <span style={{ width:26, height:26, borderRadius:'50%', background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12 }}>{r.name.charAt(0)}</span>}
-                    <span style={{ fontWeight:500 }}>{r.name}</span>
+          {searchQuery && (
+            <div style={{ position:'absolute', top:40, left:0, right:0, background:'#1f242b', border:'1px solid #2a3036', borderRadius:12, padding:8, display:'flex', flexDirection:'column', gap:8, maxHeight:420, overflowY:'auto', zIndex:500 }}>
+              {/* Custom Builds Section */}
+              {repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 && (
+                <>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5, padding:'4px 8px' }}>Custom Builds</div>
+                  {repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).map(r=> (
+                    <div key={r.link} onClick={()=>{ setSearchQuery(''); onSelectRepo && onSelectRepo(r); }}
+                      style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 10px', background:'#232a31', border:'1px solid #2a3036', borderRadius:8, cursor:'pointer', fontSize:14, color:'#fff' }}
+                      onMouseOver={e=>{ e.currentTarget.style.background='#2b333b'; }}
+                      onMouseOut={e=>{ e.currentTarget.style.background='#232a31'; }}>
+                        {r.avatar ? <img src={r.avatar} style={{ width:26, height:26, borderRadius:'50%', display:'block' }} /> : <span style={{ width:26, height:26, borderRadius:'50%', background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12 }}>{r.name.charAt(0)}</span>}
+                        <span style={{ fontWeight:500 }}>{r.name}</span>
+                    </div>
+                  ))}
+                </>
+              )}
+              
+              {/* Extensions Section */}
+              {(loadingExtensions || extensionResults.length > 0) && (
+                <>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5, padding:'4px 8px', marginTop: repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? 4 : 0 }}>Extensions</div>
+                  {loadingExtensions && <div style={{ fontSize:12, color:'#94a3b8', padding:'4px 8px' }}>Chargement...</div>}
+                  {!loadingExtensions && extensionResults.map((ext, i) => (
+                    <div key={i} onClick={()=>{ 
+                      try { 
+                        if((window as any).electronAPI?.openExternal) (window as any).electronAPI.openExternal(ext.href); 
+                        else window.open(ext.href, '_blank'); 
+                      } catch {} 
+                    }}
+                      style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 10px', background:'#232a31', border:'1px solid #2a3036', borderRadius:8, cursor:'pointer', fontSize:14, color:'#fff' }}
+                      onMouseOver={e=>{ e.currentTarget.style.background='#2b333b'; }}
+                      onMouseOut={e=>{ e.currentTarget.style.background='#232a31'; }}>
+                        {ext.thumb ? <img src={ext.thumb} style={{ width:40, height:26, borderRadius:4, objectFit:'cover' }} alt="" /> : <span style={{ width:40, height:26, borderRadius:4, background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10 }}>📦</span>}
+                        <div style={{ flex:1, display:'flex', flexDirection:'column', gap:2 }}>
+                          <span style={{ fontWeight:500, fontSize:13 }}>{ext.title}</span>
+                          {ext.author && <span style={{ fontSize:11, color:'#94a3b8' }}>{ext.author}</span>}
+                        </div>
+                    </div>
+                  ))}
+                </>
+              )}
+              
+              {/* No Results */}
+              {!loadingExtensions && repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length===0 && extensionResults.length===0 && (
+                <div style={{ fontSize:12, color:'#94a3b8', padding:'4px 8px' }}>Aucun résultat</div>
+              )}
+              
+              {/* Press Enter hint */}
+              {searchQuery.trim() && (
+                <div style={{ fontSize:11, color:'#64748b', padding:'6px 8px', borderTop:'1px solid #2a3036', marginTop:4, textAlign:'center' }}>
+                  Appuyez sur <strong style={{ color:'#94a3b8' }}>Entrée</strong> pour voir tous les résultats sur extensions.blender.org
                 </div>
-              ))}
-              {repoList.filter(r=> r.name.toLowerCase().includes(repoQuery.toLowerCase())).length===0 && (
-                <div style={{ fontSize:12, color:'#94a3b8', padding:'4px 2px' }}>Aucun résultat</div>
               )}
             </div>
           )}
