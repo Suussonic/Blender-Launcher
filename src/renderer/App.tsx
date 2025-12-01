@@ -6,6 +6,7 @@ import ViewPages from './ViewPages';
 import Home from './Home';
 import InAppWeb, { InAppWebHandle } from './InAppWeb';
 import ViewRepo, { SimpleRepoRef } from './ViewRepo';
+import ViewExtensions from './ViewExtensions';
 import ViewOfficial from './ViewOfficial';
 import Loading from './Loading';
 import SettingsPage from './SettingsPage';
@@ -20,7 +21,7 @@ type BlenderExe = {
 const App: React.FC = () => {
   const { t, i18n } = useTranslation();
   const [page, setPage] = useState<'home' | 'settings' | 'web' | 'pages'>('home');
-  type NavEntry = { page: 'home'|'settings'|'web'|'repo'|'pages'; webUrl?:string; repo?: SimpleRepoRef | null; blender?: BlenderExe | null };
+  type NavEntry = { page: 'home'|'settings'|'web'|'repo'|'pages'|'extensions'; webUrl?:string; repo?: SimpleRepoRef | null; blender?: BlenderExe | null; extensionQuery?: string | null };
   const [appHistory, setAppHistory] = useState<NavEntry[]>([{ page: 'home' }]);
   const [appIndex, setAppIndex] = useState<number>(0);
   const [webUrl, setWebUrl] = useState<string>('');
@@ -33,6 +34,7 @@ const App: React.FC = () => {
   const [selectedBlender, setSelectedBlender] = useState<BlenderExe | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'info' | 'error'; } | null>(null);
   const [selectedRepo, setSelectedRepo] = useState<SimpleRepoRef | null>(null);
+  const [extensionQuery, setExtensionQuery] = useState<string | null>(null);
   
   // Clone/Build popup state
   const [showCloneBuildPopup, setShowCloneBuildPopup] = useState(false);
@@ -424,6 +426,7 @@ const App: React.FC = () => {
     onHome={handleHome}
     onSettings={() => pushAppEntry({ page: 'settings' })}
     onSelectRepo={(r)=> { setSelectedRepo(r); setSelectedBlender(null); pushAppEntry({ page: 'repo', repo: r }); }}
+    onSearchExtensions={(q)=> { setExtensionQuery(q); setSelectedRepo(null); setSelectedBlender(null); pushAppEntry({ page: 'extensions' }); }}
     onOpenCloneBuild={() => setShowCloneBuildPopup(true)}
     canGoBack={appIndex > 0}
     canGoForward={appIndex < appHistory.length - 1}
@@ -467,6 +470,8 @@ const App: React.FC = () => {
             )
             : selectedRepo
             ? <ViewRepo repo={selectedRepo} onBack={()=> setSelectedRepo(null)} onCloneStateChange={setCloneState} />
+            : extensionQuery
+            ? <ViewExtensions query={extensionQuery} onBack={()=> setExtensionQuery(null)} />
             : page === 'web'
             ? (
               <div style={{ flex: 1, display: 'flex', minWidth: 0, minHeight: 0 }}>

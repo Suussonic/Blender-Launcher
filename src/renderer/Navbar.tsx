@@ -158,6 +158,7 @@ type NavbarProps = {
   onHome?: () => void;
   onSettings?: () => void;
   onSelectRepo?: (repo:{ name:string; link:string }) => void;
+  onSearchExtensions?: (query: string) => void;
   onOpenCloneBuild?: () => void;
   canGoBack?: boolean;
   canGoForward?: boolean;
@@ -168,7 +169,7 @@ type NavbarProps = {
   onClearWebHistory?: () => void;
 };
 
-const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onOpenCloneBuild, canGoBack, canGoForward, onBack, onForward, isOnWebPage, onWebHome, onClearWebHistory }) => {
+const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSearchExtensions, onOpenCloneBuild, canGoBack, canGoForward, onBack, onForward, isOnWebPage, onWebHome, onClearWebHistory }) => {
   const { t } = useTranslation();
   const navbarRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -307,12 +308,9 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onOpe
             onChange={e=> setSearchQuery(e.target.value)}
             onKeyDown={e=> { 
               if(e.key === 'Escape') setSearchQuery('');
-              if(e.key === 'Enter' && searchQuery.trim()) {
-                const url = `https://extensions.blender.org/search/?q=${encodeURIComponent(searchQuery.trim())}`;
-                try {
-                  if((window as any).electronAPI?.openExternal) (window as any).electronAPI.openExternal(url);
-                  else window.open(url, '_blank');
-                } catch {}
+              if(e.key === 'Enter' && searchQuery.trim() && onSearchExtensions) {
+                onSearchExtensions(searchQuery.trim());
+                setSearchQuery('');
               }
             }}
             style={{
