@@ -11,17 +11,26 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack }) => {
 
   React.useEffect(() => {
     if (!query.trim()) return;
+    console.log('[ViewExtensions] Recherche pour:', query);
     setLoading(true);
     const fetchData = async () => {
       try {
         const api: any = (window as any).electronAPI;
-        if (!api) return;
+        if (!api) {
+          console.error('[ViewExtensions] electronAPI non disponible');
+          setLoading(false);
+          return;
+        }
+        console.log('[ViewExtensions] Appel API extensions-search...');
         const res = await (api.searchExtensions ? api.searchExtensions(query) : api.invoke('extensions-search', query));
+        console.log('[ViewExtensions] Réponse reçue:', res);
         const html = res?.html || '';
+        console.log('[ViewExtensions] HTML length:', html.length);
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         const items: {title:string;href:string;thumb?:string;author?:string;tags?:string}[] = [];
         const cardItems = Array.from(doc.querySelectorAll('.cards-item'));
+        console.log('[ViewExtensions] Cards trouvées:', cardItems.length);
         for (const card of cardItems) {
           const mainLink = card.querySelector('a[href*="/add-ons/"]');
           if (!mainLink) continue;
@@ -38,9 +47,10 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack }) => {
           const full = href.startsWith('http') ? href : ('https://extensions.blender.org' + href);
           items.push({ title, href: full, thumb, author, tags });
         }
+        console.log('[ViewExtensions] Extensions parsées:', items.length);
         setExtensions(items);
       } catch (e) {
-        console.error('Erreur recherche extensions:', e);
+        console.error('[ViewExtensions] Erreur recherche extensions:', e);
         setExtensions([]);
       } finally {
         setLoading(false);

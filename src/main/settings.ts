@@ -1200,4 +1200,42 @@ except Exception:
       return { success: false, error: String(e) };
     }
   });
+
+  // Extensions search handler
+  ipcMain.handle('extensions-search', async (_event, query: string) => {
+    try {
+      const https = require('https');
+      const url = `https://extensions.blender.org/search/?q=${encodeURIComponent(query)}`;
+      console.log('[IPC] extensions-search:', url);
+      
+      return new Promise((resolve, reject) => {
+        https.get(url, (res: any) => {
+          let html = '';
+          res.on('data', (chunk: any) => { html += chunk; });
+          res.on('end', () => {
+            console.log('[IPC] extensions-search: HTML reçu, longueur =', html.length);
+            resolve({ html });
+          });
+        }).on('error', (err: any) => {
+          console.error('[IPC] extensions-search erreur:', err);
+          reject(err);
+        });
+      });
+    } catch (e) {
+      console.error('[IPC] extensions-search exception:', e);
+      return { html: '', error: String(e) };
+    }
+  });
+
+  // Open external URL handler
+  ipcMain.handle('open-external-url', async (_event, url: string) => {
+    try {
+      const { shell } = require('electron');
+      await shell.openExternal(url);
+      return { success: true };
+    } catch (e) {
+      console.error('[IPC] open-external-url erreur:', e);
+      return { success: false, error: String(e) };
+    }
+  });
 }
