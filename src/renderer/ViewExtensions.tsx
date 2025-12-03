@@ -39,7 +39,11 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack }) => {
           const titleEl = card.querySelector('h3.cards-item-title a, h3.cards-item-title');
           const title = titleEl?.textContent?.trim() || 'Extension';
           const img = card.querySelector('.cards-item-thumbnail img');
-          const thumb = img ? (img.getAttribute('src') || '') : '';
+          let thumb = img ? (img.getAttribute('src') || '') : '';
+          // Make thumbnail URL absolute
+          if (thumb && !thumb.startsWith('http')) {
+            thumb = thumb.startsWith('/') ? `https://extensions.blender.org${thumb}` : `https://extensions.blender.org/${thumb}`;
+          }
           const authorLink = card.querySelector('.cards-item-extra ul li a[href*="/author/"], .cards-item-extra ul li a[href*="/team/"]');
           const author = authorLink?.textContent?.trim() || '';
           const tagsList = card.querySelectorAll('.cards-item-tags a');
