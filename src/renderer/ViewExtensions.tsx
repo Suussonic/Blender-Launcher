@@ -3,6 +3,7 @@ import * as React from 'react';
 interface ViewExtensionsProps {
   query: string;
   onBack: () => void;
+  onOpenWeb?: (url: string) => void;
 }
 
 type Extension = {
@@ -20,7 +21,7 @@ type Extension = {
 type SortField = 'title' | 'author' | 'type' | 'updated';
 type SortOrder = 'asc' | 'desc';
 
-const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack }) => {
+const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWeb }) => {
   const [extensions, setExtensions] = React.useState<Extension[]>([]);
   const [filteredExtensions, setFilteredExtensions] = React.useState<Extension[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -178,11 +179,22 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack }) => {
   };
 
   const openExtension = (url: string) => {
-    try {
-      const api: any = (window as any).electronAPI;
-      if (api?.openExternal) api.openExternal(url);
-      else window.open(url, '_blank');
-    } catch {}
+    console.log('[ViewExtensions] Opening extension:', url);
+    console.log('[ViewExtensions] onOpenWeb defined?', !!onOpenWeb);
+    if (onOpenWeb) {
+      console.log('[ViewExtensions] Calling onOpenWeb with:', url);
+      onBack(); // Close ViewExtensions first
+      onOpenWeb(url);
+    } else {
+      console.log('[ViewExtensions] Using external browser');
+      try {
+        const api: any = (window as any).electronAPI;
+        if (api?.openExternal) api.openExternal(url);
+        else window.open(url, '_blank');
+      } catch (e) {
+        console.error('[ViewExtensions] Error opening external:', e);
+      }
+    }
   };
 
   return (
@@ -309,23 +321,6 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack }) => {
                   <h3 style={{ fontSize:16, fontWeight:600, margin:0, color:'#fff' }}>{ext.title}</h3>
                   {ext.author && <div style={{ fontSize:13, color:'#94a3b8' }}>Par {ext.author}</div>}
                   {ext.tags && <div style={{ fontSize:12, color:'#64748b', marginTop:4 }}>{ext.tags}</div>}
-                  <button style={{ 
-                    marginTop:'auto', 
-                    padding:'8px 16px', 
-                    background:'#2563eb', 
-                    border:'none', 
-                    borderRadius:6, 
-                    color:'#fff', 
-                    fontSize:13, 
-                    fontWeight:500, 
-                    cursor:'pointer',
-                    transition:'background 0.2s'
-                  }}
-                  onMouseOver={e => e.currentTarget.style.background = '#1d4ed8'}
-                  onMouseOut={e => e.currentTarget.style.background = '#2563eb'}
-                  onClick={(e) => { e.stopPropagation(); openExtension(ext.href); }}>
-                    Voir sur extensions.blender.org
-                  </button>
                 </div>
               </div>
             ))}

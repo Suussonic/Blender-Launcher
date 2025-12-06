@@ -471,7 +471,7 @@ const App: React.FC = () => {
             : selectedRepo
             ? <ViewRepo repo={selectedRepo} onBack={()=> setSelectedRepo(null)} onCloneStateChange={setCloneState} />
             : extensionQuery
-            ? <ViewExtensions query={extensionQuery} onBack={()=> setExtensionQuery(null)} />
+            ? <ViewExtensions query={extensionQuery} onBack={()=> setExtensionQuery(null)} onOpenWeb={openWeb} />
             : page === 'web'
             ? (
               <div style={{ flex: 1, display: 'flex', minWidth: 0, minHeight: 0 }}>
