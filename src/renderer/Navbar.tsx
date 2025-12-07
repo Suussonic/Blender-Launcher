@@ -159,6 +159,7 @@ type NavbarProps = {
   onSettings?: () => void;
   onSelectRepo?: (repo:{ name:string; link:string }) => void;
   onSearchExtensions?: (query: string) => void;
+  onOpenWeb?: (url: string) => void;
   onOpenCloneBuild?: () => void;
   canGoBack?: boolean;
   canGoForward?: boolean;
@@ -169,7 +170,7 @@ type NavbarProps = {
   onClearWebHistory?: () => void;
 };
 
-const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSearchExtensions, onOpenCloneBuild, canGoBack, canGoForward, onBack, onForward, isOnWebPage, onWebHome, onClearWebHistory }) => {
+const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSearchExtensions, onOpenWeb, onOpenCloneBuild, canGoBack, canGoForward, onBack, onForward, isOnWebPage, onWebHome, onClearWebHistory }) => {
   const { t } = useTranslation();
   const navbarRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -357,10 +358,15 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
                   {loadingExtensions && <div style={{ fontSize:12, color:'#94a3b8', padding:'4px 8px' }}>Chargement...</div>}
                   {!loadingExtensions && extensionResults.map((ext, i) => (
                     <div key={i} onClick={()=>{ 
-                      try { 
-                        if((window as any).electronAPI?.openExternal) (window as any).electronAPI.openExternal(ext.href); 
-                        else window.open(ext.href, '_blank'); 
-                      } catch {} 
+                      setSearchQuery('');
+                      if(onOpenWeb) {
+                        onOpenWeb(ext.href);
+                      } else {
+                        try { 
+                          if((window as any).electronAPI?.openExternal) (window as any).electronAPI.openExternal(ext.href); 
+                          else window.open(ext.href, '_blank'); 
+                        } catch {} 
+                      }
                     }}
                       style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 10px', background:'#232a31', border:'1px solid #2a3036', borderRadius:8, cursor:'pointer', fontSize:14, color:'#fff' }}
                       onMouseOver={e=>{ e.currentTarget.style.background='#2b333b'; }}

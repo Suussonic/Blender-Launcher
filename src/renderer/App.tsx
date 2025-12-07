@@ -427,6 +427,7 @@ const App: React.FC = () => {
     onSettings={() => pushAppEntry({ page: 'settings' })}
     onSelectRepo={(r)=> { setSelectedRepo(r); setSelectedBlender(null); pushAppEntry({ page: 'repo', repo: r }); }}
     onSearchExtensions={(q)=> { setExtensionQuery(q); setSelectedRepo(null); setSelectedBlender(null); pushAppEntry({ page: 'extensions' }); }}
+    onOpenWeb={openWeb}
     onOpenCloneBuild={() => setShowCloneBuildPopup(true)}
     canGoBack={appIndex > 0}
     canGoForward={appIndex < appHistory.length - 1}
