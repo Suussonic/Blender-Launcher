@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { FiDownload, FiStar } from 'react-icons/fi';
 
 interface ViewExtensionsProps {
   query: string;
@@ -16,6 +17,8 @@ type Extension = {
   license?: string;
   version?: string;
   updated?: string;
+  rating?: string;
+  downloads?: string;
 };
 
 type SortField = 'title' | 'author' | 'type' | 'updated';
@@ -95,8 +98,42 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
           const licenseEl = card.querySelector('.cards-item-license, .license');
           const license = licenseEl?.textContent?.trim() || '';
           
+          // Extract rating (stars)
+          const ratingEl = card.querySelector('.rating-average, [class*="rating"]');
+          let rating = '';
+          if (ratingEl) {
+            const ratingText = ratingEl.textContent?.trim() || '';
+            // Look for star icons or numeric rating
+            const stars = card.querySelectorAll('.icon-star-full, .fa-star');
+            if (stars.length > 0) {
+              rating = `${stars.length}/5`;
+            } else if (ratingText.match(/\d/)) {
+              rating = ratingText;
+            }
+          }
+          
+          // Extract downloads count
+          const downloadsEl = card.querySelector('.extension-download-count, [class*="download"]');
+          let downloads = '';
+          if (downloadsEl) {
+            const text = downloadsEl.textContent?.trim() || '';
+            // Extract number (e.g., "126K", "790K", "1.2M")
+            const match = text.match(/[\d.]+[KMk]?/);
+            if (match) downloads = match[0];
+          }
+          // Alternative: look for download icon + number
+          if (!downloads) {
+            const dlIcon = card.querySelector('.icon-download, .fa-download');
+            if (dlIcon) {
+              const parent = dlIcon.parentElement;
+              const text = parent?.textContent?.trim() || '';
+              const match = text.match(/[\d.]+[KMk]?/);
+              if (match) downloads = match[0];
+            }
+          }
+          
           const full = href.startsWith('http') ? href : ('https://extensions.blender.org' + href);
-          items.push({ title, href: full, thumb, author, tags, type, version, updated, license });
+          items.push({ title, href: full, thumb, author, tags, type, version, updated, license, rating, downloads });
         }
         console.log('[ViewExtensions] Extensions parsées:', items.length);
         setExtensions(items);
@@ -317,10 +354,45 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
                   <div style={{ width:'100%', height:160, background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:48 }}>📦</div>
                 )}
                 {/* Info */}
-                <div style={{ padding:16, flex:1, display:'flex', flexDirection:'column', gap:8 }}>
-                  <h3 style={{ fontSize:16, fontWeight:600, margin:0, color:'#fff' }}>{ext.title}</h3>
-                  {ext.author && <div style={{ fontSize:13, color:'#94a3b8' }}>Par {ext.author}</div>}
-                  {ext.tags && <div style={{ fontSize:12, color:'#64748b', marginTop:4 }}>{ext.tags}</div>}
+                <div style={{ padding:16, flex:1, display:'flex', flexDirection:'column', gap:6, position:'relative' }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5 }}>ADD-ON</div>
+                  <h3 style={{ fontSize:16, fontWeight:600, margin:0, color:'#fff', lineHeight:1.3 }}>{ext.title}</h3>
+                  {ext.author && <div style={{ fontSize:13, color:'#94a3b8' }}>{ext.author}</div>}
+                  
+                  {/* Tags as badges */}
+                  {ext.tags && (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:6 }}>
+                      {ext.tags.split(',').map((tag, idx) => (
+                        <span key={idx} style={{ 
+                          fontSize:11, 
+                          color:'#94a3b8', 
+                          background:'rgba(55, 65, 81, 0.5)', 
+                          border:'1px solid #374151',
+                          padding:'4px 10px', 
+                          borderRadius:6,
+                          fontWeight:400
+                        }}>
+                          {tag.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Rating and Downloads at bottom */}
+                  <div style={{ marginTop:'auto', paddingTop:8, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    {ext.rating && (
+                      <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#fbbf24' }}>
+                        <FiStar size={13} fill="#fbbf24" />
+                        <span style={{ fontWeight:600 }}>{ext.rating}</span>
+                      </div>
+                    )}
+                    {ext.downloads && (
+                      <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#64748b' }}>
+                        <FiDownload size={13} />
+                        <span>{ext.downloads}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

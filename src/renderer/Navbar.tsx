@@ -191,7 +191,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
   // Search state (repos + extensions)
   const [searchQuery, setSearchQuery] = React.useState('');
   const [repoList, setRepoList] = React.useState<{ name:string; link:string; avatar?:string }[]>([]);
-  const [extensionResults, setExtensionResults] = React.useState<{title:string;href:string;thumb?:string;author?:string}[]>([]);
+  const [extensionResults, setExtensionResults] = React.useState<{title:string;href:string;thumb?:string;author?:string;rating?:string;downloads?:string}[]>([]);
   const [loadingExtensions, setLoadingExtensions] = React.useState(false);
   
   React.useEffect(()=>{
@@ -225,7 +225,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
         const html = res?.html || '';
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
-        const items: {title:string;href:string;thumb?:string;author?:string}[] = [];
+        const items: {title:string;href:string;thumb?:string;author?:string;rating?:string;downloads?:string}[] = [];
         const cardItems = Array.from(doc.querySelectorAll('.cards-item'));
         for (const card of cardItems) {
           const mainLink = card.querySelector('a[href*="/add-ons/"]');
@@ -242,8 +242,40 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
           }
           const authorLink = card.querySelector('.cards-item-extra ul li a[href*="/author/"], .cards-item-extra ul li a[href*="/team/"]');
           const author = authorLink?.textContent?.trim() || '';
+          
+          // Extract rating
+          const ratingEl = card.querySelector('.rating-average, [class*="rating"]');
+          let rating = '';
+          if (ratingEl) {
+            const ratingText = ratingEl.textContent?.trim() || '';
+            const stars = card.querySelectorAll('.icon-star-full, .fa-star');
+            if (stars.length > 0) {
+              rating = `${stars.length}/5`;
+            } else if (ratingText.match(/\d/)) {
+              rating = ratingText;
+            }
+          }
+          
+          // Extract downloads
+          const downloadsEl = card.querySelector('.extension-download-count, [class*="download"]');
+          let downloads = '';
+          if (downloadsEl) {
+            const text = downloadsEl.textContent?.trim() || '';
+            const match = text.match(/[\d.]+[KMk]?/);
+            if (match) downloads = match[0];
+          }
+          if (!downloads) {
+            const dlIcon = card.querySelector('.icon-download, .fa-download');
+            if (dlIcon) {
+              const parent = dlIcon.parentElement;
+              const text = parent?.textContent?.trim() || '';
+              const match = text.match(/[\d.]+[KMk]?/);
+              if (match) downloads = match[0];
+            }
+          }
+          
           const full = href.startsWith('http') ? href : ('https://extensions.blender.org' + href);
-          if (!items.find(x => x.href === full)) items.push({ title, href: full, thumb, author });
+          if (!items.find(x => x.href === full)) items.push({ title, href: full, thumb, author, rating, downloads });
           if (items.length >= 8) break;
         }
         setExtensionResults(items);
@@ -374,7 +406,19 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
                         {ext.thumb ? <img src={ext.thumb} style={{ width:40, height:26, borderRadius:4, objectFit:'cover' }} alt="" /> : <span style={{ width:40, height:26, borderRadius:4, background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10 }}>📦</span>}
                         <div style={{ flex:1, display:'flex', flexDirection:'column', gap:2 }}>
                           <span style={{ fontWeight:500, fontSize:13 }}>{ext.title}</span>
-                          {ext.author && <span style={{ fontSize:11, color:'#94a3b8' }}>{ext.author}</span>}
+                          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                            {ext.author && <span style={{ fontSize:11, color:'#94a3b8' }}>{ext.author}</span>}
+                            {ext.rating && (
+                              <span style={{ fontSize:10, color:'#fbbf24', display:'flex', alignItems:'center', gap:2 }}>
+                                ⭐ {ext.rating}
+                              </span>
+                            )}
+                            {ext.downloads && (
+                              <span style={{ fontSize:10, color:'#64748b', display:'flex', alignItems:'center', gap:2 }}>
+                                ⬇ {ext.downloads}
+                              </span>
+                            )}
+                          </div>
                         </div>
                     </div>
                   ))}
