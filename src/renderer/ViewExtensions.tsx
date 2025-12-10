@@ -21,7 +21,7 @@ type Extension = {
   downloads?: string;
 };
 
-type SortField = 'title' | 'author' | 'type' | 'updated';
+type SortField = 'title' | 'author' | 'type' | 'updated' | 'rating' | 'downloads';
 type SortOrder = 'asc' | 'desc';
 
 const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWeb }) => {
@@ -184,6 +184,33 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
       }
       
+      if (sortField === 'rating') {
+        // Parse rating (e.g., "4.5/5" or "4.5")
+        const ratingA = parseFloat(String(valA).replace(/\/.*/, '')) || 0;
+        const ratingB = parseFloat(String(valB).replace(/\/.*/, '')) || 0;
+        return sortOrder === 'asc' ? ratingA - ratingB : ratingB - ratingA;
+      }
+      
+      if (sortField === 'downloads') {
+        // Parse downloads (e.g., "126K", "5K", "1.2M")
+        const parseDownloads = (val: string): number => {
+          if (!val) return 0;
+          const str = String(val).trim().toUpperCase();
+          // Extract number with optional decimal and unit
+          const match = str.match(/^([\d.]+)\s*([KM])?/);
+          if (!match) return 0;
+          const num = parseFloat(match[1]);
+          const unit = match[2];
+          if (unit === 'M') return num * 1000000;
+          if (unit === 'K') return num * 1000;
+          return num;
+        };
+        const dlA = parseDownloads(valA);
+        const dlB = parseDownloads(valB);
+        console.log('[Sort Downloads]', valA, '→', dlA, 'vs', valB, '→', dlB);
+        return sortOrder === 'asc' ? dlA - dlB : dlB - dlA;
+      }
+      
       // String comparison
       valA = String(valA).toLowerCase();
       valB = String(valB).toLowerCase();
@@ -312,6 +339,36 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
               }}
             >
               Auteur {sortField === 'author' && (sortOrder === 'asc' ? '↑' : '↓')}
+            </button>
+            <button
+              onClick={() => handleSort('rating')}
+              style={{
+                background: sortField === 'rating' ? '#2563eb' : '#23272F',
+                border:'1px solid #2a3036',
+                color:'#fff',
+                fontSize:12,
+                padding:'6px 12px',
+                borderRadius:6,
+                cursor:'pointer',
+                fontWeight:500
+              }}
+            >
+              Note {sortField === 'rating' && (sortOrder === 'asc' ? '↑' : '↓')}
+            </button>
+            <button
+              onClick={() => handleSort('downloads')}
+              style={{
+                background: sortField === 'downloads' ? '#2563eb' : '#23272F',
+                border:'1px solid #2a3036',
+                color:'#fff',
+                fontSize:12,
+                padding:'6px 12px',
+                borderRadius:6,
+                cursor:'pointer',
+                fontWeight:500
+              }}
+            >
+              Téléchargements {sortField === 'downloads' && (sortOrder === 'asc' ? '↑' : '↓')}
             </button>
           </div>
         </div>
