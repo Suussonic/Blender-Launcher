@@ -216,68 +216,65 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
       setLoadingExtensions(false);
       return;
     }
+    
     setLoadingExtensions(true);
     const timeout = setTimeout(async () => {
       try {
         const api: any = (window as any).electronAPI;
-        if (!api) { setLoadingExtensions(false); return; }
-        const res = await (api.searchExtensions ? api.searchExtensions(searchQuery) : api.invoke('extensions-search', searchQuery));
+        if (!api) { 
+          setLoadingExtensions(false); 
+          return; 
+        }
+        
+        const res = await (api.searchExtensions?.(searchQuery) ?? api.invoke('extensions-search', searchQuery));
         const html = res?.html || '';
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
+        const cardItems = doc.querySelectorAll('.cards-item');
+        
         const items: {title:string;href:string;thumb?:string;author?:string;rating?:string;downloads?:string}[] = [];
-        const cardItems = Array.from(doc.querySelectorAll('.cards-item'));
+        const seenHrefs = new Set<string>();
+        
         for (const card of cardItems) {
+          if (items.length >= 8) break;
+          
           const mainLink = card.querySelector('a[href*="/add-ons/"]');
-          if (!mainLink) continue;
-          const href = mainLink.getAttribute('href') || '';
+          const href = mainLink?.getAttribute('href');
           if (!href) continue;
+          
+          const full = href.startsWith('http') ? href : `https://extensions.blender.org${href}`;
+          if (seenHrefs.has(full)) continue;
+          seenHrefs.add(full);
+          
           const titleEl = card.querySelector('h3.cards-item-title a, h3.cards-item-title');
           const title = titleEl?.textContent?.trim() || 'Extension';
+          
           const img = card.querySelector('.cards-item-thumbnail img');
-          let thumb = img ? (img.getAttribute('src') || '') : '';
-          // Make thumbnail URL absolute
+          let thumb = img?.getAttribute('src') || '';
           if (thumb && !thumb.startsWith('http')) {
-            thumb = thumb.startsWith('/') ? `https://extensions.blender.org${thumb}` : `https://extensions.blender.org/${thumb}`;
+            thumb = `https://extensions.blender.org${thumb.startsWith('/') ? '' : '/'}${thumb}`;
           }
+          
           const authorLink = card.querySelector('.cards-item-extra ul li a[href*="/author/"], .cards-item-extra ul li a[href*="/team/"]');
           const author = authorLink?.textContent?.trim() || '';
           
-          // Extract rating
           const ratingEl = card.querySelector('.rating-average, [class*="rating"]');
           let rating = '';
           if (ratingEl) {
-            const ratingText = ratingEl.textContent?.trim() || '';
             const stars = card.querySelectorAll('.icon-star-full, .fa-star');
-            if (stars.length > 0) {
-              rating = `${stars.length}/5`;
-            } else if (ratingText.match(/\d/)) {
-              rating = ratingText;
-            }
+            rating = stars.length > 0 ? `${stars.length}/5` : (ratingEl.textContent?.trim().match(/\d/) ? ratingEl.textContent.trim() : '');
           }
           
-          // Extract downloads
           const downloadsEl = card.querySelector('.extension-download-count, [class*="download"]');
-          let downloads = '';
-          if (downloadsEl) {
-            const text = downloadsEl.textContent?.trim() || '';
-            const match = text.match(/[\d.]+[KMk]?/);
-            if (match) downloads = match[0];
-          }
+          let downloads = downloadsEl?.textContent?.trim().match(/[\d.]+[KMk]?/)?.[0] || '';
           if (!downloads) {
             const dlIcon = card.querySelector('.icon-download, .fa-download');
-            if (dlIcon) {
-              const parent = dlIcon.parentElement;
-              const text = parent?.textContent?.trim() || '';
-              const match = text.match(/[\d.]+[KMk]?/);
-              if (match) downloads = match[0];
-            }
+            downloads = dlIcon?.parentElement?.textContent?.trim().match(/[\d.]+[KMk]?/)?.[0] || '';
           }
           
-          const full = href.startsWith('http') ? href : ('https://extensions.blender.org' + href);
-          if (!items.find(x => x.href === full)) items.push({ title, href: full, thumb, author, rating, downloads });
-          if (items.length >= 8) break;
+          items.push({ title, href: full, thumb, author, rating, downloads });
         }
+        
         setExtensionResults(items);
       } catch (e) {
         setExtensionResults([]);

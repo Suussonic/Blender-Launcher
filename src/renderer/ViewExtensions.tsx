@@ -24,122 +24,110 @@ type Extension = {
 type SortField = 'title' | 'author' | 'type' | 'updated' | 'rating' | 'downloads';
 type SortOrder = 'asc' | 'desc';
 
+const parseDownloads = (val: string): number => {
+  if (!val) return 0;
+  const str = val.trim().toUpperCase();
+  const match = str.match(/^([\d.]+)\s*([KM])?/);
+  if (!match) return 0;
+  const num = parseFloat(match[1]);
+  const unit = match[2];
+  return unit === 'M' ? num * 1000000 : unit === 'K' ? num * 1000 : num;
+};
+
+const parseRating = (val: string): number => {
+  if (!val) return 0;
+  return parseFloat(val.replace(/\/.*/, '')) || 0;
+};
+
+const extractExtensionData = (card: Element): Extension | null => {
+  const mainLink = card.querySelector('a[href*="/add-ons/"]');
+  if (!mainLink) return null;
+  
+  const href = mainLink.getAttribute('href') || '';
+  if (!href) return null;
+  
+  const titleEl = card.querySelector('h3.cards-item-title a, h3.cards-item-title');
+  const title = titleEl?.textContent?.trim() || 'Extension';
+  
+  const img = card.querySelector('.cards-item-thumbnail img');
+  let thumb = img?.getAttribute('src') || '';
+  if (thumb && !thumb.startsWith('http')) {
+    thumb = `https://extensions.blender.org${thumb.startsWith('/') ? '' : '/'}${thumb}`;
+  }
+  
+  const authorLink = card.querySelector('.cards-item-extra ul li a[href*="/author/"], .cards-item-extra ul li a[href*="/team/"]');
+  const author = authorLink?.textContent?.trim() || '';
+  
+  const tagsList = card.querySelectorAll('.cards-item-tags a');
+  const tagsArray = Array.from(tagsList).map(t => t.textContent?.trim()).filter(Boolean) as string[];
+  const tags = tagsArray.join(', ');
+  
+  const typeKeywords = ['theme', 'add-on', 'addon', 'script', 'preset'];
+  const type = tagsArray.find(tag => typeKeywords.some(k => tag.toLowerCase().includes(k))) || 'Add-on';
+  
+  const versionEl = card.querySelector('.cards-item-version, .version');
+  const version = versionEl?.textContent?.trim() || '';
+  
+  const dateEl = card.querySelector('.cards-item-date, time');
+  const updated = dateEl?.textContent?.trim() || dateEl?.getAttribute('datetime') || '';
+  
+  const licenseEl = card.querySelector('.cards-item-license, .license');
+  const license = licenseEl?.textContent?.trim() || '';
+  
+  const ratingEl = card.querySelector('.rating-average, [class*="rating"]');
+  let rating = '';
+  if (ratingEl) {
+    const ratingText = ratingEl.textContent?.trim() || '';
+    const stars = card.querySelectorAll('.icon-star-full, .fa-star');
+    rating = stars.length > 0 ? `${stars.length}/5` : (ratingText.match(/\d/) ? ratingText : '');
+  }
+  
+  const downloadsEl = card.querySelector('.extension-download-count, [class*="download"]');
+  let downloads = downloadsEl?.textContent?.trim().match(/[\d.]+[KMk]?/)?.[0] || '';
+  if (!downloads) {
+    const dlIcon = card.querySelector('.icon-download, .fa-download');
+    downloads = dlIcon?.parentElement?.textContent?.trim().match(/[\d.]+[KMk]?/)?.[0] || '';
+  }
+  
+  const full = href.startsWith('http') ? href : `https://extensions.blender.org${href}`;
+  return { title, href: full, thumb, author, tags, type, version, updated, license, rating, downloads };
+};
+
 const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWeb }) => {
   const [extensions, setExtensions] = React.useState<Extension[]>([]);
-  const [filteredExtensions, setFilteredExtensions] = React.useState<Extension[]>([]);
   const [loading, setLoading] = React.useState(false);
   
-  // Filter & Sort states
   const [sortField, setSortField] = React.useState<SortField>('title');
   const [sortOrder, setSortOrder] = React.useState<SortOrder>('asc');
-  const [filterType, setFilterType] = React.useState<string>('all');
   const [filterAuthor, setFilterAuthor] = React.useState<string>('all');
   const [searchFilter, setSearchFilter] = React.useState<string>('');
 
   React.useEffect(() => {
     if (!query.trim()) return;
-    console.log('[ViewExtensions] Recherche pour:', query);
+    
     setLoading(true);
     const fetchData = async () => {
       try {
         const api: any = (window as any).electronAPI;
         if (!api) {
-          console.error('[ViewExtensions] electronAPI non disponible');
           setLoading(false);
           return;
         }
-        console.log('[ViewExtensions] Appel API extensions-search...');
-        const res = await (api.searchExtensions ? api.searchExtensions(query) : api.invoke('extensions-search', query));
-        console.log('[ViewExtensions] Réponse reçue:', res);
+        
+        const res = await (api.searchExtensions?.(query) ?? api.invoke('extensions-search', query));
         const html = res?.html || '';
-        console.log('[ViewExtensions] HTML length:', html.length);
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
+        const cardItems = doc.querySelectorAll('.cards-item');
+        
         const items: Extension[] = [];
-        const cardItems = Array.from(doc.querySelectorAll('.cards-item'));
-        console.log('[ViewExtensions] Cards trouvées:', cardItems.length);
         for (const card of cardItems) {
-          const mainLink = card.querySelector('a[href*="/add-ons/"]');
-          if (!mainLink) continue;
-          const href = mainLink.getAttribute('href') || '';
-          if (!href) continue;
-          const titleEl = card.querySelector('h3.cards-item-title a, h3.cards-item-title');
-          const title = titleEl?.textContent?.trim() || 'Extension';
-          const img = card.querySelector('.cards-item-thumbnail img');
-          let thumb = img ? (img.getAttribute('src') || '') : '';
-          // Make thumbnail URL absolute
-          if (thumb && !thumb.startsWith('http')) {
-            thumb = thumb.startsWith('/') ? `https://extensions.blender.org${thumb}` : `https://extensions.blender.org/${thumb}`;
-          }
-          const authorLink = card.querySelector('.cards-item-extra ul li a[href*="/author/"], .cards-item-extra ul li a[href*="/team/"]');
-          const author = authorLink?.textContent?.trim() || '';
-          const tagsList = card.querySelectorAll('.cards-item-tags a');
-          const tagsArray = Array.from(tagsList).map(t => t.textContent?.trim() || '').filter(Boolean);
-          const tags = tagsArray.join(', ');
-          
-          // Extract type from tags (common categories: Add-on, Theme, etc.)
-          let type = 'Add-on';
-          const typeKeywords = ['theme', 'add-on', 'addon', 'script', 'preset'];
-          for (const tag of tagsArray) {
-            const lower = tag.toLowerCase();
-            if (typeKeywords.some(k => lower.includes(k))) {
-              type = tag;
-              break;
-            }
-          }
-          
-          // Try to extract version and update date from card
-          const versionEl = card.querySelector('.cards-item-version, .version');
-          const version = versionEl?.textContent?.trim() || '';
-          
-          const dateEl = card.querySelector('.cards-item-date, time');
-          const updated = dateEl?.textContent?.trim() || dateEl?.getAttribute('datetime') || '';
-          
-          const licenseEl = card.querySelector('.cards-item-license, .license');
-          const license = licenseEl?.textContent?.trim() || '';
-          
-          // Extract rating (stars)
-          const ratingEl = card.querySelector('.rating-average, [class*="rating"]');
-          let rating = '';
-          if (ratingEl) {
-            const ratingText = ratingEl.textContent?.trim() || '';
-            // Look for star icons or numeric rating
-            const stars = card.querySelectorAll('.icon-star-full, .fa-star');
-            if (stars.length > 0) {
-              rating = `${stars.length}/5`;
-            } else if (ratingText.match(/\d/)) {
-              rating = ratingText;
-            }
-          }
-          
-          // Extract downloads count
-          const downloadsEl = card.querySelector('.extension-download-count, [class*="download"]');
-          let downloads = '';
-          if (downloadsEl) {
-            const text = downloadsEl.textContent?.trim() || '';
-            // Extract number (e.g., "126K", "790K", "1.2M")
-            const match = text.match(/[\d.]+[KMk]?/);
-            if (match) downloads = match[0];
-          }
-          // Alternative: look for download icon + number
-          if (!downloads) {
-            const dlIcon = card.querySelector('.icon-download, .fa-download');
-            if (dlIcon) {
-              const parent = dlIcon.parentElement;
-              const text = parent?.textContent?.trim() || '';
-              const match = text.match(/[\d.]+[KMk]?/);
-              if (match) downloads = match[0];
-            }
-          }
-          
-          const full = href.startsWith('http') ? href : ('https://extensions.blender.org' + href);
-          items.push({ title, href: full, thumb, author, tags, type, version, updated, license, rating, downloads });
+          const ext = extractExtensionData(card);
+          if (ext) items.push(ext);
         }
-        console.log('[ViewExtensions] Extensions parsées:', items.length);
+        
         setExtensions(items);
-        setFilteredExtensions(items);
       } catch (e) {
-        console.error('[ViewExtensions] Erreur recherche extensions:', e);
         setExtensions([]);
       } finally {
         setLoading(false);
@@ -148,21 +136,13 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
     fetchData();
   }, [query]);
 
-  // Apply filters and sorting
-  React.useEffect(() => {
-    let filtered = [...extensions];
+  const filteredExtensions = React.useMemo(() => {
+    let filtered = extensions;
     
-    // Filter by type
-    if (filterType !== 'all') {
-      filtered = filtered.filter(ext => ext.type?.toLowerCase().includes(filterType.toLowerCase()));
-    }
-    
-    // Filter by author
     if (filterAuthor !== 'all') {
       filtered = filtered.filter(ext => ext.author === filterAuthor);
     }
     
-    // Filter by search text
     if (searchFilter.trim()) {
       const search = searchFilter.toLowerCase();
       filtered = filtered.filter(ext => 
@@ -172,97 +152,59 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
       );
     }
     
-    // Sort
-    filtered.sort((a, b) => {
-      let valA: any = a[sortField] || '';
-      let valB: any = b[sortField] || '';
+    const sorted = [...filtered].sort((a, b) => {
+      const valA: any = a[sortField] || '';
+      const valB: any = b[sortField] || '';
+      
+      let comparison = 0;
       
       if (sortField === 'updated') {
-        // Try to parse dates
-        const dateA = new Date(valA).getTime() || 0;
-        const dateB = new Date(valB).getTime() || 0;
-        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+        comparison = (new Date(valA).getTime() || 0) - (new Date(valB).getTime() || 0);
+      } else if (sortField === 'rating') {
+        comparison = parseRating(valA) - parseRating(valB);
+      } else if (sortField === 'downloads') {
+        comparison = parseDownloads(valA) - parseDownloads(valB);
+      } else {
+        const strA = String(valA).toLowerCase();
+        const strB = String(valB).toLowerCase();
+        comparison = strA < strB ? -1 : strA > strB ? 1 : 0;
       }
       
-      if (sortField === 'rating') {
-        // Parse rating (e.g., "4.5/5" or "4.5")
-        const ratingA = parseFloat(String(valA).replace(/\/.*/, '')) || 0;
-        const ratingB = parseFloat(String(valB).replace(/\/.*/, '')) || 0;
-        return sortOrder === 'asc' ? ratingA - ratingB : ratingB - ratingA;
-      }
-      
-      if (sortField === 'downloads') {
-        // Parse downloads (e.g., "126K", "5K", "1.2M")
-        const parseDownloads = (val: string): number => {
-          if (!val) return 0;
-          const str = String(val).trim().toUpperCase();
-          // Extract number with optional decimal and unit
-          const match = str.match(/^([\d.]+)\s*([KM])?/);
-          if (!match) return 0;
-          const num = parseFloat(match[1]);
-          const unit = match[2];
-          if (unit === 'M') return num * 1000000;
-          if (unit === 'K') return num * 1000;
-          return num;
-        };
-        const dlA = parseDownloads(valA);
-        const dlB = parseDownloads(valB);
-        console.log('[Sort Downloads]', valA, '→', dlA, 'vs', valB, '→', dlB);
-        return sortOrder === 'asc' ? dlA - dlB : dlB - dlA;
-      }
-      
-      // String comparison
-      valA = String(valA).toLowerCase();
-      valB = String(valB).toLowerCase();
-      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
+      return sortOrder === 'asc' ? comparison : -comparison;
     });
     
-    setFilteredExtensions(filtered);
-  }, [extensions, sortField, sortOrder, filterType, filterAuthor, searchFilter]);
+    return sorted;
+  }, [extensions, sortField, sortOrder, filterAuthor, searchFilter]);
 
-  // Get unique types and authors
-  const uniqueTypes = React.useMemo(() => {
-    const types = new Set(extensions.map(e => e.type).filter(Boolean));
-    return Array.from(types).sort();
-  }, [extensions]);
+  const uniqueAuthors = React.useMemo(() => 
+    Array.from(new Set(extensions.map(e => e.author).filter(Boolean))).sort(),
+    [extensions]
+  );
 
-  const uniqueAuthors = React.useMemo(() => {
-    const authors = new Set(extensions.map(e => e.author).filter(Boolean));
-    return Array.from(authors).sort();
-  }, [extensions]);
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
+  const handleSort = React.useCallback((field: SortField) => {
+    setSortField(prev => {
+      if (prev === field) {
+        setSortOrder(order => order === 'asc' ? 'desc' : 'asc');
+        return prev;
+      }
       setSortOrder('asc');
-    }
-  };
+      return field;
+    });
+  }, []);
 
-  const openExtension = (url: string) => {
-    console.log('[ViewExtensions] Opening extension:', url);
-    console.log('[ViewExtensions] onOpenWeb defined?', !!onOpenWeb);
+  const openExtension = React.useCallback((url: string) => {
     if (onOpenWeb) {
-      console.log('[ViewExtensions] Calling onOpenWeb with:', url);
-      onBack(); // Close ViewExtensions first
+      onBack();
       onOpenWeb(url);
     } else {
-      console.log('[ViewExtensions] Using external browser');
-      try {
-        const api: any = (window as any).electronAPI;
-        if (api?.openExternal) api.openExternal(url);
-        else window.open(url, '_blank');
-      } catch (e) {
-        console.error('[ViewExtensions] Error opening external:', e);
-      }
+      const api: any = (window as any).electronAPI;
+      api?.openExternal?.(url) ?? window.open(url, '_blank');
     }
-  };
+  }, [onOpenWeb, onBack]);
 
   return (
     <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#1a1d24', overflow:'hidden' }}>
+      <style>{`.extension-card:hover { border-color: #3c4652 !important; transform: translateY(-4px); }`}</style>
       {/* Header */}
       <div style={{ padding:'20px 32px', borderBottom:'1px solid #2a3036' }}>
         <h2 style={{ fontSize:20, fontWeight:600, margin:0, marginBottom:16 }}>Extensions Blender : "{query}"</h2>
@@ -392,31 +334,31 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
         {!loading && filteredExtensions.length > 0 && (
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:20 }}>
             {filteredExtensions.map((ext, i) => (
-              <div key={i} onClick={() => openExtension(ext.href)} style={{ 
-                background:'#23272F', 
-                border:'1px solid #2a3036', 
-                borderRadius:12, 
-                overflow:'hidden', 
-                cursor:'pointer',
-                transition:'all 0.2s',
-                display:'flex',
-                flexDirection:'column'
-              }}
-              onMouseOver={e => { e.currentTarget.style.borderColor = '#3c4652'; e.currentTarget.style.transform = 'translateY(-4px)'; }}
-              onMouseOut={e => { e.currentTarget.style.borderColor = '#2a3036'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-                {/* Thumbnail */}
+              <div 
+                key={ext.href} 
+                onClick={() => openExtension(ext.href)} 
+                className="extension-card"
+                style={{ 
+                  background:'#23272F', 
+                  border:'1px solid #2a3036', 
+                  borderRadius:12, 
+                  overflow:'hidden', 
+                  cursor:'pointer',
+                  transition:'all 0.2s',
+                  display:'flex',
+                  flexDirection:'column'
+                }}
+              >
                 {ext.thumb ? (
                   <img src={ext.thumb} alt={ext.title} style={{ width:'100%', height:160, objectFit:'cover', display:'block' }} />
                 ) : (
                   <div style={{ width:'100%', height:160, background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:48 }}>📦</div>
                 )}
-                {/* Info */}
                 <div style={{ padding:16, flex:1, display:'flex', flexDirection:'column', gap:6, position:'relative' }}>
                   <div style={{ fontSize:10, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5 }}>ADD-ON</div>
                   <h3 style={{ fontSize:16, fontWeight:600, margin:0, color:'#fff', lineHeight:1.3 }}>{ext.title}</h3>
                   {ext.author && <div style={{ fontSize:13, color:'#94a3b8' }}>{ext.author}</div>}
                   
-                  {/* Tags as badges */}
                   {ext.tags && (
                     <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:6 }}>
                       {ext.tags.split(',').map((tag, idx) => (
@@ -435,7 +377,6 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
                     </div>
                   )}
                   
-                  {/* Rating and Downloads at bottom */}
                   <div style={{ marginTop:'auto', paddingTop:8, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                     {ext.rating && (
                       <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#fbbf24' }}>
