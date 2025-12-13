@@ -40,11 +40,13 @@ const parseRating = (val: string): number => {
 };
 
 const extractExtensionData = (card: Element): Extension | null => {
-  const mainLink = card.querySelector('a[href*="/add-ons/"]');
+  const mainLink = card.querySelector('a[href*="/add-ons/"], a[href*="/themes/"]');
   if (!mainLink) return null;
   
   const href = mainLink.getAttribute('href') || '';
   if (!href) return null;
+  
+  const isTheme = href.includes('/themes/');
   
   const titleEl = card.querySelector('h3.cards-item-title a, h3.cards-item-title');
   const title = titleEl?.textContent?.trim() || 'Extension';
@@ -58,12 +60,19 @@ const extractExtensionData = (card: Element): Extension | null => {
   const authorLink = card.querySelector('.cards-item-extra ul li a[href*="/author/"], .cards-item-extra ul li a[href*="/team/"]');
   const author = authorLink?.textContent?.trim() || '';
   
-  const tagsList = card.querySelectorAll('.cards-item-tags a');
+  // Try different selectors for tags
+  let tagsList = card.querySelectorAll('.cards-item-tags a');
+  if (tagsList.length === 0) {
+    tagsList = card.querySelectorAll('[class*="tag"] a[href*="/tag/"]');
+  }
+  if (tagsList.length === 0) {
+    tagsList = card.querySelectorAll('a[href*="/tag/"]');
+  }
   const tagsArray = Array.from(tagsList).map(t => t.textContent?.trim()).filter(Boolean) as string[];
   const tags = tagsArray.join(', ');
   
   const typeKeywords = ['theme', 'add-on', 'addon', 'script', 'preset'];
-  const type = tagsArray.find(tag => typeKeywords.some(k => tag.toLowerCase().includes(k))) || 'Add-on';
+  const type = isTheme ? 'Theme' : (tagsArray.find(tag => typeKeywords.some(k => tag.toLowerCase().includes(k))) || 'Add-on');
   
   const versionEl = card.querySelector('.cards-item-version, .version');
   const version = versionEl?.textContent?.trim() || '';
@@ -355,7 +364,7 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
                   <div style={{ width:'100%', height:160, background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:48 }}>📦</div>
                 )}
                 <div style={{ padding:16, flex:1, display:'flex', flexDirection:'column', gap:6, position:'relative' }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5 }}>ADD-ON</div>
+                  <div style={{ fontSize:10, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5 }}>{ext.type?.toUpperCase() || 'ADD-ON'}</div>
                   <h3 style={{ fontSize:16, fontWeight:600, margin:0, color:'#fff', lineHeight:1.3 }}>{ext.title}</h3>
                   {ext.author && <div style={{ fontSize:13, color:'#94a3b8' }}>{ext.author}</div>}
                   

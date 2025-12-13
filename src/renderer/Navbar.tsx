@@ -238,7 +238,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
         for (const card of cardItems) {
           if (items.length >= 8) break;
           
-          const mainLink = card.querySelector('a[href*="/add-ons/"]');
+          const mainLink = card.querySelector('a[href*="/add-ons/"], a[href*="/themes/"]');
           const href = mainLink?.getAttribute('href');
           if (!href) continue;
           
