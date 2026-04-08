@@ -13,13 +13,14 @@ def echo(tag, **kv):
     parts = ['BL_CLONE:' + tag]
     for k, v in kv.items():
         if v is not None:
-            s = str(v).replace('\n', ' ').replace('\r', ' ').strip()
+            s = str(v).replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').strip()
             parts.append(f"{k}={s}")
+    # Use tab separator so paths with spaces are not split by the IPC parser
     try:
-        print(' '.join(parts), flush=True)
+        print('\t'.join(parts), flush=True)
     except:
         try:
-            sys.stdout.write(' '.join(parts) + '\n')
+            sys.stdout.write('\t'.join(parts) + '\n')
             sys.stdout.flush()
         except:
             pass
@@ -93,21 +94,38 @@ def main():
     echo('PROGRESS', progress=5, text=f'Clonage vers {clone_dir}')
 
     # CLONE avec git
-    # Utiliser --progress pour voir la progression
+    # Skip LFS during clone to avoid failures when LFS budget is exceeded,
+    # server is down, or repo has broken LFS pointers. We'll try LFS pull separately after.
     try:
         echo('PROGRESS', progress=10, text='Clone en cours...')
         
+        clone_env = os.environ.copy()
+        clone_env['GIT_LFS_SKIP_SMUDGE'] = '1'
+
         # Lancer le clone
         result = subprocess.run(
             ['git', 'clone', '--branch', branch, '--depth', '1', '--progress', repo_url, clone_dir],
             capture_output=False,  # Laisser l'output visible
             text=True,
-            timeout=1800  # 30 minutes max
+            timeout=1800,  # 30 minutes max
+            env=clone_env
         )
         
         if result.returncode != 0:
-            echo('ERROR', message='Échec du clone git')
-            return 2
+            # Clone may report failure but still create the directory with partial checkout.
+            # Check if we can salvage it.
+            if os.path.isdir(os.path.join(clone_dir, '.git')):
+                echo('PROGRESS', progress=60, text='Clone partiel détecté — tentative de récupération…')
+                try:
+                    subprocess.run(
+                        ['git', '-C', clone_dir, 'restore', '--source=HEAD', ':/'],
+                        capture_output=True, text=True, timeout=300, env=clone_env
+                    )
+                except Exception:
+                    pass
+            else:
+                echo('ERROR', message='Échec du clone git')
+                return 2
             
     except subprocess.TimeoutExpired:
         echo('ERROR', message='Timeout du clone (>30min)')
@@ -115,6 +133,19 @@ def main():
     except Exception as e:
         echo('ERROR', message=f'Erreur clone: {e}')
         return 2
+
+    # Try to pull LFS files (best effort — not fatal if it fails)
+    if os.path.isdir(os.path.join(clone_dir, '.git')):
+        try:
+            echo('PROGRESS', progress=80, text='Récupération des fichiers LFS…')
+            lfs_result = subprocess.run(
+                ['git', '-C', clone_dir, 'lfs', 'pull'],
+                capture_output=True, text=True, timeout=600
+            )
+            if lfs_result.returncode != 0:
+                echo('LOG', text='LFS pull échoué (non bloquant) — les fichiers LFS seront des pointeurs')
+        except Exception:
+            echo('LOG', text='LFS indisponible (non bloquant)')
 
     echo('PROGRESS', progress=100, text='Clone terminé')
     echo('DONE', path=clone_dir)

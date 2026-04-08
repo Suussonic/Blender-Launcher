@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { AiOutlineBuild, AiOutlineInbox } from 'react-icons/ai';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import ViewPages from './ViewPages';
@@ -10,6 +11,7 @@ import ViewExtensions from './ViewExtensions';
 import ViewOfficial from './ViewOfficial';
 import Loading from './Loading';
 import SettingsPage from './SettingsPage';
+import ViewBuildManager, { PendingBuild } from './ViewBuildManager';
 
 type BlenderExe = {
   path: string;
@@ -38,16 +40,62 @@ const App: React.FC = () => {
   
   // Clone/Build popup state
   const [showCloneBuildPopup, setShowCloneBuildPopup] = useState(false);
+
+  // Pending builds: repos being cloned or awaiting compilation
+  const [pendingBuilds, setPendingBuilds] = useState<PendingBuild[]>([]);
+  const [activePendingId, setActivePendingId] = useState<string | null>(null);
+
+  // Load persisted pending clones from config on startup
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved: any[] = await (window as any).electronAPI?.invoke?.('get-pending-clones') || [];
+        if (saved.length > 0) {
+          setPendingBuilds((prev) => {
+            const existing = new Set(prev.map((p) => p.id));
+            const restored: PendingBuild[] = saved
+              .filter((c: any) => c.id && !existing.has(c.id))
+              .map((c: any) => ({
+                id: c.id,
+                repoName: c.repoName || '',
+                repoUrl: c.repoUrl || '',
+                branch: c.branch || '',
+                clonedPath: c.clonedPath || '',
+                status: 'cloned' as const,
+                progress: 100,
+                currentText: 'Prêt à compiler',
+                logLines: [],
+              }));
+            return [...prev, ...restored];
+          });
+        }
+      } catch { /* ignore */ }
+    })();
+  }, []);
   
   // Clone/Download progress state (supports both clone and download)
   const [cloneState, setCloneState] = useState<{ 
     isCloning?: boolean;
     isDownloading?: boolean;
+    isBuilding?: boolean;
+    jobId?: string;
+    startTime?: number;
     progress: number; 
     text: string; 
     repoName?: string;
     version?: string;
   } | null>(null);
+
+  // Elapsed time counter for the bottom progress bar
+  const [elapsedSec, setElapsedSec] = useState(0);
+  useEffect(() => {
+    if (!cloneState?.startTime) { setElapsedSec(0); return; }
+    setElapsedSec(Math.floor((Date.now() - cloneState.startTime) / 1000));
+    const iv = setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - (cloneState.startTime || Date.now())) / 1000));
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [cloneState?.startTime]);
 
   // Global listener for download progress (official builds)
   useEffect(() => {
@@ -100,6 +148,138 @@ const App: React.FC = () => {
     (window as any).electronAPI?.on?.('blenders-updated', handler);
     return () => (window as any).electronAPI?.off?.('blenders-updated', handler);
   }, []);
+
+  // Listener for jobId-tagged clone-progress events → updates pendingBuilds
+  useEffect(() => {
+    const handler = (_: any, data: any) => {
+      const jobId: string | undefined = data?.jobId;
+      if (!jobId) return; // ignore old-style events without jobId (handled by ViewRepo/bottom bar)
+      const ev: string = data?.event;
+      const logLine: string = (data?.text || data?.message || '').trim();
+      const pct: number | undefined = typeof data?.progress === 'number' ? data.progress : undefined;
+
+      setPendingBuilds((prev) => {
+        const idx = prev.findIndex((p) => p.id === jobId);
+
+        // Unknown jobId on START → create new entry
+        if (idx < 0) {
+          if (ev !== 'START') return prev;
+          const newBuild: PendingBuild = {
+            id: jobId,
+            repoName: data?.repoName || data?.repoUrl || 'Dépôt',
+            repoUrl: data?.repoUrl || '',
+            branch: data?.branch || '',
+            clonedPath: '',
+            status: 'cloning',
+            progress: 0,
+            currentText: logLine || 'Clonage en cours…',
+            logLines: logLine ? [logLine] : [],
+          };
+          // Also show the bottom bar for cloning
+          setCloneState({ isCloning: true, jobId, startTime: Date.now(), progress: 0, text: logLine || 'Clonage en cours…', repoName: data?.repoName || data?.repoUrl || 'Dépôt' });
+          return [...prev, newBuild];
+        }
+
+        const item = prev[idx];
+        const newLogs = logLine
+          ? [...item.logLines.slice(-499), logLine]
+          : item.logLines;
+        const progress = pct !== undefined ? pct : item.progress;
+        const next = [...prev];
+        const isBuilding = item.status === 'building' || (ev === 'START' && (item.status === 'cloned' || item.status === 'error'));
+        const isCloning = item.status === 'cloning' || (ev === 'START' && !(item.status === 'cloned' || item.status === 'building' || item.status === 'error'));
+
+        switch (ev) {
+          case 'START':
+            next[idx] = {
+              ...item,
+              // If already cloned/building/error, START means a build is beginning
+              status: item.status === 'cloned' || item.status === 'building' || item.status === 'error' ? 'building' : 'cloning',
+              progress: 0,
+              currentText: logLine || (item.status === 'cloned' || item.status === 'building' || item.status === 'error' ? 'Compilation en cours…' : item.currentText),
+              logLines: newLogs,
+            };
+            break;
+          case 'PROGRESS':
+          case 'LOG':
+            next[idx] = { ...item, progress, currentText: logLine || item.currentText, logLines: newLogs };
+            // Update bottom bar for building/cloning jobs
+            if (isBuilding || isCloning) {
+              setCloneState((prev) => prev && prev.jobId === jobId ? { ...prev, progress, text: logLine || prev.text } : prev);
+            }
+            break;
+          case 'DONE':
+            if (data?.path) {
+              // Clone finished → ready to build
+              next[idx] = {
+                ...item,
+                status: 'cloned',
+                clonedPath: data.path,
+                progress: 100,
+                currentText: 'Clone terminé — cliquez pour compiler',
+                logLines: newLogs,
+              };
+              // Clear bottom bar for clone done
+              setCloneState((prev) => prev && prev.jobId === jobId ? null : prev);
+            } else if (data?.exe) {
+              // Build finished → done
+              next[idx] = {
+                ...item,
+                status: 'done',
+                exePath: data.exe,
+                progress: 100,
+                currentText: 'Compilation terminée !',
+                logLines: newLogs,
+              };
+              // Clear bottom bar for build done
+              setCloneState((prev) => prev && prev.jobId === jobId ? null : prev);
+              window.electronAPI?.getBlenders?.().catch(() => {});
+              // Auto-remove the pending entry after 8 s
+              setTimeout(() => {
+                setPendingBuilds((p) => p.filter((b) => b.id !== jobId));
+              }, 8000);
+            }
+            break;
+          case 'ERROR':
+            next[idx] = {
+              ...item,
+              status: 'error',
+              errorMsg: data?.message,
+              currentText: `Erreur: ${data?.message || 'Inconnue'}`,
+              logLines: newLogs,
+            };
+            // Clear bottom bar on error
+            setCloneState((prev) => prev && prev.jobId === jobId ? null : prev);
+            break;
+          default:
+            if (logLine) next[idx] = { ...item, logLines: newLogs };
+        }
+        return next;
+      });
+    };
+    (window as any).electronAPI?.on?.('clone-progress', handler);
+    return () => (window as any).electronAPI?.off?.('clone-progress', handler);
+  }, []);
+
+  // Start build for a pending entry
+  const handleStartBuild = useCallback(async (id: string) => {
+    const build = pendingBuilds.find((p) => p.id === id);
+    if (!build?.clonedPath) return;
+    setPendingBuilds((prev) =>
+      prev.map((p) =>
+        p.id === id ? { ...p, status: 'building' as const, progress: 0, logLines: [], currentText: 'Démarrage…' } : p
+      )
+    );
+    // Show bottom progress bar for the build
+    setCloneState({ isBuilding: true, jobId: id, startTime: Date.now(), progress: 0, text: 'Démarrage de la compilation…', repoName: build.repoName });
+    // Close the popup
+    setActivePendingId(null);
+    (window as any).electronAPI?.invoke?.('build-cloned', {
+      src: build.clonedPath,
+      jobId: id,
+      repoName: build.repoName,
+    }).catch(() => {});
+  }, [pendingBuilds]);
 
   console.log('[App] Rendu - page:', page, 'selectedBlender:', selectedBlender);
 
@@ -453,9 +633,11 @@ const App: React.FC = () => {
         </div>
       )}
       <div style={{ display: 'flex', flex: 1, minHeight: 0, paddingTop: 56, boxSizing: 'border-box', overflow: 'hidden' }}>
-        <Sidebar 
+        <Sidebar
           onSelectBlender={handleSelectBlender}
           selectedBlender={selectedBlender}
+          pendingBuilds={pendingBuilds}
+          onSelectPending={(id) => setActivePendingId(id)}
         />
         <div style={{ flex: 1, display: 'flex', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
           {page === 'settings'
@@ -506,19 +688,38 @@ const App: React.FC = () => {
             : <Home selectedBlender={selectedBlender} onLaunch={(b) => setLastLaunched(b)} onOpenLink={openWeb} />}
         </div>
       </div>
-      {/* Bottom clone/download progress bar */}
+      {/* Bottom clone/download/build progress bar */}
       {cloneState && (
         <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '8px 14px', background: '#0b1016', borderTop: '1px solid #1f2937', zIndex: 4000 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1, height: 8, background: '#1f2937', borderRadius: 6, overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min(100, cloneState.progress)}%`, height: '100%', background: '#3b82f6', transition: 'width .25s ease' }} />
+              <div style={{ width: `${Math.min(100, cloneState.progress)}%`, height: '100%', background: cloneState.isBuilding ? '#22c55e' : '#3b82f6', transition: 'width .25s ease' }} />
             </div>
-            <div style={{ color: '#cbd5e1', fontSize: 12, minWidth: 180, textAlign: 'right' }}>
+            <div style={{ color: '#cbd5e1', fontSize: 12, minWidth: 50, textAlign: 'right' }}>
               {Math.min(100, cloneState.progress).toFixed(0)}%
             </div>
+            {cloneState.startTime && (
+              <div style={{ color: '#94a3b8', fontSize: 11, minWidth: 50, textAlign: 'right' }}>
+                {String(Math.floor(elapsedSec / 60)).padStart(2, '0')}:{String(elapsedSec % 60).padStart(2, '0')}
+              </div>
+            )}
+            {cloneState.jobId && (
+              <button
+                title="Annuler"
+                onClick={() => {
+                  (window as any).electronAPI?.invoke?.('cancel-job', { jobId: cloneState.jobId }).catch(() => {});
+                  setCloneState(null);
+                }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16, padding: '0 4px', lineHeight: 1 }}
+              >
+                ✕
+              </button>
+            )}
           </div>
           <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ color: '#94a3b8', fontSize: 11 }}>
+              {cloneState.isBuilding && <AiOutlineBuild style={{ verticalAlign: 'middle', marginRight: 4 }} />}
+              {cloneState.isCloning && <AiOutlineInbox style={{ verticalAlign: 'middle', marginRight: 4 }} />}
               {cloneState.repoName && `${cloneState.repoName}`}
               {cloneState.version && `Blender ${cloneState.version}`}
             </div>
@@ -552,6 +753,28 @@ const App: React.FC = () => {
         onClose={() => setShowCloneBuildPopup(false)}
         onDownloadStateChange={setCloneState}
       />
+      {/* Build Manager popup (opened by clicking a grayed sidebar entry) */}
+      {activePendingId && (() => {
+        const pb = pendingBuilds.find((p) => p.id === activePendingId);
+        if (!pb) { setActivePendingId(null); return null; }
+        return (
+          <ViewBuildManager
+            pendingBuild={pb}
+            onClose={() => setActivePendingId(null)}
+            onStartBuild={handleStartBuild}
+            onRemove={(id) => {
+              const removed = pendingBuilds.find((p) => p.id === id);
+              setPendingBuilds((prev) => prev.filter((p) => p.id !== id));
+              setActivePendingId(null);
+              // Remove from persisted config
+              (window as any).electronAPI?.invoke?.('remove-pending-clone', {
+                id,
+                clonedPath: removed?.clonedPath,
+              }).catch(() => {});
+            }}
+          />
+        );
+      })()}
     </div>
   );
 };

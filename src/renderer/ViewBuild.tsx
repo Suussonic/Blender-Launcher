@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { AiOutlineCloseCircle } from 'react-icons/ai';
 
 interface ViewBuildProps {
 	isOpen: boolean;
@@ -91,7 +92,7 @@ const ViewBuild: React.FC<ViewBuildProps> = ({ isOpen, onClose, onInstalled, mis
 
 						{Array.isArray(missingTools) && missingTools.length > 0 && (
 							<div style={{ marginTop: 10, padding: 10, background: '#1a0a0a', border: '1px solid #3a1a1a', borderRadius: 8 }}>
-								<div style={{ color: '#ef4444', fontSize: 14, fontWeight: 600, marginBottom: 6 }}>❌ Impossible de cloner et compiler</div>
+								<div style={{ color: '#ef4444', fontSize: 14, fontWeight: 600, marginBottom: 6 }}><AiOutlineCloseCircle style={{ verticalAlign: 'middle', marginRight: 4 }} /> Impossible de cloner et compiler</div>
 								<div style={{ color: '#fca5a5', fontSize: 13 }}>
 									Outils manquants détectés : <strong>{missingTools.join(', ')}</strong>
 									<br/><br/>

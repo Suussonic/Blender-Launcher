@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import ViewBuild from './ViewBuild';
+import { AiOutlineBulb, AiOutlineCloseCircle } from 'react-icons/ai';
 
 interface ViewCloneProps {
 	isOpen: boolean;
@@ -15,8 +15,6 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 	const [targetLocation, setTargetLocation] = useState('');
 	const [folderName, setFolderName] = useState('');
 	const [branches, setBranches] = useState<string[]>(['main']);
-	const [showBuildModal, setShowBuildModal] = useState(false);
-	const [missingTools, setMissingTools] = useState<string[] | undefined>(undefined);
 	const [loading, setLoading] = useState(false);
 	const [cloning, setCloning] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -51,19 +49,15 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 		}
 	}, [repoName, selectedBranch]);
 
-	// Progress routing to bottom bar
+	// Progress routing to bottom bar (for events without a jobId from legacy clone-repository usage)
 	useEffect(() => {
 		if (!isOpen) return;
 		const handler = (_: any, progressData: any) => {
+			// Only handle untagged events (jobId-tagged events are handled by App.tsx)
+			if (progressData?.jobId) return;
 			const pct = typeof progressData?.progress === 'number' ? progressData.progress : 0;
 			const text = progressData?.text || '';
 			onCloneStateChange?.({ isCloning: true, progress: pct, text, repoName: `${owner}/${repoName}` });
-			// If main preflight reports missing tools, open the build tools modal here
-			if (progressData?.event === 'MISSING_TOOLS') {
-				const miss = Array.isArray(progressData?.missing) ? progressData.missing as string[] : undefined;
-				setMissingTools(miss);
-				setShowBuildModal(true);
-			}
 		};
 		(window as any).electronAPI?.on?.('clone-progress', handler);
 		return () => { (window as any).electronAPI?.off?.('clone-progress', handler); };
@@ -78,60 +72,42 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 
 	const handleClone = async () => {
 		if (!targetLocation || !folderName.trim()) return;
-		
-		// Vérifier que TOUS les build tools sont présents avant de cloner
-		try {
-			const check = await (window as any).electronAPI?.invoke?.('check-build-tools');
-			if (check && Array.isArray(check.missing) && check.missing.length > 0) {
-				// Des outils manquent - ouvrir la popup
-				setMissingTools(check.missing);
-				setShowBuildModal(true);
-				return;
-			}
-		} catch (e) {
-			console.error('[ViewClone] check-build-tools failed:', e);
-			// En cas d'erreur de vérification, bloquer aussi
-			setMissingTools(['git', 'cmake', 'msvc']);
-			setShowBuildModal(true);
-			return;
+
+		// Generate a unique jobId for this clone operation
+		const jobId = `clone-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+		setCloning(true);
+		setError(null);
+
+		// Transform GitHub mirror URL to official Blender repository
+		let finalRepoUrl = repoUrl;
+		if (repoUrl.includes('github.com/blender/blender')) {
+			finalRepoUrl = 'https://projects.blender.org/blender/blender.git';
 		}
 
-		// Tous les outils sont présents, on peut cloner
-		const doClone = async () => {
-			setCloning(true); setError(null);
-			onCloneStateChange?.({ isCloning: true, progress: 0, text: 'Clonage en cours...', repoName: `${owner}/${repoName}` });
-			try {
-				// Transform GitHub mirror URL to official Blender repository
-				let finalRepoUrl = repoUrl;
-				if (repoUrl.includes('github.com/blender/blender')) {
-					finalRepoUrl = 'https://projects.blender.org/blender/blender.git';
-				}
-				
-				console.log('[ViewClone] invoke clone-repository with', { repoUrl: finalRepoUrl, branch: selectedBranch, target: targetLocation, name: folderName.trim() });
-				// Fire and close immediately; bottom bar will track
-				(window as any).electronAPI?.invoke?.('clone-repository', {
-					// Accept both shapes in main: repoUrl/url, target/targetPath, name/folderName
-					repoUrl: finalRepoUrl, url: finalRepoUrl,
-					branch: selectedBranch,
-					target: targetLocation, targetPath: targetLocation,
-					name: folderName.trim(), folderName: folderName.trim(),
-				}).catch((e:any)=> console.error('[ViewClone] clone invoke error', e));
-				onClose();
-			} catch (error) {
-				console.error('[ViewClone] clone error', error);
-				const msg = error instanceof Error ? error.message : 'Erreur inconnue';
-				setError(msg);
-				onCloneStateChange?.({ isCloning: false, progress: 0, text: `Erreur: ${msg}`, repoName: `${owner}/${repoName}` });
-			} finally {
-				setCloning(false);
-			}
-		};
-		await doClone();
-	};
+		const displayName = `${owner}/${repoName}`;
 
-	const onBuildInstalled = async (success: boolean) => {
-		setShowBuildModal(false);
-		if (success) try { await handleClone(); } catch {}
+		console.log('[ViewClone] invoking clone-only:', { jobId, repoUrl: finalRepoUrl, branch: selectedBranch, target: targetLocation, name: folderName.trim() });
+
+		// Fire clone-only (no compilation); App.tsx's clone-progress listener creates the pending entry
+		(window as any).electronAPI?.invoke?.('clone-only', {
+			repoUrl: finalRepoUrl,
+			url: finalRepoUrl,
+			branch: selectedBranch,
+			target: targetLocation,
+			targetPath: targetLocation,
+			name: folderName.trim(),
+			folderName: folderName.trim(),
+			jobId,
+			repoDisplayName: displayName,
+			repoName: displayName,
+		}).catch((e: any) => {
+			console.error('[ViewClone] clone-only error', e);
+		});
+
+		// Close dialog immediately; progress is tracked via the grayed sidebar entry
+		setCloning(false);
+		onClose();
 	};
 
 	if (!isOpen) return null;
@@ -171,29 +147,27 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 							</div>
 						)}
 					</div>
-					{/* Avertissement sur la durée de compilation */}
-					{targetLocation && folderName.trim() && (
-						<div style={{ padding: '12px 16px', borderTop: '1px solid #1f2932', background:'#1a1a0f' }}>
-							<div style={{ fontSize: 13, color: '#fde68a', lineHeight: 1.4 }}>
-								💡 <strong>Compilation automatique</strong> : Clone → make update (libraries, 10-30 min) → make compile (30-60 min).
-								<br/>Durée totale : <strong>40-90 minutes</strong>. L'exécutable compilé sera ajouté automatiquement à votre liste.
+				{/* Avertissement sur la durée */}
+				{targetLocation && folderName.trim() && (
+					<div style={{ padding: '12px 16px', borderTop: '1px solid #1f2932', background:'#0f1518' }}>
+						<div style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.4 }}>
+							<AiOutlineBulb style={{ color: '#94a3b8', verticalAlign: 'middle', marginRight: 4, flexShrink: 0 }} /> Le dépôt sera cloné localement. Une fois cloné, cliquez sur l'entrée grisée dans la barre latérale pour lancer la compilation (30-90 min).
 							</div>
 						</div>
 					)}
 					{error && (
 						<div style={{ padding: '16px 24px', borderTop: '1px solid #1f2932', borderBottom:'1px solid #1f2932', background:'#1a0f0f' }}>
-							<div style={{ fontSize: 14, color: '#ef4444', marginBottom: 8 }}>❌ Erreur de clonage</div>
+							<div style={{ fontSize: 14, color: '#ef4444', marginBottom: 8 }}><AiOutlineCloseCircle style={{ verticalAlign: 'middle', marginRight: 4 }} /> Erreur de clonage</div>
 							<div style={{ fontSize: 13, color: '#fca5a5', lineHeight: 1.4 }}>{error}</div>
 						</div>
 					)}
 					<div style={{ padding:'16px 24px', borderTop:'1px solid #1f2932', display:'flex', gap:12, justifyContent:'flex-end' }}>
-						<button onClick={handleClone} disabled={!targetLocation || !folderName.trim() || cloning} style={{ padding:'8px 16px', background:(!targetLocation || !folderName.trim() || cloning) ? '#1a232b' : (error ? '#dc2626' : '#2563eb'), border:'none', borderRadius:8, color:(!targetLocation || !folderName.trim() || cloning) ? '#64748b' : '#fff', cursor:(!targetLocation || !folderName.trim() || cloning) ? 'not-allowed':'pointer', fontSize:14, fontWeight:500 }}>
-							{cloning ? 'Clonage et compilation...' : (error ? 'Réessayer' : 'Cloner et Compiler')}
+				<button onClick={handleClone} disabled={!targetLocation || !folderName.trim() || cloning} style={{ padding:'8px 16px', background:(!targetLocation || !folderName.trim() || cloning) ? '#1a232b' : '#2563eb', border:'none', borderRadius:8, color:(!targetLocation || !folderName.trim() || cloning) ? '#64748b' : '#fff', cursor:(!targetLocation || !folderName.trim() || cloning) ? 'not-allowed':'pointer', fontSize:14, fontWeight:500 }}>
+						{cloning ? 'Démarrage…' : 'Cloner'}
 						</button>
 					</div>
 				</div>
 			</div>
-			<ViewBuild isOpen={showBuildModal} onClose={()=> setShowBuildModal(false)} onInstalled={onBuildInstalled} missingTools={missingTools} />
 		</>
 	);
 };

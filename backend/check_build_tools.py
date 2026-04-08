@@ -6,6 +6,7 @@ Required tools:
   - Git (for cloning source)
   - CMake (build configuration)
   - Visual Studio 2019 or 2022 Community with "Desktop development with C++" workload
+    - PowerShell 7 (pwsh.exe) used by several custom Blender build rules
 """
 import os, sys, json, subprocess, glob, argparse
 from typing import List
@@ -24,6 +25,55 @@ def have(cmd: str) -> bool:
         return p.returncode == 0
     except Exception:
         return False
+
+def detect_cmake() -> bool:
+    """Check cmake in PATH, then common install locations."""
+    if have('cmake'):
+        return True
+    if not IS_WIN:
+        return False
+    # CMake default install dirs on Windows
+    candidates = [
+        os.path.join(os.environ.get('ProgramFiles', r'C:\Program Files'), 'CMake', 'bin', 'cmake.exe'),
+        os.path.join(os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'), 'CMake', 'bin', 'cmake.exe'),
+    ]
+    # Also check via winget/scoop/choco typical paths
+    local = os.environ.get('LOCALAPPDATA', '')
+    if local:
+        candidates += glob.glob(os.path.join(local, 'CMake*', 'bin', 'cmake.exe'))
+    for c in candidates:
+        if os.path.isfile(c):
+            return True
+    # Last resort: check registry for CMake install path
+    try:
+        import winreg
+        for root in [winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER]:
+            try:
+                key = winreg.OpenKey(root, r'SOFTWARE\Kitware\CMake', 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY)
+                val, _ = winreg.QueryValueEx(key, 'InstallDir')
+                winreg.CloseKey(key)
+                if val and os.path.isfile(os.path.join(val, 'bin', 'cmake.exe')):
+                    return True
+            except OSError:
+                pass
+    except ImportError:
+        pass
+    return False
+
+def detect_git() -> bool:
+    """Check git in PATH, then common install locations."""
+    if have('git'):
+        return True
+    if not IS_WIN:
+        return False
+    candidates = [
+        os.path.join(os.environ.get('ProgramFiles', r'C:\Program Files'), 'Git', 'cmd', 'git.exe'),
+        os.path.join(os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'), 'Git', 'cmd', 'git.exe'),
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return True
+    return False
 
 def detect_visual_studio() -> bool:
     """
@@ -66,18 +116,34 @@ def detect_visual_studio() -> bool:
         return False
     return False
 
+def detect_pwsh() -> bool:
+    """Check pwsh in PATH, then common install locations for PowerShell 7."""
+    if have('pwsh'):
+        return True
+    if not IS_WIN:
+        return False
+    candidates = [
+        os.path.join(os.environ.get('ProgramFiles', r'C:\Program Files'), 'PowerShell', '7', 'pwsh.exe'),
+        os.path.join(os.environ.get('ProgramFiles', r'C:\Program Files'), 'PowerShell', '7-preview', 'pwsh.exe'),
+        os.path.join(os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'), 'PowerShell', '7', 'pwsh.exe'),
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return True
+    return False
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--install', action='store_true', help='Install missing tools using winget')
-    parser.add_argument('--tools', type=str, help='Comma-separated list of tools to install (git,cmake,visual_studio). Default: missing only')
+    parser.add_argument('--tools', type=str, help='Comma-separated list of tools to install (git,cmake,msvc,pwsh). Default: missing only')
     args = parser.parse_args()
 
     # Blender Windows requirements: Git, CMake, Visual Studio 2019/2022 Community with Desktop C++ workload
     tools = {
-        'git': have('git'),
-        'cmake': have('cmake'),
-        'python': True,  # running under python
-        'visual_studio': detect_visual_studio(),
+        'git': detect_git(),
+        'cmake': detect_cmake(),
+        'msvc': detect_visual_studio(),
+        'pwsh': detect_pwsh(),
     }
 
     missing = [k for k, v in tools.items() if v is False]
@@ -91,8 +157,9 @@ def main():
     pkg_map = {
         'git':   { 'id': 'Git.Git', 'args': ['--silent'] },
         'cmake': { 'id': 'Kitware.CMake', 'args': ['--silent'] },
+        'pwsh':  { 'id': 'Microsoft.PowerShell' },
         # Visual Studio 2022 Community with Desktop development with C++ workload
-        'visual_studio':  { 
+        'msvc':  { 
             'id': 'Microsoft.VisualStudio.2022.Community', 
             'override': '--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended' 
         },
@@ -156,19 +223,19 @@ def main():
             sys.stderr.write(f'[install] {t} failed with code {code}\n')
             failed.append(t)
 
-    # If visual_studio failed, print a clear admin/elevated command hint
+    # If msvc failed, print a clear admin/elevated command hint
     hint = None
-    if 'visual_studio' in failed:
+    if 'msvc' in failed:
         hint = 'winget install --id Microsoft.VisualStudio.2022.Community -e --accept-package-agreements --accept-source-agreements --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended"'
         sys.stderr.write('[install] Pour Visual Studio, exécutez PowerShell en Administrateur puis lancez:\n')
         sys.stderr.write(f'  {hint}\n')
 
     # After install attempt, return updated tool status
     refreshed = {
-        'git': have('git'),
-        'cmake': have('cmake'),
-        'python': True,
-        'visual_studio': detect_visual_studio(),
+        'git': detect_git(),
+        'cmake': detect_cmake(),
+        'msvc': detect_visual_studio(),
+        'pwsh': detect_pwsh(),
     }
     print(json.dumps({ 
         'success': True, 

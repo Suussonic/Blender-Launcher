@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { FiHome, FiDownload, FiSettings, FiMinus, FiMaximize2, FiX, FiGithub, FiFolder, FiChevronLeft, FiChevronRight, FiPlus } from 'react-icons/fi';
+import { AiOutlineInbox, AiOutlineStar, AiOutlineDownload } from 'react-icons/ai';
 
 
 const iconBtnStyle: React.CSSProperties = {
@@ -400,19 +401,19 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
                       style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 10px', background:'#232a31', border:'1px solid #2a3036', borderRadius:8, cursor:'pointer', fontSize:14, color:'#fff' }}
                       onMouseOver={e=>{ e.currentTarget.style.background='#2b333b'; }}
                       onMouseOut={e=>{ e.currentTarget.style.background='#232a31'; }}>
-                        {ext.thumb ? <img src={ext.thumb} style={{ width:40, height:26, borderRadius:4, objectFit:'cover' }} alt="" /> : <span style={{ width:40, height:26, borderRadius:4, background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10 }}>📦</span>}
+                        {ext.thumb ? <img src={ext.thumb} style={{ width:40, height:26, borderRadius:4, objectFit:'cover' }} alt="" /> : <span style={{ width:40, height:26, borderRadius:4, background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:'#94a3b8' }}><AiOutlineInbox /></span>}
                         <div style={{ flex:1, display:'flex', flexDirection:'column', gap:2 }}>
                           <span style={{ fontWeight:500, fontSize:13 }}>{ext.title}</span>
                           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                             {ext.author && <span style={{ fontSize:11, color:'#94a3b8' }}>{ext.author}</span>}
                             {ext.rating && (
                               <span style={{ fontSize:10, color:'#fbbf24', display:'flex', alignItems:'center', gap:2 }}>
-                                ⭐ {ext.rating}
+                                <AiOutlineStar style={{ verticalAlign:'middle', marginRight:2 }} /> {ext.rating}
                               </span>
                             )}
                             {ext.downloads && (
                               <span style={{ fontSize:10, color:'#64748b', display:'flex', alignItems:'center', gap:2 }}>
-                                ⬇ {ext.downloads}
+                                <AiOutlineDownload style={{ verticalAlign:'middle', marginRight:2 }} /> {ext.downloads}
                               </span>
                             )}
                           </div>

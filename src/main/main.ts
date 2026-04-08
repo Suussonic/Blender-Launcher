@@ -95,6 +95,8 @@ let mainWindow: BrowserWindow | null = null;
 let forceQuit = false; // set by tray Quit
 // Track whether a render is currently active to avoid quitting the app prematurely
 let renderActive: boolean = false;
+// Registry of running clone/build child processes keyed by jobId, for cancellation
+const runningJobs: Map<string, import('child_process').ChildProcess> = new Map();
 
 // Quit helper: make red X identical to tray Quit
 function quitAppFully() {
@@ -309,6 +311,63 @@ app.whenReady().then(() => {
   // legacy delete-executable handled in settings module
 
   ipcMain.on('launch-blender', async (event, exePath) => {
+    if (!exePath || !fs.existsSync(exePath)) {
+      console.error('[launch-blender] Exécutable introuvable:', exePath);
+      mainWindow?.webContents.send('toast', { text: `Exécutable introuvable : ${exePath || '(vide)'}`, type: 'error' });
+      return;
+    }
+    // Preflight probe: some custom builds compile "successfully" but crash on
+    // startup with "Failed to read file ''" due missing/incompatible tooling.
+    const probeStartupCrash = async (exe: string): Promise<{ broken: boolean; detail?: string }> => {
+      return await new Promise((resolve) => {
+        try {
+          const { execFile } = require('child_process');
+          execFile(
+            exe,
+            ['--background', '--factory-startup', '--python-expr', 'print("BL_LAUNCH_PROBE_OK")', '--quit'],
+            { timeout: 12000 },
+            (err: any, stdout: string, stderr: string) => {
+              const out = ((stdout || '') + '\n' + (stderr || '')).trim();
+              if (/Failed to read file ''/i.test(out) || /EXCEPTION_ACCESS_VIOLATION/i.test(out)) {
+                return resolve({ broken: true, detail: out.slice(0, 300) });
+              }
+              // Unknown probe failure should not block launch to avoid false positives.
+              if (err) return resolve({ broken: false });
+              resolve({ broken: false });
+            }
+          );
+        } catch {
+          resolve({ broken: false });
+        }
+      });
+    };
+
+    const probe = await probeStartupCrash(exePath);
+    if (probe.broken) {
+      console.error('[launch-blender] Build détecté comme cassé au démarrage:', probe.detail || 'probe-failed');
+      mainWindow?.webContents.send('toast', {
+        text: 'Ce build Blender crash au démarrage (Failed to read file \'\'). Recompilez après installation de PowerShell 7 (pwsh).',
+        type: 'error'
+      });
+      return;
+    }
+    // Helper: spawn Blender from its own directory (needed for source builds
+    // so it can find DLLs, Python, scripts, datafiles relative to the exe)
+    const launchDirect = (exe: string) => {
+      const { spawn } = require('child_process');
+      const exeDir = path.dirname(exe);
+      try {
+        const p = spawn(exe, [], { detached: true, stdio: 'ignore', cwd: exeDir });
+        p.on('error', (err: any) => {
+          console.error('[launch] spawn erreur:', err);
+          mainWindow?.webContents.send('toast', { text: `Erreur de lancement : ${err.message || err}`, type: 'error' });
+        });
+        p.unref();
+      } catch (e2) {
+        console.error('[launch] spawn erreur:', e2);
+        mainWindow?.webContents.send('toast', { text: `Impossible de lancer Blender`, type: 'error' });
+      }
+    };
     try {
       const rawCfg = fs.readFileSync(getConfigPath(), 'utf-8');
       const cfg = JSON.parse(rawCfg || '{}');
@@ -318,8 +377,7 @@ app.whenReady().then(() => {
           const res = await steamWarp.warpToBlender(exePath, userDataDir, []);
           if (!res?.success) {
             console.warn('[SteamWarp] Warp échoué, lancement direct sans Steam:', res?.error);
-            const { spawn } = require('child_process');
-            try { const p = spawn(exePath, [], { detached: true, stdio: 'ignore' }); p.unref(); } catch (e2) { console.error('[launch] spawn erreur:', e2); }
+            launchDirect(exePath);
           } else {
             // Lancer via Steam si possible (steam.exe sinon protocole steam://)
             const cp = require('child_process');
@@ -336,19 +394,16 @@ app.whenReady().then(() => {
             }
             if (!launchedViaSteam) {
               console.warn('[SteamWarp] Impossible de lancer via Steam, fallback direct');
-              const { spawn } = require('child_process');
-              try { const p = spawn(exePath, [], { detached: true, stdio: 'ignore' }); p.unref(); } catch (e2) { console.error('[launch] spawn erreur:', e2); }
+              launchDirect(exePath);
             }
             try { steamWarp.startAutoRestore(userDataDir, 2500); } catch {}
         }
       } else {
-  const { spawn } = require('child_process');
-  try { const p = spawn(exePath, [], { detached: true, stdio: 'ignore' }); p.unref(); } catch (e2) { console.error('Erreur lors du lancement de Blender :', e2); }
+        launchDirect(exePath);
       }
     } catch (e) {
       console.error('[IPC] launch-blender erreur:', e);
-  const { spawn } = require('child_process');
-  try { const p = spawn(exePath, [], { detached: true, stdio: 'ignore' }); p.unref(); } catch (e2) { console.error('Erreur lors du lancement de Blender :', e2); }
+      launchDirect(exePath);
     }
     // Mise à jour presence Discord si actif
     try {
@@ -1110,7 +1165,9 @@ app.whenReady().then(() => {
   // --- Clone & Build via Python backend ---
   function pythonCandidates(): string[] {
     const list: string[] = [];
-    if (process.platform === 'win32') list.push('py', 'python', 'python3');
+    // Prefer direct python executables first: some Windows setups have a broken
+    // py launcher entry that prints "Unable to create process...".
+    if (process.platform === 'win32') list.push('python', 'python3', 'py');
     else list.push('python3', 'python');
     return list;
   }
@@ -1154,8 +1211,9 @@ app.whenReady().then(() => {
       if (!ok) return { success: false, error: 'python-missing', stdout: out, stderr: err };
       try {
         const parsed = JSON.parse(out.trim());
-        const missing = Object.keys(parsed).filter(k => parsed[k] === false);
-        return { success: true, tools: parsed, missing };
+        const toolMap = parsed.tools || parsed;
+        const missing = Object.keys(toolMap).filter(k => toolMap[k] === false);
+        return { success: true, tools: toolMap, missing };
       } catch {}
       return { success: true, raw: out };
     } catch (e) { return { success: false, error: String(e) }; }
@@ -1194,7 +1252,8 @@ app.whenReady().then(() => {
             if (resOut) {
               try {
                 const parsed = JSON.parse(resOut.trim());
-                const missing = Object.keys(parsed).filter(k => parsed[k] === false);
+                const toolMap = parsed.tools || parsed;
+                const missing = Object.keys(toolMap).filter(k => toolMap[k] === false);
                 toInstall = missing;
               } catch {}
             }
@@ -1212,6 +1271,7 @@ app.whenReady().then(() => {
         git:   { id: 'Git.Git', display: 'Git', args: ['--silent'] },
         cmake: { id: 'Kitware.CMake', display: 'CMake', args: ['--silent'] },
         ninja: { id: 'Ninja-build.Ninja', display: 'Ninja', args: ['--silent'] },
+        pwsh:  { id: 'Microsoft.PowerShell', display: 'PowerShell 7' },
         // Visual Studio Build Tools with C++ workload
         msvc:  { id: 'Microsoft.VisualStudio.2022.BuildTools', display: 'MSVC', args: ['--override', '--quiet --norestart --wait --nocache --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'] },
       };
@@ -1668,10 +1728,242 @@ app.whenReady().then(() => {
     } catch (e) { return { success: false, error: String(e) }; }
   });
 
-});
+  // ── Clone ONLY (no compilation) – uses simple_clone.py ──────────────────
+    ipcMain.handle('clone-only', async (_event, payload) => {
+      try {
+        const repoUrl: string = payload?.repoUrl || payload?.url;
+        const branch: string = payload?.branch || 'master';
+        const target: string = payload?.target || payload?.targetPath;
+        const name: string | undefined = payload?.name || payload?.folderName;
+        const jobId: string = payload?.jobId || String(Date.now());
+        const repoDisplayName: string = payload?.repoDisplayName || payload?.repoName || repoUrl;
+        const wc = mainWindow?.webContents;
+        const send = (event: string, data: any) =>
+          { try { wc?.send('clone-progress', { event, jobId, repoName: repoDisplayName, repoUrl, branch, ...data }); } catch {} };
+
+        if (!repoUrl || !target) {
+          send('ERROR', { message: 'missing-params' });
+          return { success: false, error: 'missing-params' };
+        }
+
+        const script = resolveBackendScript('simple_clone.py');
+        if (!script) {
+          send('ERROR', { message: 'script-missing' });
+          return { success: false, error: 'script-missing' };
+        }
+
+        const pyTryOnly = pythonCandidates();
+        const { spawn } = require('child_process');
+        const cloneArgs = [script, '--repo', repoUrl, '--branch', branch, '--target', target].concat(
+          name ? ['--name', name] : []
+        );
+
+        send('START', { text: 'Préparation du clonage…', progress: 0 });
+
+        let startedClone = false;
+        return await new Promise((resolve) => {
+          const tryNext = () => {
+            const cmd = pyTryOnly.shift();
+            if (!cmd) {
+              send('ERROR', { message: 'python-missing' });
+              return resolve({ success: false, error: 'python-missing' });
+            }
+            try {
+              console.log('[clone-only] spawn', { python: cmd, script });
+              const child = spawn(cmd, cloneArgs, { windowsHide: false, shell: false });
+              runningJobs.set(jobId, child);
+              child.stdout.on('data', (d: Buffer) => {
+                const lines = d.toString().split(/\r?\n/).filter(Boolean);
+                for (const line of lines) {
+                  if (!line.startsWith('BL_CLONE:')) continue;
+                  const rest = line.slice('BL_CLONE:'.length).trim();
+                  const parts = rest.includes('\t') ? rest.split('\t') : rest.split(/\s+/);
+                  const tag = parts[0];
+                  const kvparts = parts.slice(1);
+                  const ev: any = { raw: line };
+                  for (const kv of kvparts) { const i = kv.indexOf('='); if (i > 0) ev[kv.slice(0,i)] = kv.slice(i+1); }
+                  if (tag === 'START') startedClone = true;
+                  send(tag, ev);
+                  if (tag === 'DONE') {
+                    // Persist clone to config.json so it survives app restart
+                    try {
+                      const cfgRaw = fs.readFileSync(getConfigPath(), 'utf-8');
+                      const cfg = JSON.parse(cfgRaw || '{}');
+                      cfg.pendingClones = Array.isArray(cfg.pendingClones) ? cfg.pendingClones : [];
+                      if (!cfg.pendingClones.some((c: any) => c.clonedPath === ev.path)) {
+                        cfg.pendingClones.push({
+                          id: jobId,
+                          repoName: repoDisplayName,
+                          repoUrl,
+                          branch,
+                          clonedPath: ev.path,
+                        });
+                        fs.writeFileSync(getConfigPath(), JSON.stringify(cfg, null, 2), 'utf-8');
+                      }
+                    } catch { /* ignore */ }
+                    return resolve({ success: true, clonedPath: ev.path });
+                  }
+                  if (tag === 'ERROR') return resolve({ success: false, error: ev.message || 'clone-error' });
+                }
+              });
+              child.stderr.on('data', (d: Buffer) => {
+                const s = d.toString().trim();
+                if (s) send('LOG', { text: s.slice(0, 300) });
+              });
+              child.on('error', () => tryNext());
+              child.on('close', (code: number) => {
+                runningJobs.delete(jobId);
+                if (!startedClone && code !== 0) return tryNext();
+                if (code === 0) return resolve({ success: true });
+                send('ERROR', { message: `process-exit-${code}` }); resolve({ success: false, error: `process-exit-${code}` });
+              });
+            } catch { tryNext(); }
+          };
+          tryNext();
+        });
+      } catch (e) { return { success: false, error: String(e) }; }
+    });
+
+    // ── Get pending clones from config ──────────────────────────────────────
+    ipcMain.handle('get-pending-clones', async () => {
+      try {
+        const raw = fs.readFileSync(getConfigPath(), 'utf-8');
+        const cfg = JSON.parse(raw || '{}');
+        return Array.isArray(cfg.pendingClones) ? cfg.pendingClones : [];
+      } catch { return []; }
+    });
+
+    // ── Remove a pending clone from config ──────────────────────────────────
+    ipcMain.handle('remove-pending-clone', async (_event, payload) => {
+      try {
+        const id: string | undefined = payload?.id;
+        const clonedPath: string | undefined = payload?.clonedPath;
+        const raw = fs.readFileSync(getConfigPath(), 'utf-8');
+        const cfg = JSON.parse(raw || '{}');
+        if (!Array.isArray(cfg.pendingClones)) return;
+        cfg.pendingClones = cfg.pendingClones.filter((c: any) =>
+          (id ? c.id !== id : true) && (clonedPath ? c.clonedPath !== clonedPath : true)
+        );
+        fs.writeFileSync(getConfigPath(), JSON.stringify(cfg, null, 2), 'utf-8');
+      } catch { /* ignore */ }
+    });
+
+    // ── Build CLONED – uses build_cloned.py ──────────────────────────────────
+    ipcMain.handle('build-cloned', async (_event, payload) => {
+      try {
+        const src: string = payload?.src;
+        const jobId: string = payload?.jobId || String(Date.now());
+        const repoName: string = payload?.repoName || '';
+        const wc = mainWindow?.webContents;
+        const send = (event: string, data: any) =>
+          { try { wc?.send('clone-progress', { event, jobId, repoName, ...data }); } catch {} };
+
+        if (!src) {
+          send('ERROR', { message: 'missing-src' });
+          return { success: false, error: 'missing-src' };
+        }
+
+        const scriptBuild = resolveBackendScript('build_cloned.py');
+        if (!scriptBuild) {
+          send('ERROR', { message: 'build-script-missing' });
+          return { success: false, error: 'build-script-missing' };
+        }
+
+        const pyTryBuild = pythonCandidates();
+        const { spawn: spawnBuild } = require('child_process');
+
+        let startedBuild = false;
+        return await new Promise((resolve) => {
+          const tryNext = () => {
+            const cmd = pyTryBuild.shift();
+            if (!cmd) {
+              send('ERROR', { message: 'python-missing' });
+              return resolve({ success: false, error: 'python-missing' });
+            }
+            try {
+              console.log('[build-cloned] spawn', { python: cmd, scriptBuild });
+              const child = spawnBuild(cmd, [scriptBuild, '--src', src], { windowsHide: false, shell: false });
+              runningJobs.set(jobId, child);
+              child.stdout.on('data', (d: Buffer) => {
+                const lines = d.toString().split(/\r?\n/).filter(Boolean);
+                for (const line of lines) {
+                  if (!line.startsWith('BL_CLONE:')) continue;
+                  const rest = line.slice('BL_CLONE:'.length).trim();
+                  const parts = rest.includes('\t') ? rest.split('\t') : rest.split(/\s+/);
+                  const tag = parts[0];
+                  const kvparts = parts.slice(1);
+                  const ev: any = { raw: line };
+                  for (const kv of kvparts) { const i = kv.indexOf('='); if (i > 0) ev[kv.slice(0,i)] = kv.slice(i+1); }
+                  if (tag === 'START') startedBuild = true;
+                  send(tag, ev);
+                  if (tag === 'DONE') {
+                    try {
+                      const exePath = ev.exe as string | undefined;
+                      if (exePath && fs.existsSync(exePath)) {
+                        const cfgRaw = fs.readFileSync(getConfigPath(), 'utf-8');
+                        const cfg = JSON.parse(cfgRaw || '{"blenders":[]}');
+                        cfg.blenders = Array.isArray(cfg.blenders) ? cfg.blenders : [];
+                        const normalExe = path.resolve(exePath).toLowerCase();
+                        if (!cfg.blenders.some((b: any) => b && path.resolve(b.path).toLowerCase() === normalExe)) {
+                          const exeName = path.basename(exePath);
+                          const m = exePath.match(/(\d+\.\d+)/);
+                          const title = m ? `Blender ${m[1]}` : (repoName ? `Blender (${repoName})` : 'Blender (build)');
+                          cfg.blenders.push({ path: exePath, name: exeName, title });
+                        }
+                        // Remove pending clone entry now that the build succeeded
+                        if (Array.isArray(cfg.pendingClones)) {
+                          cfg.pendingClones = cfg.pendingClones.filter((c: any) => c.clonedPath !== src);
+                        }
+                        fs.writeFileSync(getConfigPath(), JSON.stringify(cfg, null, 2), 'utf-8');
+                        try { mainWindow?.webContents.send('config-updated'); } catch {}
+                      }
+                    } catch { /* ignore */ }
+                    return resolve({ success: true, exe: ev.exe });
+                  }
+                  if (tag === 'ERROR') return resolve({ success: false, error: ev.message || 'build-error' });
+                }
+              });
+              child.stderr.on('data', (d: Buffer) => {
+                const s = d.toString().trim();
+                if (s) send('LOG', { text: s.slice(0, 300) });
+              });
+              child.on('error', () => tryNext());
+              child.on('close', (code: number) => {
+                runningJobs.delete(jobId);
+                if (!startedBuild && code !== 0) return tryNext();
+                if (code === 0) return resolve({ success: true });
+                send('ERROR', { message: `process-exit-${code}` }); resolve({ success: false, error: `process-exit-${code}` });
+              });
+            } catch { tryNext(); }
+          };
+          tryNext();
+        });
+      } catch (e) { return { success: false, error: String(e) }; }
+    });
+
+    // ── Cancel a running clone/build job ─────────────────────────────────────
+    ipcMain.handle('cancel-job', async (_event, payload) => {
+      const jobId: string | undefined = payload?.jobId;
+      if (!jobId) return { success: false };
+      const proc = runningJobs.get(jobId);
+      if (!proc) return { success: false, error: 'no-such-job' };
+      try {
+        // On Windows, use taskkill to kill the whole process tree
+        const { execSync } = require('child_process');
+        try { execSync(`taskkill /pid ${proc.pid} /T /F`, { windowsHide: true }); } catch {}
+        proc.kill('SIGKILL');
+      } catch { /* ignore */ }
+      runningJobs.delete(jobId);
+      try {
+        mainWindow?.webContents.send('clone-progress', { event: 'ERROR', jobId, message: 'Annulé par l\'utilisateur' });
+      } catch {}
+      return { success: true };
+    });
+
+  });
 
 
-app.on('window-all-closed', () => {
+  app.on('window-all-closed', () => {
   console.log('Toutes les fenetres sont fermees');
   if (process.platform !== 'darwin') {
   // If a render is active, keep the app alive to allow the render to complete

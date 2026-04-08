@@ -59,8 +59,13 @@ const api = {
       , 'build-from-source'
   // Clone & Build via Python
   , 'clone-repository'
+  , 'clone-only'
+  , 'build-cloned'
+  , 'get-pending-clones'
+  , 'remove-pending-clone'
   , 'check-build-tools'
   , 'install-build-tools'
+  , 'cancel-job'
   , 'download-official-blender'
   , 'fetch-blender-versions'
   // Extensions search

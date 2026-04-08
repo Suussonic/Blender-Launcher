@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PendingBuild } from './ViewBuildManager';
 
 type BlenderExe = {
   path: string;
@@ -11,9 +12,11 @@ type BlenderExe = {
 interface SidebarProps {
   onSelectBlender: (blender: BlenderExe | null) => void;
   selectedBlender: BlenderExe | null;
+  pendingBuilds?: PendingBuild[];
+  onSelectPending?: (id: string) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) => {
+const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pendingBuilds = [], onSelectPending }) => {
   const { t } = useTranslation();
   const [blenders, setBlenders] = useState<BlenderExe[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -120,7 +123,26 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
 
   // Log pour debug du rendu
   console.log('[Sidebar] Render, blenders =', blenders);
-  // (Global scrollbar styles now injected in index.html) 
+  // (Global scrollbar styles now injected in index.html)
+
+  // Spinner keyframes (injected once)
+  const spinnerStyle = `
+    @keyframes bl-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  `;
+
+  const pendingStatusColor = (status: PendingBuild['status']) => {
+    if (status === 'done') return '#22c55e';
+    if (status === 'error') return '#ef4444';
+    return '#60a5fa';
+  };
+  const pendingStatusLabel = (status: PendingBuild['status']) => {
+    if (status === 'cloning') return 'Clonage…';
+    if (status === 'cloned') return 'Prêt à compiler';
+    if (status === 'building') return 'Compilation…';
+    if (status === 'done') return 'Terminé';
+    if (status === 'error') return 'Erreur';
+    return '';
+  };
 
   return (
     <div style={{
@@ -169,11 +191,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
           <div style={{ height: 2, width: '100%', background: 'linear-gradient(90deg, #374151 0%, #6b7280 50%, #374151 100%)', margin: '0 0 8px 0' }} />
         </>
       )}
-  <div ref={containerRef} className="hide-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: blenders.length === 0 ? 'center' : 'flex-start', alignItems: 'center', overflowY: 'auto', paddingBottom: 24, touchAction: isDragging ? 'none' : 'pan-y' }}>
-        {blenders.length === 0 ? (
+  <div ref={containerRef} className="hide-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: blenders.length === 0 && pendingBuilds.length === 0 ? 'center' : 'flex-start', alignItems: 'center', overflowY: 'auto', paddingBottom: 24, touchAction: isDragging ? 'none' : 'pan-y' }}>
+        {/* Spinner CSS */}
+        <style dangerouslySetInnerHTML={{ __html: spinnerStyle }} />
+        {blenders.length === 0 && pendingBuilds.length === 0 ? (
           <span style={{ color: '#888', fontSize: 16, opacity: 0.7, textAlign: 'center', marginTop: 0 }}>{t('no_app')}</span>
         ) : (
-          blenders.map((b, i) => (
+          <>
+          {blenders.map((b, i) => (
             <div
               key={b.path + i}
               style={{
@@ -321,7 +346,69 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender }) =
                 })()}
               </div>
             </div>
-          ))
+          ))}
+          {/* ── Pending builds (grayed) ─────────────────────────── */}
+          {pendingBuilds.length > 0 && (
+            <>
+              {blenders.length > 0 && (
+                <div style={{ height: 1, width: 160, background: '#1f2937', margin: '6px 0 4px 0', opacity: 0.6 }} />
+              )}
+              {pendingBuilds.map((pb) => {
+                const isActive = pb.status === 'building' || pb.status === 'cloning';
+                const color = pendingStatusColor(pb.status);
+                const label = pendingStatusLabel(pb.status);
+                return (
+                  <div
+                    key={pb.id}
+                    title={`${pb.repoName} · ${label}\nCliqué pour ${pb.status === 'cloned' ? 'compiler' : 'voir le statut'}`}
+                    onClick={() => onSelectPending?.(pb.id)}
+                    style={{
+                      padding: '7px 14px 7px 10px',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      width: 180,
+                      background: 'transparent',
+                      opacity: 0.55,
+                      border: `1px solid ${color}22`,
+                      position: 'relative',
+                      overflow: 'hidden',
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.background = '#1a232b'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.opacity = '0.55'; e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    {/* thin progress bar at bottom */}
+                    {isActive && pb.progress > 0 && (
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, height: 2, width: `${pb.progress}%`, background: color, transition: 'width .4s ease', borderRadius: 1 }} />
+                    )}
+                    {/* spinning/status icon */}
+                    <div style={{ width: 30, height: 30, borderRadius: 7, background: '#1a2430', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {isActive ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'bl-spin 1.2s linear infinite' }}>
+                          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                        </svg>
+                      ) : pb.status === 'done' ? (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      ) : pb.status === 'error' ? (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      ) : (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 8 12 12 14 14"/></svg>
+                      )}
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {pb.repoName.split('/').pop() || pb.repoName}
+                      </div>
+                      <div style={{ fontSize: 10, color, marginTop: 1 }}>{label}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
+          </>
         )}
       </div>
     </div>

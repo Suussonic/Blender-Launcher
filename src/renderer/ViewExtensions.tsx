@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { FiDownload, FiStar } from 'react-icons/fi';
+import { AiOutlineInbox } from 'react-icons/ai';
 
 interface ViewExtensionsProps {
   query: string;
@@ -361,7 +362,7 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
                 {ext.thumb ? (
                   <img src={ext.thumb} alt={ext.title} style={{ width:'100%', height:160, objectFit:'cover', display:'block' }} />
                 ) : (
-                  <div style={{ width:'100%', height:160, background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:48 }}>📦</div>
+                  <div style={{ width:'100%', height:160, background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:48, color:'#94a3b8' }}><AiOutlineInbox /></div>
                 )}
                 <div style={{ padding:16, flex:1, display:'flex', flexDirection:'column', gap:6, position:'relative' }}>
                   <div style={{ fontSize:10, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5 }}>{ext.type?.toUpperCase() || 'ADD-ON'}</div>
