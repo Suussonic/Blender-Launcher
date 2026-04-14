@@ -13,12 +13,25 @@ type Props = {
   setDisplayFiles: (files: RecentBlendFile[]) => void;
   setRenderForFile: (p: string | null) => void;
   setOpenWithFile: (p: string | null) => void;
-  // handlers passed from parent to centralize IPC and state changes
   onOpenRecent?: (p: string) => void;
   onRevealRecent?: (p: string) => void;
   onRemoveRecent?: (p: string) => Promise<void> | void;
   viewMode: RecentViewMode;
 };
+
+const actionButtonStyle = (enabled = true, danger = false, compact = false): React.CSSProperties => ({
+  background: danger ? '#31141b' : '#1e2530',
+  border: danger ? '1px solid #842b3b' : 'none',
+  color: danger ? '#f87171' : '#94a3b8',
+  width: compact ? 30 : 34,
+  height: compact ? 30 : 34,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: compact ? 7 : 8,
+  cursor: enabled ? 'pointer' : 'default',
+  opacity: enabled ? 1 : 0.5
+});
 
 const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recentError, recentFiles, displayFiles, setDisplayFiles, setRenderForFile, setOpenWithFile, onOpenRecent, onRevealRecent, onRemoveRecent, viewMode }) => {
   const { t } = useTranslation();
@@ -110,10 +123,8 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
     return () => { cancelled = true; };
   }, [viewMode, files, selectedBlender?.path, toFileUrl]);
 
-  // Use handlers passed from parent when available to centralize IPC/state
   const openRecent = (filePath: string) => {
     if (typeof onOpenRecent === 'function') return onOpenRecent(filePath);
-    // fallback: no-op
   };
 
   const revealRecent = (filePath: string) => {
@@ -122,7 +133,6 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
 
   const removeRecentPersistent = (filePath: string) => {
     if (typeof onRemoveRecent === 'function') return onRemoveRecent(filePath);
-    // fallback: optimistic UI update only
     try {
       const updated = recentFiles.filter((f: RecentBlendFile) => f.path !== filePath);
       setDisplayFiles(updated);
@@ -170,7 +180,6 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
             onMouseOver={e => { if (f.exists) { e.currentTarget.style.background = '#182129'; e.currentTarget.style.borderColor = '#26303b'; }}}
             onMouseOut={e => { e.currentTarget.style.background = '#131a20'; e.currentTarget.style.borderColor = '#1e2530'; }}
           >
-            {/* Col 1: Nom + meta + chemin */}
             <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span
                 style={{
@@ -202,30 +211,14 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
                 </span>
               </div>
             </div>
-            {/* Col 2: Date de création */}
             <div style={{ color: '#94a3b8', fontSize: 12 }}>{createdStr}</div>
-            {/* Col 3: Date d'utilisation */}
             <div style={{ color: '#94a3b8', fontSize: 12 }}>{usedStr}</div>
-            {/* Col 4: Taille */}
             <div style={{ color: '#94a3b8', fontSize: 12 }}>{sizeStr}</div>
-            {/* Col 5: Actions */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: 140, justifyContent: 'flex-end', flexShrink: 0 }}>
               <button
                 onClick={(e) => { e.stopPropagation(); if (f.exists) setRenderForFile(f.path); }}
                 disabled={!f.exists}
-                style={{
-                  background: '#1e2530',
-                  border: 'none',
-                  color: '#94a3b8',
-                  width: 34,
-                  height: 34,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 8,
-                  cursor: f.exists ? 'pointer' : 'default',
-                  opacity: f.exists ? 1 : 0.5
-                }}
+                style={actionButtonStyle(f.exists)}
                 title={t('recent.configure_render_for_file', 'Configure render for this file')}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -237,19 +230,7 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
               <button
                 onClick={(e) => { e.stopPropagation(); if (f.exists) setOpenWithFile(f.path); }}
                 disabled={!f.exists}
-                style={{
-                  background: '#1e2530',
-                  border: 'none',
-                  color: '#94a3b8',
-                  width: 34,
-                  height: 34,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 8,
-                  cursor: f.exists ? 'pointer' : 'default',
-                  opacity: f.exists ? 1 : 0.5
-                }}
+                style={actionButtonStyle(f.exists)}
                 title={t('recent.open_with_other_version', 'Open with another version')}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -265,18 +246,7 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); revealRecent(f.path); }}
-                style={{
-                  background: '#1e2530',
-                  border: 'none',
-                  color: '#94a3b8',
-                  width: 34,
-                  height: 34,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 8,
-                  cursor: 'pointer'
-                }}
+                style={actionButtonStyle(true)}
                 title={t('recent.open_folder', 'Open folder')}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -286,18 +256,7 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); removeRecentPersistent(f.path); }}
-                style={{
-                  background: '#31141b',
-                  border: '1px solid #842b3b',
-                  color: '#f87171',
-                  width: 34,
-                  height: 34,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 8,
-                  cursor: 'pointer'
-                }}
+                style={actionButtonStyle(true, true)}
                 title={t('remove_from_list', 'Remove from list')}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -366,7 +325,7 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
                       <button
                         onClick={(e) => { e.stopPropagation(); if (f.exists) setRenderForFile(f.path); }}
                         disabled={!f.exists}
-                        style={{ background: '#1e2530', border: 'none', color: '#94a3b8', width: 30, height: 30, borderRadius: 7, cursor: f.exists ? 'pointer' : 'default', opacity: f.exists ? 1 : 0.5 }}
+                        style={actionButtonStyle(f.exists, false, true)}
                         title={t('recent.configure_render_for_file', 'Configure render for this file')}
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -378,7 +337,7 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
                       <button
                         onClick={(e) => { e.stopPropagation(); if (f.exists) setOpenWithFile(f.path); }}
                         disabled={!f.exists}
-                        style={{ background: '#1e2530', border: 'none', color: '#94a3b8', width: 30, height: 30, borderRadius: 7, cursor: f.exists ? 'pointer' : 'default', opacity: f.exists ? 1 : 0.5 }}
+                        style={actionButtonStyle(f.exists, false, true)}
                         title={t('recent.open_with_other_version', 'Open with another version')}
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -390,7 +349,7 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); revealRecent(f.path); }}
-                        style={{ background: '#1e2530', border: 'none', color: '#94a3b8', width: 30, height: 30, borderRadius: 7, cursor: 'pointer' }}
+                        style={actionButtonStyle(true, false, true)}
                         title={t('recent.open_folder', 'Open folder')}
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -400,7 +359,7 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); removeRecentPersistent(f.path); }}
-                        style={{ background: '#31141b', border: '1px solid #842b3b', color: '#f87171', width: 30, height: 30, borderRadius: 7, cursor: 'pointer' }}
+                        style={actionButtonStyle(true, true, true)}
                         title={t('remove_from_list', 'Remove from list')}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

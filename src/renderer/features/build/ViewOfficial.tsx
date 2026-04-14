@@ -28,32 +28,24 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Auto-generate standard Blender installation path
   useEffect(() => {
     if (selectedVersion) {
-      // Extract major.minor version for standard path: "4.3.0" -> "4.3"
       const versionMatch = selectedVersion.version.match(/^(\d+\.\d+)/);
       const majorMinor = versionMatch ? versionMatch[1] : selectedVersion.version.split(/[^0-9.]/)[0];
-      
-      // Generate standard Blender Foundation path
+
       const standardPath = `C:\\Program Files\\Blender Foundation\\Blender ${majorMinor}`;
       setTargetDir(standardPath);
-      
-      // Clean version name for folder: "4.3.0" -> "Blender ${majorMinor}"
+
       setFolderName(`Blender ${majorMinor}`);
-      
-      console.log(`[ViewOfficial] Auto-generated path for ${selectedVersion.version}: ${standardPath}`);
+
     }
   }, [selectedVersion]);
 
-  // Progress routing to parent (bottom bar)
   useEffect(() => {
     if (!isOpen) return;
     const handler = (_: any, progressData: any) => {
-      console.log('[ViewOfficial] Événement download-progress reçu:', progressData);
       const pct = typeof progressData?.progress === 'number' ? progressData.progress : 0;
       const text = progressData?.text || '';
-      console.log('[ViewOfficial] Mise à jour progression:', { pct, text, version: selectedVersion?.version });
       onDownloadStateChange?.({ 
         isDownloading: true, 
         progress: pct, 
@@ -61,25 +53,19 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
         version: selectedVersion?.version 
       });
       
-      // If download complete, close modal and reset state
       if (progressData?.event === 'COMPLETE') {
-        console.log('[ViewOfficial] Téléchargement COMPLET');
         setTimeout(() => {
-          console.log('[ViewOfficial] Reset de l\'état de téléchargement');
           onDownloadStateChange?.(null);
           setDownloading(false);
         }, 2000);
       }
     };
-    console.log('[ViewOfficial] Installation de l\'écouteur download-progress');
     (window as any).electronAPI?.on?.('download-progress', handler);
     return () => { 
-      console.log('[ViewOfficial] Suppression de l\'écouteur download-progress');
       (window as any).electronAPI?.off?.('download-progress', handler); 
     };
   }, [isOpen, selectedVersion, onDownloadStateChange]);
 
-  // Charger les versions disponibles selon le type via fetch backend
   useEffect(() => {
     if (!isOpen) return;
     
@@ -88,15 +74,12 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
       setError(null);
       
       try {
-        console.log('[ViewOfficial] Fetching versions for type:', versionType);
-        
         if (window.electronAPI && window.electronAPI.invoke) {
           const result = await window.electronAPI.invoke('fetch-blender-versions', versionType);
           
           if (result.success && result.versions) {
             let fetchedVersions: BlenderVersion[] = [];
             
-            // Get versions for the current type
             if (result.versions[versionType]) {
               fetchedVersions = result.versions[versionType].map((v: any) => ({
                 version: v.version,
@@ -107,13 +90,10 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
               }));
             }
             
-            console.log('[ViewOfficial] Fetched versions:', fetchedVersions.length);
             setVersions(fetchedVersions);
             setSelectedVersion(fetchedVersions[0] || null);
           } else {
-            console.error('[ViewOfficial] Fetch failed:', result.error);
             setError(`${t('official.load_versions_failed', 'Impossible de charger les versions')}: ${result.error}`);
-            // Fallback to empty array
             setVersions([]);
           }
         } else {
@@ -121,7 +101,6 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
           setVersions([]);
         }
       } catch (e) {
-        console.error('[ViewOfficial] Erreur chargement versions:', e);
         setError(t('official.load_versions_failed', 'Impossible de charger les versions'));
         setVersions([]);
       } finally {
@@ -143,38 +122,27 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
           setError(null);
         }
       } catch (e) {
-        console.error('[ViewOfficial] Erreur sélection dossier:', e);
         setError(t('official.select_folder_failed', 'Impossible de sélectionner le dossier'));
       }
     }
   };
 
   const handleDownload = () => {
-    console.log('[ViewOfficial] handleDownload appelé');
-    console.log('[ViewOfficial] selectedVersion:', selectedVersion);
-    console.log('[ViewOfficial] targetDir:', targetDir);
-    console.log('[ViewOfficial] folderName:', folderName);
-    
     if (!selectedVersion) {
-      console.warn('[ViewOfficial] Pas de version sélectionnée');
       setError(t('official.select_version_required', 'Veuillez sélectionner une version'));
       return;
     }
     if (!targetDir.trim()) {
-      console.warn('[ViewOfficial] Pas de dossier de destination');
       setError(t('official.select_destination_required', 'Veuillez sélectionner un dossier de destination'));
       return;
     }
     if (!folderName.trim()) {
-      console.warn('[ViewOfficial] Nom de dossier invalide');
       setError(t('official.invalid_folder_name', 'Nom de dossier invalide'));
       return;
     }
-    
-    console.log('[ViewOfficial] Validation OK, début du téléchargement');
+
     setDownloading(true);
     
-    // Notify parent that download started
     onDownloadStateChange?.({ 
       isDownloading: true, 
       progress: 0, 
@@ -190,50 +158,28 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
       folderName: folderName.trim(),
     };
     
-    console.log('[ViewOfficial] Appel IPC download-official-blender avec payload:', payload);
-    
-    // Invoke backend to download and install
     if (window.electronAPI && window.electronAPI.invoke) {
       window.electronAPI.invoke('download-official-blender', payload).then((result: any) => {
-        console.log('[ViewOfficial] Téléchargement résultat:', result);
         if (!result?.success) {
-          console.error('[ViewOfficial] Téléchargement échoué:', result?.error);
           setError(result?.error || t('download.failed', 'Échec du téléchargement'));
           setDownloading(false);
           onDownloadStateChange?.(null);
         }
       }).catch((e: any) => {
-        console.error('[ViewOfficial] Erreur téléchargement:', e);
         setError(t('download.failed', 'Échec du téléchargement'));
         setDownloading(false);
         onDownloadStateChange?.(null);
       });
-    } else {
-      console.error('[ViewOfficial] electronAPI non disponible');
     }
     
     if (onStartDownload) {
       onStartDownload({ version: selectedVersion, targetDir: targetDir.trim() });
     }
     
-    // Close modal immediately, progress shown in bottom bar
     onClose();
   };
 
-  if (!isOpen) {
-    console.log('[ViewOfficial] Popup fermée, rendu null');
-    return null;
-  }
-  
-  console.log('[ViewOfficial] Rendu popup, état:', { 
-    versionType, 
-    versionsCount: versions.length, 
-    selectedVersion, 
-    targetDir, 
-    folderName,
-    loading,
-    downloading 
-  });
+  if (!isOpen) return null;
 
   const versionTypeLabels = {
     stable: { icon: FiPackage, label: 'Stable Releases', color: '#3b82f6' },
@@ -270,7 +216,6 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
           boxShadow: '0 12px 36px -8px rgba(0,0,0,0.7), 0 6px 18px -6px rgba(0,0,0,0.5)',
         }}
       >
-        {/* Close button */}
         <button
           onClick={onClose}
           title={t('close', 'Fermer')}
@@ -300,7 +245,6 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
           <FiX size={20} />
         </button>
 
-        {/* Title */}
         <h2
           style={{
             margin: '0 0 24px 0',
@@ -315,9 +259,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
           {t('official.download_title', 'Télécharger Blender Officiel')}
         </h2>
 
-        {/* Form */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {/* Version Type Tabs */}
           <div>
             <label
               style={{
@@ -332,7 +274,6 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
               {t('official.version_type', 'Type de version')}
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {/* Première ligne : Stable Releases (pleine largeur) */}
               <button
                 onClick={() => setVersionType('stable')}
                 style={{
@@ -369,7 +310,6 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 <span style={{ fontSize: 11, letterSpacing: 0.3 }}>{versionTypeLabels.stable.label}</span>
               </button>
 
-              {/* Deuxième ligne : Patch et Daily côte à côte */}
               <div style={{ display: 'flex', gap: 8 }}>
                 {(['patch', 'daily'] as const).map((type) => {
                   const TypeIcon = versionTypeLabels[type].icon;
@@ -418,7 +358,6 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
             </div>
           </div>
 
-          {/* Version Selection */}
           <div>
             <label
               style={{
@@ -492,7 +431,6 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                         {v.date && (() => {
                           const dt = new Date(v.date as string);
                           if (isNaN(dt.getTime())) {
-                            // Not a parseable date — show raw text
                             return <span style={{ fontSize: 11, color: '#94a3b8' }}>{String(v.date)}</span>;
                           }
                           return (
@@ -510,7 +448,6 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
             )}
           </div>
 
-          {/* Target Directory */}
           <div>
             <label
               style={{
@@ -576,7 +513,6 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
             </div>
           </div>
 
-          {/* Folder Name */}
           <div>
             <label
               style={{
@@ -621,7 +557,6 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
             />
           </div>
 
-          {/* Error message */}
           {error && (
             <div
               style={{
@@ -638,7 +573,6 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
             </div>
           )}
 
-          {/* Action buttons */}
           <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
             <button
               onClick={onClose}

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import useSort, { SortDir } from './useSort';
+import useSort, { SortDir } from '../../shared/hooks/useSort';
 
 export interface RecentBlendFile {
   path: string;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { TableHeader } from './Filter';
-import useSort from './useSort';
+import { TableHeader } from '../recent/Filter';
+import useSort from '../../shared/hooks/useSort';
 
 type BlenderExe = { path: string } | null;
 
@@ -15,8 +15,6 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
   const [addons, setAddons] = useState<Array<any>>([]);
   const [addonsLoading, setAddonsLoading] = useState(false);
   const [addonsError, setAddonsError] = useState<string | null>(null);
-  // query will be provided by parent FindBar to keep the same control
-  // const [addonQuery, setAddonQuery] = useState('');
   const [debugOpen, setDebugOpen] = useState(false);
   const [lastProbeStdout, setLastProbeStdout] = useState<string | null>(null);
   const [lastProbeStderr, setLastProbeStderr] = useState<string | null>(null);
@@ -39,7 +37,6 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
         if (res?.stderr) setLastProbeStderr(res.stderr);
         if (res?.success && Array.isArray(res.addons)) { setAddons(res.addons); setAddonsLoading(false); return; }
       }
-      // Fallback
       if (api?.scanAddonsFs) {
         const fsres = await api.scanAddonsFs({ exePath: selectedBlender.path });
         if (fsres?.success) setAddons(fsres.addons || []);
@@ -53,7 +50,6 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
     setAddonsLoading(false);
   };
 
-  // helper to enable/disable an addon via main process
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const setAddonEnabled = async (moduleName: string, enable: boolean) => {
@@ -67,10 +63,8 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
       } else if (api?.invoke) {
         res = await api.invoke('enable-addon', { exePath: selectedBlender.path, module: moduleName, enable });
       }
-      // show any error output to the user
       const message = (res && (res.error || res.stderr || res.stdout)) ? String(res.error || res.stderr || res.stdout) : null;
       setErrors(prev => ({ ...prev, [moduleName]: message }));
-      // refresh list to reflect real state (even if failed)
       await loadAddons();
       return res;
     } catch (e) {
@@ -83,14 +77,8 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
 
   useEffect(() => { if (selectedBlender) loadAddons(); }, [selectedBlender?.path]);
 
-  // header rendered inside this component so we can pass current sort state and toggle
-
-  // ACTIONS REMOVED: enable/disable, install-on-other, reveal, delete
-  // We focus only on displaying addons and caching scan results for speed.
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
-      {/* Header for addons list — shows sort icons and handles toggling */}
       <TableHeader variant="addons" activeField={activeField} activeDir={activeDir} onToggle={(f) => toggle(f)} />
       {addonsLoading && <div style={{ color: '#94a3b8' }}>{t('addons.scanning', 'Scanning...')}</div>}
       {addonsError && <div style={{ color: '#f87171' }}>{t('addons.error_prefix', 'Error:')} {addonsError}</div>}
@@ -138,7 +126,6 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
           const q = query.trim().toLowerCase();
           return ((a.name||'') + ' ' + (a.module||'') + ' ' + (a.path||'')).toLowerCase().includes(q);
         }).map((a, idx) => {
-          // adapt to the same grid as recent files: 5 columns
           const createdStr = '';
           const usedStr = '';
           const sizeStr = '';
@@ -160,7 +147,6 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
                 borderRadius: 10,
                 padding: '10px 14px',
                 display: 'grid',
-                // match recent files spacing (5 columns) so header alignment is identical
                 gridTemplateColumns: 'minmax(160px, 1fr) 170px 170px 110px 140px',
                 gap: 12,
                 alignItems: 'center',
@@ -174,7 +160,6 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
               }
               onMouseOut={e => { e.currentTarget.style.background = '#131a20'; e.currentTarget.style.borderColor = '#1e2530'; }}
             >
-              {/* Col 1: Nom + meta + chemin */}
             <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span
                 style={{
@@ -191,17 +176,13 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
               </span>
               <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: 0.7, display: 'inline-block' }} title={a.path}>{a.path ? a.path : ''}</span>
             </div>
-            {/* Col 2: Version badge */}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#64748b', fontSize: 12 }}>
               {bl.version ? <span style={{ background: '#0b1220', color: '#9ccfd8', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.version)}</span> : <span style={{ opacity: 0.6 }}>—</span>}
             </div>
-            {/* Col 3: Author */}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#64748b', fontSize: 12, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={String(bl.author || '')}>
               {bl.author ? <span style={{ opacity: 0.9 }}>{String(bl.author)}</span> : <span style={{ opacity: 0.6 }}>—</span>}
             </div>
-            {/* Col 4: Category */}
             <div style={{ color: '#64748b', fontSize: 12 }}>{bl.category ? <span style={{ background: '#0b1220', color: '#d6c9f9', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.category)}</span> : <span style={{ opacity: 0.6 }}>—</span>}</div>
-            {/* Col 5: Statut + actions */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: 140, justifyContent: 'flex-end', flexShrink: 0 }}>
               <div style={{ marginRight: 6 }}>
                 <button
@@ -244,7 +225,6 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
                 </svg>
               </button>
             </div>
-            {/* error / stdout / stderr for this addon (if any) */}
             {errMsg && (
               <div style={{ color: '#f87171', fontSize: 12, marginTop: 6, gridColumn: '1 / -1' }} title={errMsg}>
                 {errMsg.split('\n').slice(0,3).join(' ')}{errMsg.split('\n').length > 3 ? '…' : ''}
@@ -264,7 +244,6 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
             </React.Fragment>
           );
         })}
-      {/* Action popups removed - view-only mode */}
       {debugOpen && (
         <div style={{ marginTop: 12, background: '#071018', border: '1px solid #17202a', padding: 12, borderRadius: 8 }}>
           <h4 style={{ margin: '0 0 8px 0', color: '#e6eef8' }}>{t('addons.debug_output', 'Debug output')}</h4>

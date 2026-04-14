@@ -36,7 +36,7 @@ const windowBtnStyle: React.CSSProperties = {
   borderRadius: 0
 };
 
-// Modal d'import GitHub (inline pour limiter la dispersion)
+// Inline GitHub import modal.
 interface GitHubImportModalProps { value:string; onChange:(v:string)=>void; onClose:()=>void; onValidate:(url:string)=>{ok?:boolean; error?:string}; }
 
 const GitHubImportModal: React.FC<GitHubImportModalProps> = ({ value, onChange, onClose, onValidate }) => {
@@ -155,7 +155,6 @@ const GitHubImportModal: React.FC<GitHubImportModalProps> = ({ value, onChange, 
 };
 
 
-// Ajout des props pour navigation
 type NavbarProps = {
   onHome?: () => void;
   onSettings?: () => void;
@@ -167,12 +166,9 @@ type NavbarProps = {
   canGoForward?: boolean;
   onBack?: () => void;
   onForward?: () => void;
-  isOnWebPage?: boolean;
-  onWebHome?: () => void;
-  onClearWebHistory?: () => void;
 };
 
-const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSearchExtensions, onOpenWeb, onOpenCloneBuild, canGoBack, canGoForward, onBack, onForward, isOnWebPage, onWebHome, onClearWebHistory }) => {
+const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSearchExtensions, onOpenWeb, onOpenCloneBuild, canGoBack, canGoForward, onBack, onForward }) => {
   const { t } = useTranslation();
   const navbarRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
@@ -185,12 +181,10 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
       });
     }
   }, []);
-  // Popup import state
   const [showImport, setShowImport] = React.useState(false);
   const [importMode, setImportMode] = React.useState<'main' | 'github'>('main');
   const [githubUrl, setGithubUrl] = React.useState('');
 
-  // Search state (repos + extensions)
   const [searchQuery, setSearchQuery] = React.useState('');
   const [repoList, setRepoList] = React.useState<{ name:string; link:string; avatar?:string }[]>([]);
   const [extensionResults, setExtensionResults] = React.useState<{title:string;href:string;thumb?:string;author?:string;rating?:string;downloads?:string}[]>([]);
@@ -198,9 +192,8 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
   
   React.useEffect(()=>{
     try {
-      const data = require('./locales/link.json');
+      const data = require('../locales/link.json');
       if (data?.repository) {
-        // Derive avatar URL without hitting API (pattern github.com/<user>.png) to save rate limit.
         const enriched = data.repository.map((r:any)=>{
           const ownerMatch = r.link.match(/github.com\/([^/]+)/);
             const owner = ownerMatch? ownerMatch[1]:'';
@@ -211,7 +204,6 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
     } catch(e){ console.warn('Chargement link.json échoué', e); }
   },[]);
   
-  // Search extensions dynamically as user types
   React.useEffect(() => {
     if (!searchQuery.trim()) {
       setExtensionResults([]);
@@ -315,7 +307,6 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
           <button style={{ ...iconBtnStyle, width:38, height:38 }} title={t('home', 'Accueil')} onClick={onHome}>
             <FiHome size={22} />
           </button>
-          {/* Back/Forward */}
           <div style={{ display:'flex', gap:6 }} className="no-drag">
             <button
               style={{ ...iconBtnStyle, width:34, height:34, opacity: canGoBack ? 1 : 0.4 }}
@@ -334,7 +325,6 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
               <FiChevronRight size={18} />
             </button>
           </div>
-          {/* removed web quick controls per user request */}
         </div>
   <div style={{ position:'relative', flex:1, margin:'0 24px', minWidth:260, display:'flex', gap:8 }} className="no-drag">
           <input
@@ -366,7 +356,6 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
           />
           {searchQuery && (
             <div style={{ position:'absolute', top:40, left:0, right:0, background:'#1f242b', border:'1px solid #2a3036', borderRadius:12, padding:8, display:'flex', flexDirection:'column', gap:8, maxHeight:420, overflowY:'auto', zIndex:500 }}>
-              {/* Custom Builds Section */}
               {repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 && (
                 <>
                   <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5, padding:'4px 8px' }}>{t('custom_builds', 'Custom Builds')}</div>
@@ -382,7 +371,6 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
                 </>
               )}
               
-              {/* Extensions Section */}
               {(loadingExtensions || extensionResults.length > 0) && (
                 <>
                   <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5, padding:'4px 8px', marginTop: repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? 4 : 0 }}>{t('extensions', 'Extensions')}</div>
@@ -424,12 +412,10 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
                 </>
               )}
               
-              {/* No Results */}
               {!loadingExtensions && repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length===0 && extensionResults.length===0 && (
                 <div style={{ fontSize:12, color:'#94a3b8', padding:'4px 8px' }}>{t('no_result', 'Aucun résultat')}</div>
               )}
               
-              {/* Press Enter hint */}
               {searchQuery.trim() && (
                 <div style={{ fontSize:11, color:'#64748b', padding:'6px 8px', borderTop:'1px solid #2a3036', marginTop:4, textAlign:'center' }}>
                   {t('press_enter_for_all_results', 'Appuyez sur')} <strong style={{ color:'#94a3b8' }}>{t('enter', 'Entrée')}</strong> {t('to_see_all_results_extensions', 'pour voir tous les résultats sur extensions.blender.org')}
@@ -438,21 +424,16 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
             </div>
           )}
         </div>
-        {/* Bouton + (Clone & Build) */}
         <button style={iconBtnStyle} className="no-drag" title={t('clone_build', 'Clone & Build')} onClick={onOpenCloneBuild}>
           <FiPlus size={22} />
         </button>
-        {/* Bouton import */}
         <button style={iconBtnStyle} className="no-drag" title={t('import', 'Importer')} onClick={() => setShowImport(true)}>
           <FiDownload size={22} />
         </button>
-        {/* Bouton paramètres (engrenage) */}
         <button style={iconBtnStyle} className="no-drag" title={t('settings', 'Paramètres')} onClick={onSettings}>
           <FiSettings size={22} />
         </button>
-        {/* Séparateur vertical */}
         <div style={{ width: 1, height: 32, background: '#23272F', margin: '0 8px 0 16px' }} />
-        {/* Boutons fenêtre */}
         <div style={{ display: 'flex', gap: 0, alignItems: 'center', height: 56 }}>
           <button
             style={{ ...windowBtnStyle, borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
@@ -493,7 +474,6 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
           </button>
         </div>
       </div>
-      {/* Popup Import */}
       {showImport && (
         <div style={{
           position: 'fixed',
@@ -512,7 +492,6 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
             setImportMode('main');
           }}
         >
-          {/* Mode principal : choix GitHub ou Dossier */}
           {importMode === 'main' && (
             <div style={{
               background: '#23272F',
@@ -610,14 +589,12 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
               </button>
             </div>
           )}
-          {/* Mode GitHub : barre de recherche */}
           {importMode === 'github' && (
             <GitHubImportModal
               value={githubUrl}
               onChange={setGithubUrl}
               onClose={() => { setShowImport(false); setImportMode('main'); setGithubUrl(''); }}
               onValidate={(url) => {
-                // Validation + extraction owner/name
                 const match = url.trim().match(/https?:\/\/github.com\/(?:#!\/)?([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(?:\/.+)?$/);
                 if (!match) return { error: t('import.invalid_github_link', 'Lien GitHub invalide') };
                 const owner = match[1];

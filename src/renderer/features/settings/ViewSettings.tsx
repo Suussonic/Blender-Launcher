@@ -19,35 +19,21 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
   const [isRelocating, setIsRelocating] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Mettre à jour le titre quand selectedBlender change
   useEffect(() => {
     setTitle(selectedBlender.title || selectedBlender.name);
   }, [selectedBlender]);
 
-  if (!isOpen) {
-    console.log('[ViewSettings] Popup fermée (isOpen=false)');
-    return null;
-  }
-
-  console.log('[ViewSettings] Rendu de la popup - isOpen:', isOpen, 'selectedBlender:', selectedBlender);
+  if (!isOpen) return null;
 
   const handleSave = () => {
-    console.log('[ViewSettings] *** DEBUT handleSave ***');
     const trimmedTitle = title.trim() || selectedBlender.name;
     const updatedBlender = {
       ...selectedBlender,
       title: trimmedTitle
     };
-    console.log('[ViewSettings] Titre original:', selectedBlender.title);
-    console.log('[ViewSettings] Nouveau titre saisi:', title);
-    console.log('[ViewSettings] Titre après trim:', trimmedTitle);
-    console.log('[ViewSettings] Objet complet à sauvegarder:', updatedBlender);
-    console.log('[ViewSettings] Appel de onSave...');
-    
+
     onSave(updatedBlender);
-    console.log('[ViewSettings] onSave appelé, fermeture de la popup...');
     onClose();
-    console.log('[ViewSettings] *** FIN handleSave ***');
   };
 
   const handleRelocate = () => {
@@ -90,7 +76,6 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
         border: '1px solid #23272F',
         boxShadow: '0 24px 64px -8px rgba(0,0,0,0.55)',
       }}>
-        {/* En-tête */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -98,7 +83,7 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
           gap: '16px',
         }}>
           <img
-            src={selectedBlender.icon || require('../../public/logo/png/Blender-Launcher-64x64.png')}
+            src={selectedBlender.icon || require('../../../../public/logo/png/Blender-Launcher-64x64.png')}
             alt="icon"
             style={{ 
               width: 48, 
@@ -129,7 +114,6 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
           </div>
         </div>
 
-        {/* Bloc champs + actions avec espacement homogène */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
           <input
             type="text"
@@ -228,7 +212,6 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
           </div>
         </div>
 
-        {/* Boutons d'action */}
         <div style={{
           display: 'flex',
           gap: '12px',
@@ -331,10 +314,7 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
               <button
                 onClick={() => {
                   if (window.electronAPI && window.electronAPI.send) {
-                    console.log('[ViewSettings] Envoi suppression via send(delete-executable)');
                     window.electronAPI.send('delete-executable', { path: selectedBlender.path });
-                  } else {
-                    console.warn('[ViewSettings] electronAPI.send indisponible');
                   }
                   setShowDeleteConfirm(false);
                   onClose();

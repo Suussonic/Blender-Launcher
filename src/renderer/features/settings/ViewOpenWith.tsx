@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import ModalCloseButton from './components/ModalCloseButton';
+import ModalCloseButton from '../../shared/components/ModalCloseButton';
 
 type BlenderExe = {
 	path: string;
@@ -13,7 +13,6 @@ interface ViewOpenWithProps {
 	isOpen: boolean;
 	filePath: string | null;
 	onClose: () => void;
-	// optional callback when a blender is chosen; if provided, it's called with the blender object
 	onSelect?: (b: BlenderExe) => void;
 }
 
@@ -39,7 +38,6 @@ const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose, 
 			}
 		};
 		load();
-		// Focus trap initial sur premier bouton
 		setTimeout(() => { firstBtnRef.current?.focus(); }, 10);
 		return () => { cancelled = true; };
 	}, [isOpen]);
@@ -51,8 +49,6 @@ const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose, 
 		if (isOpen) window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	}, [isOpen, onClose]);
-
-	// (Global scrollbar styles now injected in index.html)
 
 	if (!isOpen) return null;
 	return (
@@ -101,7 +97,7 @@ const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose, 
 							onMouseOut={(e) => { e.currentTarget.style.background = '#1a232b'; e.currentTarget.style.borderColor = '#24303a'; }}
 						>
 							<img
-								src={b.icon || require('../../public/logo/png/Blender-Launcher-64x64.png')}
+								src={b.icon || require('../../../../public/logo/png/Blender-Launcher-64x64.png')}
 								alt=''
 								style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', background: 'transparent', boxShadow: 'none' }}
 							/>
@@ -113,7 +109,6 @@ const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose, 
 						</button>
 					))}
 				</div>
-				{/* Footer supprimé (bouton Annuler retiré) */}
 			</div>
 		</div>
 	);

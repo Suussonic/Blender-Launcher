@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
-import './markdown.css';
+import '../../markdown.css';
 import { loadRepoCache, saveRepoCache, needsMeta, needsReadme, needsLicense, needsExtra } from './githubCache';
 import ViewClone from './ViewClone';
 

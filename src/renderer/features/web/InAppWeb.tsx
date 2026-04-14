@@ -4,7 +4,7 @@ type InAppWebProps = {
   url: string;
   onNavigated?: (url: string, kind?: 'in-page' | 'full' | 'new-window') => void;
   onCanGo?: (state: { canGoBack: boolean; canGoForward: boolean }) => void;
-  reloadKey?: number; // force remount to clear history
+  reloadKey?: number;
 };
 
 export type InAppWebHandle = {
@@ -14,10 +14,8 @@ export type InAppWebHandle = {
 
 const InAppWeb = React.forwardRef<InAppWebHandle, InAppWebProps>(({ url, onNavigated, onCanGo, reloadKey }, forwardedRef) => {
   const webviewRef = React.useRef<any>(null);
-  // Flag to ignore the next navigate event when navigation is triggered by prop change (programmatic)
   const ignoreNextRef = React.useRef<boolean>(false);
 
-  // When the url prop changes, mark the next navigation as programmatic
   React.useEffect(() => {
     ignoreNextRef.current = true;
   }, [url]);
@@ -43,15 +41,13 @@ const InAppWeb = React.forwardRef<InAppWebHandle, InAppWebProps>(({ url, onNavig
       onNavigated && onNavigated(nextUrl, 'in-page');
     };
     const onWillNavigate = (e: any) => {
-      // we let it happen; did-navigate will follow
+      void e;
     };
     const onNewWindow = (e: any) => {
-      // Prevent external popup; open inside the same webview
       try { e.preventDefault && e.preventDefault(); } catch {}
       const target = e?.url || '';
       if (target) {
         try { v.src = target; } catch {}
-        // This is programmatic from our side, ignore the navigate event once
         ignoreNextRef.current = true;
         onNavigated && onNavigated(target, 'new-window');
       }
@@ -73,10 +69,8 @@ const InAppWeb = React.forwardRef<InAppWebHandle, InAppWebProps>(({ url, onNavig
     v.addEventListener('did-navigate-in-page', onDidNavigateInPage);
     v.addEventListener('will-navigate', onWillNavigate);
     v.addEventListener('new-window', onNewWindow);
-    // DOM ready: webview API available
     const onDomReady = () => { 
       try { (window as any).__bl_webview = v; } catch {}
-      console.log('[InAppWeb] dom-ready', v?.getURL?.());
       updateCanGo(); 
     };
     v.addEventListener('dom-ready', onDomReady);
@@ -95,12 +89,10 @@ const InAppWeb = React.forwardRef<InAppWebHandle, InAppWebProps>(({ url, onNavig
     };
   }, [onNavigated, onCanGo]);
 
-  // Imperative API to control native history
   React.useImperativeHandle(forwardedRef, () => ({
     goBack: () => {
       const v = (webviewRef.current as any);
       try { v.goBack?.(); } catch {}
-      // Re-evaluate canGo after a short delay since navigation is async
       setTimeout(() => {
         try {
           const canBack = typeof v.canGoBack === 'function' ? !!v.canGoBack() : false;
@@ -130,8 +122,6 @@ const InAppWeb = React.forwardRef<InAppWebHandle, InAppWebProps>(({ url, onNavig
         ref={webviewRef}
         src={url}
         style={{ width: '100%', height: '100%' }}
-        // Do NOT allow popups; we intercept and load inside
-        // allowpopups
         disableguestresize
       />
     </div>

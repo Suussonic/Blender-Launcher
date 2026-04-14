@@ -29,7 +29,7 @@ const Loading: React.FC<Props> = ({ status }) => {
           }} />
           {/* Logo centré */}
           <img
-            src={require('../../public/logo/png/Blender-Launcher-128x128.png')}
+            src={require('../../../../public/logo/png/Blender-Launcher-128x128.png')}
             alt="Logo"
             style={{ width: 104, height: 104, position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', borderRadius: 14 }}
             draggable={false}

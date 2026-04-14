@@ -45,7 +45,7 @@ interface ViewRenderProps {
   filePath?: string;
 }
 
-const defaultIcon = require('../../public/logo/png/Blender-Launcher-64x64.png');
+const defaultIcon = require('../../../../public/logo/png/Blender-Launcher-64x64.png');
 
 const segmentBase: React.CSSProperties = {
   display: 'inline-flex',

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import ViewSettings from './ViewSettings';
-import ViewOpenWith from './ViewOpenWith';
+import ViewSettings from '../settings/ViewSettings';
+import ViewOpenWith from '../settings/ViewOpenWith';
 import Filter, { RecentBlendFile } from './Filter';
 import FindBar from './FindBar';
 import ViewRecentFile from './ViewRecentFile';
-import ViewAddon from './ViewAddon';
-import ViewRender from './ViewRender';
+import ViewAddon from '../addons/ViewAddon';
+import ViewRender from '../render/ViewRender';
 import { AiOutlineAppstore, AiOutlineUnorderedList } from 'react-icons/ai';
 
 type BlenderExe = {
@@ -24,33 +24,46 @@ interface ViewPagesProps {
 const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
   const { t } = useTranslation();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  // Etat fichiers récents
   const [recentLoading, setRecentLoading] = useState(false);
   const [recentError, setRecentError] = useState<string | null>(null);
   const [recentFiles, setRecentFiles] = useState<RecentBlendFile[]>([]);
   const [displayFiles, setDisplayFiles] = useState<RecentBlendFile[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [recentVersion, setRecentVersion] = useState<string | null>(null);
   const [openWithFile, setOpenWithFile] = useState<string | null>(null);
   const [renderForFile, setRenderForFile] = useState<string | null>(null);
   const [recentViewMode, setRecentViewMode] = useState<'list' | 'preview'>('list');
-  // Addons state (moved to ViewAddon)
-  const [addonQuery, setAddonQuery] = useState('');
   const [panel, setPanel] = useState<'recent' | 'addons'>('recent');
   const recentLoadTokenRef = useRef(0);
-  // Debug panel for last probe output
-  const [debugOpen, setDebugOpen] = useState(false);
-  const [lastProbeStdout, setLastProbeStdout] = useState<string | null>(null);
-  const [lastProbeStderr, setLastProbeStderr] = useState<string | null>(null);
 
-  // Load recent files function (call on selection change or when user switches to Recent panel)
+  const panelButtonStyle = (active: boolean): React.CSSProperties => ({
+    background: active ? '#1f2937' : 'transparent',
+    border: active ? '1px solid #374151' : '1px solid transparent',
+    color: '#fff',
+    padding: '8px 14px',
+    borderRadius: 8,
+    fontWeight: active ? 700 : 500
+  });
+
+  const viewModeButtonStyle = (active: boolean): React.CSSProperties => ({
+    width: 38,
+    height: 30,
+    borderRadius: 8,
+    border: 'none',
+    background: active ? '#334155' : 'transparent',
+    color: active ? '#e2e8f0' : '#cbd5e1',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer'
+  });
+
+  // Tokenized loading avoids stale updates when selection changes quickly.
   const loadRecent = async (opts?: { hardReset?: boolean }) => {
     const token = ++recentLoadTokenRef.current;
     if (!selectedBlender || !window.electronAPI || !window.electronAPI.invoke) {
       if (token !== recentLoadTokenRef.current) return;
       setRecentFiles([]);
       setDisplayFiles([]);
-      setRecentVersion(null);
       setRecentLoading(false);
       return;
     }
@@ -58,7 +71,6 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
     if (opts?.hardReset) {
       setRecentFiles([]);
       setDisplayFiles([]);
-      setRecentVersion(null);
     }
 
     setRecentLoading(true);
@@ -68,11 +80,9 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
       if (token !== recentLoadTokenRef.current) return;
       if (res && res.files) {
         setRecentFiles(res.files);
-        setRecentVersion(res.version || null);
       } else {
         setRecentFiles([]);
         setDisplayFiles([]);
-        setRecentVersion(res?.version || null);
       }
     } catch (e:any) {
       if (token !== recentLoadTokenRef.current) return;
@@ -86,16 +96,10 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
 
   useEffect(() => { loadRecent({ hardReset: true }); }, [selectedBlender?.path]);
 
-  // When returning to list mode, refresh recents for the current blender to avoid stale rows.
   useEffect(() => {
     if (panel !== 'recent' || recentViewMode !== 'list' || !selectedBlender?.path) return;
     loadRecent();
   }, [panel, recentViewMode, selectedBlender?.path]);
-
-  // Addon loading moved to ViewAddon
-
-  console.log('[ViewPages] Rendu avec selectedBlender:', selectedBlender);
-  console.log('[ViewPages] isSettingsOpen:', isSettingsOpen);
 
   const handleLaunch = () => {
     if (selectedBlender && window.electronAPI && window.electronAPI.send) {
@@ -127,14 +131,13 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
           const reload = await window.electronAPI.invoke('get-recent-blend-files', { exePath: selectedBlender.path });
           if (reload && reload.files) {
             setRecentFiles(reload.files);
-            setRecentVersion(reload.version || null);
           }
         } catch {}
       }
-    } catch (e) { console.error('removeRecentPersistent error', e); }
+    } catch {}
   };
 
-  // Refresh recent files when a render session exits (headless render may write new files and update recent list)
+  // Render completion can update recents, so refresh once Blender has flushed files.
   useEffect(() => {
     const api: any = (window as any).electronAPI;
     if (!api || typeof api.on !== 'function') return;
@@ -147,14 +150,12 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
         const res = await api.invoke('get-recent-blend-files', { exePath: selectedBlender.path });
         if (res && res.files) {
           setRecentFiles(res.files);
-          setRecentVersion(res.version || null);
         }
       } catch {}
       finally { refreshing = false; }
     };
     const handler = (_: any, payload: any) => {
       if (payload?.event === 'EXIT' || payload?.event === 'DONE') {
-        // slight debounce to ensure Blender wrote recent files
         setTimeout(refresh, 400);
       }
     };
@@ -163,49 +164,22 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
   }, [selectedBlender?.path]);
 
   const handleOpenSettings = () => {
-    console.log('[ViewPages] Clic sur le bouton paramètres détecté!');
-    console.log('[ViewPages] selectedBlender:', selectedBlender);
     setIsSettingsOpen(true);
-    console.log('[ViewPages] isSettingsOpen défini à true');
   };
 
   const handleSaveSettings = (updatedBlender: BlenderExe) => {
-    console.log('[ViewPages] Envoi de la mise à jour du titre:', updatedBlender.title, 'pour', updatedBlender.path);
-    console.log('[ViewPages] window.electronAPI disponible:', !!window.electronAPI);
-    console.log('[ViewPages] window.electronAPI:', window.electronAPI);
-    console.log('[ViewPages] window.electronAPI.invoke existe:', !!window.electronAPI?.invoke);
-    if (window.electronAPI) {
-      // Affiche les clés réellement présentes pour debug
-      try {
-        console.log('[ViewPages] Clés electronAPI:', Object.keys(window.electronAPI as any));
-      } catch {}
-    }
-    
     if (window.electronAPI && window.electronAPI.invoke) {
       const payload = { path: updatedBlender.path, title: updatedBlender.title };
-      console.log('[ViewPages] Envoi IPC avec payload:', payload);
-      // Fire-and-forget; UI already reflects the input
       window.electronAPI.invoke('update-executable-title', payload)
-        .then((result: any) => {
-          console.log('[ViewPages] Résultat reçu:', result);
-          if (!result?.success) {
-            console.error('[ViewPages] Erreur lors de la mise à jour:', result?.error);
-          }
-        })
-        .catch((error: any) => console.error('[ViewPages] Erreur lors de l\'appel IPC:', error));
+        .then(() => {})
+        .catch(() => {});
     } else {
-      console.error('[ViewPages] electronAPI.invoke non disponible!');
-      // Fallback : mise à jour optimiste du titre uniquement en mémoire pour ne pas perdre l'action utilisateur
-      // (ne persiste pas dans config.json mais évite frustration visuelle)
       if (selectedBlender) {
         selectedBlender.title = updatedBlender.title;
       }
     }
   };
 
-  // (Global scrollbar styles now injected in index.html)
-
-  // Si un Blender est sélectionné, affiche sa page dédiée
   if (selectedBlender) {
     return (
       <div style={{
@@ -215,7 +189,6 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
         height: '100%',
         background: '#0F1419'
       }}>
-        {/* Header non scrollable */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -225,9 +198,8 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
           boxShadow: '0 4px 8px -4px rgba(0,0,0,0.55)',
           minWidth: 0
         }}>
-            {/* Icône */}
             <img
-            src={selectedBlender.icon || require('../../public/logo/png/Blender-Launcher-64x64.png')}
+            src={selectedBlender.icon || require('../../../../public/logo/png/Blender-Launcher-64x64.png')}
             alt="icon"
             style={{ 
               width: 80, 
@@ -239,7 +211,6 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
             }}
             draggable={false}
             />
-            {/* Titre et adresse */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <h1 style={{
                 fontSize: 32,
@@ -295,7 +266,6 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                 {selectedBlender.path}
               </p>
             </div>
-            {/* Boutons à droite */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
               <button
                 onClick={handleLaunch}
@@ -341,41 +311,24 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
               </button>
             </div>
           </div>
-        {/* Barre décor pleine largeur */}
         <div style={{ height: 2, background: 'linear-gradient(90deg, #374151 0%, #6b7280 50%, #374151 100%)' }} />
-        {/* Contenu scrollable (la scrollbar ne dépasse plus le header) */}
   <div className="hide-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24, padding: '24px 32px 32px 32px', overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginBottom: 8 }}>
             <div style={{ display: 'flex', gap: 10 }}>
               <button
                 onClick={() => { setPanel('recent'); loadRecent(); }}
-                style={{
-                  background: panel === 'recent' ? '#1f2937' : 'transparent',
-                  border: panel === 'recent' ? '1px solid #374151' : '1px solid transparent',
-                  color: '#fff',
-                  padding: '8px 14px',
-                  borderRadius: 8,
-                  fontWeight: panel === 'recent' ? 700 : 500
-                }}
+                style={panelButtonStyle(panel === 'recent')}
               >
                 {t('recent_files', 'Fichiers récents')}
               </button>
               <button
-                onClick={() => { setPanel('addons'); /* loadAddons will be triggered by effect */ }}
-                style={{
-                  background: panel === 'addons' ? '#1f2937' : 'transparent',
-                  border: panel === 'addons' ? '1px solid #374151' : '1px solid transparent',
-                  color: '#fff',
-                  padding: '8px 14px',
-                  borderRadius: 8,
-                  fontWeight: panel === 'addons' ? 700 : 500
-                }}
+                onClick={() => { setPanel('addons'); }}
+                style={panelButtonStyle(panel === 'addons')}
               >
                 {t('addons', 'Add-ons')}
               </button>
             </div>
           </div>
-          {/* Shared FindBar used for both Recent files and Addons */}
           <FindBar
             value={searchQuery}
             onChange={setSearchQuery}
@@ -384,36 +337,14 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
               <div style={{ display: 'inline-flex', gap: 4, padding: 2, borderRadius: 10, background: '#1a222b', border: '1px solid #2a3642', flexShrink: 0 }}>
                 <button
                   onClick={() => setRecentViewMode('list')}
-                  style={{
-                    width: 38,
-                    height: 30,
-                    borderRadius: 8,
-                    border: 'none',
-                    background: recentViewMode === 'list' ? '#334155' : 'transparent',
-                    color: recentViewMode === 'list' ? '#e2e8f0' : '#cbd5e1',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer'
-                  }}
+                  style={viewModeButtonStyle(recentViewMode === 'list')}
                   title={t('recent.list_view', 'Vue liste')}
                 >
                   <AiOutlineUnorderedList size={17} />
                 </button>
                 <button
                   onClick={() => setRecentViewMode('preview')}
-                  style={{
-                    width: 38,
-                    height: 30,
-                    borderRadius: 8,
-                    border: 'none',
-                    background: recentViewMode === 'preview' ? '#334155' : 'transparent',
-                    color: recentViewMode === 'preview' ? '#e2e8f0' : '#cbd5e1',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer'
-                  }}
+                  style={viewModeButtonStyle(recentViewMode === 'preview')}
                   title={t('recent.preview_view', 'Vue preview')}
                 >
                   <AiOutlineAppstore size={17} />
@@ -433,7 +364,6 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
               {!recentLoading && !recentError && recentFiles.length === 0 && (
                 <div style={{ color: '#64748b', fontSize: 14 }}>{t('recent.none_for_build', 'Aucun fichier récent disponible pour ce build.')}</div>
               )}
-              {/* Keep Filter mounted for query/sort computation, hide header in preview mode */}
               <div style={{ display: recentViewMode === 'list' ? 'block' : 'none' }}>
                 <Filter files={recentFiles} query={searchQuery} onSorted={(sorted) => { setDisplayFiles(sorted); }} />
               </div>
@@ -462,7 +392,6 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
           )}
         </div>
         
-        {/* Popup de paramètres */}
         {selectedBlender && (
           <ViewSettings
             isOpen={isSettingsOpen}
@@ -476,7 +405,6 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
           filePath={openWithFile}
           onClose={() => setOpenWithFile(null)}
         />
-        {/* Render popup embedded without launcher card */}
         {renderForFile && (
           <ViewRender
             showLauncherButton={false}
@@ -490,7 +418,6 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
     );
   }
 
-  // Sinon, affiche la homepage par défaut
   return (
     <div style={{
       flex: 1,

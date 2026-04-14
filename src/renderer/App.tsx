@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AiOutlineBuild, AiOutlineInbox } from 'react-icons/ai';
-import Navbar from './Navbar';
-import Sidebar from './Sidebar';
-import ViewPages from './ViewPages';
-import Home from './Home';
-import InAppWeb, { InAppWebHandle } from './InAppWeb';
-import ViewRepo, { SimpleRepoRef } from './ViewRepo';
-import ViewExtensions from './ViewExtensions';
-import ViewOfficial from './ViewOfficial';
-import Loading from './Loading';
-import SettingsPage from './SettingsPage';
-import ViewBuildManager, { PendingBuild } from './ViewBuildManager';
+import Navbar from './layout/Navbar';
+import Sidebar from './layout/Sidebar';
+import ViewPages from './features/recent/ViewPages';
+import Home from './pages/Home';
+import InAppWeb, { InAppWebHandle } from './features/web/InAppWeb';
+import ViewRepo, { SimpleRepoRef } from './features/repo/ViewRepo';
+import ViewExtensions from './features/extensions/ViewExtensions';
+import ViewOfficial from './features/build/ViewOfficial';
+import Loading from './shared/ui/Loading';
+import SettingsPage from './features/settings/SettingsPage';
+import ViewBuildManager, { PendingBuild } from './features/build/ViewBuildManager';
 
 type BlenderExe = {
   path: string;
@@ -38,14 +38,14 @@ const App: React.FC = () => {
   const [selectedRepo, setSelectedRepo] = useState<SimpleRepoRef | null>(null);
   const [extensionQuery, setExtensionQuery] = useState<string | null>(null);
   
-  // Clone/Build popup state
+  // Modal state for official download / clone-build workflow.
   const [showCloneBuildPopup, setShowCloneBuildPopup] = useState(false);
 
-  // Pending builds: repos being cloned or awaiting compilation
+  // Jobs are persisted in config and restored on startup.
   const [pendingBuilds, setPendingBuilds] = useState<PendingBuild[]>([]);
   const [activePendingId, setActivePendingId] = useState<string | null>(null);
 
-  // Load persisted pending clones from config on startup
+  // Restore pending clone jobs so the UI can continue after app restart.
   useEffect(() => {
     (async () => {
       try {
@@ -73,7 +73,7 @@ const App: React.FC = () => {
     })();
   }, []);
   
-  // Clone/Download progress state (supports both clone and download)
+  // Shared bottom progress bar state (clone/download/build).
   const [cloneState, setCloneState] = useState<{ 
     isCloning?: boolean;
     isDownloading?: boolean;
@@ -86,7 +86,7 @@ const App: React.FC = () => {
     version?: string;
   } | null>(null);
 
-  // Elapsed time counter for the bottom progress bar
+  // Local timer for MM:SS display in progress bar.
   const [elapsedSec, setElapsedSec] = useState(0);
   useEffect(() => {
     if (!cloneState?.startTime) { setElapsedSec(0); return; }
@@ -97,7 +97,7 @@ const App: React.FC = () => {
     return () => clearInterval(iv);
   }, [cloneState?.startTime]);
 
-  // Global listener for download progress (official builds)
+  // Official build downloader progress events.
   useEffect(() => {
     const handler = (_: any, data: any) => {
       if (!data) return;
@@ -117,9 +117,7 @@ const App: React.FC = () => {
           text: t('done', 'Terminé'),
           version: cloneState?.version || undefined
         });
-        // Clear after short delay
         setTimeout(() => setCloneState(null), 3000);
-        // Rafraîchir la liste des exécutables
         if (window.electronAPI?.getBlenders) {
           window.electronAPI.getBlenders().catch(()=>{});
         }
@@ -138,7 +136,7 @@ const App: React.FC = () => {
     return () => (window as any).electronAPI?.off?.('download-progress', handler);
   }, []);
 
-  // Refresh blenders list when new one added
+  // Keep sidebar list in sync after installation/clone completion.
   useEffect(() => {
     const handler = async () => {
       if (window.electronAPI?.getBlenders) {
@@ -149,11 +147,11 @@ const App: React.FC = () => {
     return () => (window as any).electronAPI?.off?.('blenders-updated', handler);
   }, []);
 
-  // Listener for jobId-tagged clone-progress events → updates pendingBuilds
+  // Centralized job-state reducer for clone/build jobs.
   useEffect(() => {
     const handler = (_: any, data: any) => {
       const jobId: string | undefined = data?.jobId;
-      if (!jobId) return; // ignore old-style events without jobId (handled by ViewRepo/bottom bar)
+      if (!jobId) return;
       const ev: string = data?.event;
       const logLine: string = (data?.text || data?.message || '').trim();
       const pct: number | undefined = typeof data?.progress === 'number' ? data.progress : undefined;
@@ -161,7 +159,7 @@ const App: React.FC = () => {
       setPendingBuilds((prev) => {
         const idx = prev.findIndex((p) => p.id === jobId);
 
-        // Unknown jobId on START → create new entry
+        // Job can be emitted before the entry exists (fresh clone started from modal).
         if (idx < 0) {
           if (ev !== 'START') return prev;
           const newBuild: PendingBuild = {
@@ -175,7 +173,6 @@ const App: React.FC = () => {
             currentText: logLine || t('clone.in_progress', 'Clonage en cours…'),
             logLines: logLine ? [logLine] : [],
           };
-          // Also show the bottom bar for cloning
           setCloneState({ isCloning: true, jobId, startTime: Date.now(), progress: 0, text: logLine || t('clone.in_progress', 'Clonage en cours…'), repoName: data?.repoName || data?.repoUrl || 'Dépôt' });
           return [...prev, newBuild];
         }
@@ -193,7 +190,6 @@ const App: React.FC = () => {
           case 'START':
             next[idx] = {
               ...item,
-              // If already cloned/building/error, START means a build is beginning
               status: item.status === 'cloned' || item.status === 'building' || item.status === 'error' ? 'building' : 'cloning',
               progress: 0,
               currentText: logLine || (item.status === 'cloned' || item.status === 'building' || item.status === 'error' ? t('compile.in_progress', 'Compilation en cours…') : item.currentText),
@@ -203,14 +199,12 @@ const App: React.FC = () => {
           case 'PROGRESS':
           case 'LOG':
             next[idx] = { ...item, progress, currentText: logLine || item.currentText, logLines: newLogs };
-            // Update bottom bar for building/cloning jobs
             if (isBuilding || isCloning) {
               setCloneState((prev) => prev && prev.jobId === jobId ? { ...prev, progress, text: logLine || prev.text } : prev);
             }
             break;
           case 'DONE':
             if (data?.path) {
-              // Clone finished → ready to build
               next[idx] = {
                 ...item,
                 status: 'cloned',
@@ -219,10 +213,8 @@ const App: React.FC = () => {
                 currentText: t('clone.done_click_compile', 'Clone terminé — cliquez pour compiler'),
                 logLines: newLogs,
               };
-              // Clear bottom bar for clone done
               setCloneState((prev) => prev && prev.jobId === jobId ? null : prev);
             } else if (data?.exe) {
-              // Build finished → done
               next[idx] = {
                 ...item,
                 status: 'done',
@@ -231,10 +223,8 @@ const App: React.FC = () => {
                 currentText: t('compile.done', 'Compilation terminée !'),
                 logLines: newLogs,
               };
-              // Clear bottom bar for build done
               setCloneState((prev) => prev && prev.jobId === jobId ? null : prev);
               window.electronAPI?.getBlenders?.().catch(() => {});
-              // Auto-remove the pending entry after 8 s
               setTimeout(() => {
                 setPendingBuilds((p) => p.filter((b) => b.id !== jobId));
               }, 8000);
@@ -248,7 +238,6 @@ const App: React.FC = () => {
               currentText: `${t('error', 'Erreur')}: ${data?.message || t('unknown', 'Inconnue')}`,
               logLines: newLogs,
             };
-            // Clear bottom bar on error
             setCloneState((prev) => prev && prev.jobId === jobId ? null : prev);
             break;
           default:
@@ -261,7 +250,7 @@ const App: React.FC = () => {
     return () => (window as any).electronAPI?.off?.('clone-progress', handler);
   }, []);
 
-  // Start build for a pending entry
+  // Trigger compilation for an already-cloned source tree.
   const handleStartBuild = useCallback(async (id: string) => {
     const build = pendingBuilds.find((p) => p.id === id);
     if (!build?.clonedPath) return;
@@ -270,9 +259,7 @@ const App: React.FC = () => {
         p.id === id ? { ...p, status: 'building' as const, progress: 0, logLines: [], currentText: 'Démarrage…' } : p
       )
     );
-    // Show bottom progress bar for the build
     setCloneState({ isBuilding: true, jobId: id, startTime: Date.now(), progress: 0, text: t('compile.starting', 'Démarrage de la compilation…'), repoName: build.repoName });
-    // Close the popup
     setActivePendingId(null);
     (window as any).electronAPI?.invoke?.('build-cloned', {
       src: build.clonedPath,
@@ -283,11 +270,11 @@ const App: React.FC = () => {
 
   console.log('[App] Rendu - page:', page, 'selectedBlender:', selectedBlender);
 
-  // Écran de chargement au démarrage
+  // Startup splash screen while reading baseline config.
   const [isBootLoading, setIsBootLoading] = useState<boolean>(true);
   const [bootStatus, setBootStatus] = useState<string>(t('prep', 'Préparation…'));
 
-  // Écouter les changements de config pour mettre à jour la sélection
+  // Keep selected executable coherent with external updates.
   useEffect(() => {
     const handleConfigUpdate = async () => {
       if (selectedBlender && window.electronAPI && window.electronAPI.getBlenders) {
@@ -307,7 +294,6 @@ const App: React.FC = () => {
 
     const handleExecutableUpdated = async (_event: any, payload: any) => {
       if (!payload?.newExecutable) return;
-      // Si l'exécutable mis à jour correspond à celui sélectionné (par ancien chemin ou titre préservé), mettre à jour immédiatement
       if (selectedBlender && (payload.oldPath === selectedBlender.path || payload.newExecutable.title === selectedBlender.title)) {
         setSelectedBlender(payload.newExecutable);
       }
@@ -333,17 +319,16 @@ const App: React.FC = () => {
     }
   }, [selectedBlender]);
 
-  // Last launched blender (for Discord presence & display)
+  // Last launched executable is used for Discord presence updates.
   const [lastLaunched, setLastLaunched] = useState<BlenderExe | null>(null);
-  // Render progress bar (global)
+  // Global headless render progress.
   const [renderState, setRenderState] = useState<{ active: boolean; done: number; total: number; label?: string; stats?: string }|null>(null);
 
-  // Charger la config minimale au démarrage (général/steam/discord availability) et pré-scan si demandé
+  // Load baseline config and optionally trigger a post-boot scan.
   useEffect(() => {
     const load = async () => {
       if (!window.electronAPI?.invoke) return;
       try {
-        // General config
         setBootStatus(t('boot.loading_general_config', 'Chargement de la configuration générale…'));
         let generalScan = false;
         try {
@@ -351,15 +336,12 @@ const App: React.FC = () => {
           generalScan = !!general?.scanOnStartup;
         } catch {}
 
-        // Précharger la liste des fichiers récents (pour affichage rapide)
         setBootStatus(t('boot.loading_recent_files', 'Récupération des fichiers récents…'));
         try { await window.electronAPI.invoke('get-recent-blend-files'); } catch {}
 
-        // Finaliser
         setBootStatus(t('boot.preparing_interface', 'Préparation de l’interface…'));
         setTimeout(() => setIsBootLoading(false), 250);
 
-        // Scanner le système (conditionnel) après l'affichage initial pour réactivité
         if (generalScan) {
           try { await window.electronAPI.invoke('scan-and-merge-blenders'); } catch {}
         }
@@ -368,7 +350,7 @@ const App: React.FC = () => {
     load();
   }, []);
 
-  // Mise a jour presence a chaque launch (si enabled)
+  // Refresh Discord presence when a Blender launch is recorded.
   useEffect(() => {
     if (!lastLaunched) return;
     const api = window.electronAPI; // capture
@@ -387,7 +369,7 @@ const App: React.FC = () => {
     })();
   }, [lastLaunched]);
 
-  // Presence idle quand activé mais aucun Blender encore lancé
+  // Keep an idle presence when Discord is enabled and nothing is running.
   useEffect(() => {
     if (lastLaunched) return; // idle only when nothing launched
     const api = window.electronAPI;
@@ -403,11 +385,7 @@ const App: React.FC = () => {
     })();
   }, [lastLaunched]);
 
-  // settings page moved to dedicated component
-
-  // Page d'accueil (externalisée dans Home.tsx)
-
-  // Listen to tray navigation/toast events
+  // React to tray actions (navigation + notifications).
   useEffect(() => {
     const api: any = (window as any).electronAPI;
     if (!api || typeof api.on !== 'function') return;
@@ -430,7 +408,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Listen to progress events from main
+  // Listen to render progress from main process.
   useEffect(() => {
     const api: any = (window as any).electronAPI;
     if (!api || typeof api.on !== 'function') return;
@@ -453,7 +431,6 @@ const App: React.FC = () => {
         setRenderState((prev) => prev ? { ...prev, stats: pretty } : prev);
       } else if (ev === 'DONE' || ev === 'EXIT') {
         setRenderState((prev) => prev ? { ...prev, done: prev.total, label: t('done', 'Terminé') } : { active: false, done: 1, total: 1, label: t('done', 'Terminé') });
-        // Hide after short delay
         setTimeout(() => setRenderState(null), 1200);
       } else if (ev === 'CANCEL' || ev === 'ERROR') {
         setRenderState({ active: false, done: 0, total: 1, label: ev === 'ERROR' ? t('render.error', 'Erreur de rendu') : t('render.cancelled', 'Rendu annulé') });
@@ -466,8 +443,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Gestion centralisée de la sélection d'un Blender :
-  // - Si on est dans la page settings, bascule automatiquement sur home pour afficher la vue de l'app.
+  // Centralized app history so toolbar back/forward stays deterministic.
   const pushAppEntry = (entry: NavEntry) => {
     setAppHistory((prev) => {
       const base = prev.slice(0, appIndex + 1);
@@ -475,7 +451,6 @@ const App: React.FC = () => {
       return next;
     });
     setAppIndex((i) => i + 1);
-    // apply state
     setPage(entry.page as any);
     setSelectedRepo(entry.repo || null);
     setSelectedBlender(entry.blender || null);
@@ -502,19 +477,29 @@ const App: React.FC = () => {
     pushAppEntry({ page: 'pages', blender: b });
   };
 
-  // Clic sur Home : on revient sur page d'accueil réelle (donc on efface la sélection)
   const handleHome = () => {
     setSelectedBlender(null);
     setSelectedRepo(null);
     pushAppEntry({ page: 'home' });
   };
 
+  const runWebHistoryScript = (script: string) => {
+    try {
+      const w = document.querySelector('webview') as any;
+      if (w && typeof w.executeJavaScript === 'function') {
+        w.executeJavaScript(script);
+        return true;
+      }
+    } catch (e) {
+      console.warn('[App] webview script fallback failed', e);
+    }
+    return false;
+  };
+
   // Web navigation helpers
   const openWeb = (url: string) => {
     if (!url) return;
-    // push app entry and open web
     pushAppEntry({ page: 'web', webUrl: url });
-    // webUrl will be set by pushAppEntry
     setWebHistory((prev) => {
       const base = prev.slice(0, webIndex + 1);
       const next = base.concat(url);
@@ -527,28 +512,16 @@ const App: React.FC = () => {
   const goBack = () => {
     if (!canGoBack) return;
     setPage('web');
-    // Prefer native webview navigation
     if (webRef.current && typeof webRef.current.goBack === 'function') {
       try { webRef.current.goBack(); } catch (e) { console.warn('[App] webRef.goBack failed', e); }
       return;
     }
-    // Fallback to app-level history navigation
     if (webIndex > 0) {
       const nextIndex = Math.max(0, webIndex - 1);
       setWebIndex(nextIndex);
       setWebUrl(webHistory[nextIndex]);
     }
-    // Additional fallback: try webview.executeJavaScript('history.back()')
-    try {
-      const w = document.querySelector('webview');
-      // @ts-ignore
-      if (w && typeof w.executeJavaScript === 'function') {
-        // run in page context
-        // @ts-ignore
-        w.executeJavaScript('history.back();');
-        return;
-      }
-    } catch (e) { console.warn('[App] executeJavaScript fallback failed', e); }
+    runWebHistoryScript('history.back();');
   };
   const goForward = () => {
     if (!canGoForward) return;
@@ -562,15 +535,7 @@ const App: React.FC = () => {
       setWebIndex(nextIndex);
       setWebUrl(webHistory[nextIndex]);
     }
-    try {
-      const w = document.querySelector('webview');
-      // @ts-ignore
-      if (w && typeof w.executeJavaScript === 'function') {
-        // @ts-ignore
-        w.executeJavaScript('history.forward();');
-        return;
-      }
-    } catch (e) { console.warn('[App] executeJavaScript forward fallback failed', e); }
+    runWebHistoryScript('history.forward();');
   };
   const webHome = () => {
     // push app-level entry for web home
@@ -666,7 +631,6 @@ const App: React.FC = () => {
                     onNavigated={(u) => {
                       if (!u) return;
                       setWebUrl(u);
-                      // sync app-level history: if different from last, append
                       setWebHistory((prev) => {
                         const last = prev[webIndex];
                         if (last === u) return prev;
@@ -753,7 +717,7 @@ const App: React.FC = () => {
         onClose={() => setShowCloneBuildPopup(false)}
         onDownloadStateChange={setCloneState}
       />
-      {/* Build Manager popup (opened by clicking a grayed sidebar entry) */}
+      {/* Build Manager popup (opened from a pending sidebar entry). */}
       {activePendingId && (() => {
         const pb = pendingBuilds.find((p) => p.id === activePendingId);
         if (!pb) { setActivePendingId(null); return null; }

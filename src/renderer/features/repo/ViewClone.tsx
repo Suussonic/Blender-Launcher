@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AiOutlineBulb, AiOutlineCloseCircle } from 'react-icons/ai';
 import { useTranslation } from 'react-i18next';
-import ModalCloseButton from './components/ModalCloseButton';
+import ModalCloseButton from '../../shared/components/ModalCloseButton';
 
 interface ViewCloneProps {
 	isOpen: boolean;
@@ -22,7 +22,7 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 	const [cloning, setCloning] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// Load branches
+	// Load available branches when the modal opens.
 	useEffect(() => {
 		if (!isOpen || !owner || !repoName) return;
 		const loadBranches = async () => {
@@ -43,20 +43,18 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 		void loadBranches();
 	}, [isOpen, owner, repoName]);
 
-	// Default folder name from repo+branch
+	// Use branch name as default folder label.
 	useEffect(() => {
 		if (repoName && selectedBranch) {
-			// Clean folder name: just branch name, removing "blender-" prefix if present
 			const cleanBranch = selectedBranch.replace(/^blender-/i, '');
 			setFolderName(cleanBranch);
 		}
 	}, [repoName, selectedBranch]);
 
-	// Progress routing to bottom bar (for events without a jobId from legacy clone-repository usage)
+	// Route legacy clone-progress events (without jobId) to the bottom progress bar.
 	useEffect(() => {
 		if (!isOpen) return;
 		const handler = (_: any, progressData: any) => {
-			// Only handle untagged events (jobId-tagged events are handled by App.tsx)
 			if (progressData?.jobId) return;
 			const pct = typeof progressData?.progress === 'number' ? progressData.progress : 0;
 			const text = progressData?.text || '';
@@ -76,13 +74,13 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 	const handleClone = async () => {
 		if (!targetLocation || !folderName.trim()) return;
 
-		// Generate a unique jobId for this clone operation
+		// Correlates UI events for this clone request across processes.
 		const jobId = `clone-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 		setCloning(true);
 		setError(null);
 
-		// Transform GitHub mirror URL to official Blender repository
+		// Prefer the official forge URL when the public GitHub mirror is selected.
 		let finalRepoUrl = repoUrl;
 		if (repoUrl.includes('github.com/blender/blender')) {
 			finalRepoUrl = 'https://projects.blender.org/blender/blender.git';
@@ -92,7 +90,7 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 
 		console.log('[ViewClone] invoking clone-only:', { jobId, repoUrl: finalRepoUrl, branch: selectedBranch, target: targetLocation, name: folderName.trim() });
 
-		// Fire clone-only (no compilation); App.tsx's clone-progress listener creates the pending entry
+		// Start clone only; compilation is explicitly started later from pending jobs.
 		(window as any).electronAPI?.invoke?.('clone-only', {
 			repoUrl: finalRepoUrl,
 			url: finalRepoUrl,
@@ -108,7 +106,7 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 			console.error('[ViewClone] clone-only error', e);
 		});
 
-		// Close dialog immediately; progress is tracked via the grayed sidebar entry
+		// Progress continues from the pending job in the sidebar.
 		setCloning(false);
 		onClose();
 	};
@@ -148,7 +146,7 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 							</div>
 						)}
 					</div>
-				{/* Avertissement sur la durée */}
+				{/* Build is intentionally separated from clone to let users validate source first. */}
 				{targetLocation && folderName.trim() && (
 					<div style={{ padding: '12px 16px', borderTop: '1px solid #1f2932', background:'#0f1518' }}>
 						<div style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.4 }}>

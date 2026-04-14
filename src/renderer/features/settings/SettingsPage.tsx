@@ -17,28 +17,22 @@ type Props = {
 const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) => {
   const { t, i18n } = useTranslation();
 
-  // Discord
   const [discordEnabled, setDiscordEnabled] = useState(false);
   const [discordShowFile, setDiscordShowFile] = useState(true);
   const [discordShowTitleOpt, setDiscordShowTitleOpt] = useState(true);
   const [discordAvailable, setDiscordAvailable] = useState<boolean | null>(null);
-  // Steam
   const [steamEnabled, setSteamEnabled] = useState(false);
   const [steamAvailable, setSteamAvailable] = useState<boolean | null>(null);
-  // General
   const [scanOnStartup, setScanOnStartup] = useState<boolean>(false);
   const [exitOnClose, setExitOnClose] = useState<boolean>(false);
   const [launchOnStartup, setLaunchOnStartup] = useState<boolean>(false);
 
-  // Local scan button state
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState<string | null>(null);
 
-  // Load settings on mount
   useEffect(() => {
     const load = async () => {
       try {
-        // Discord
         const cfg = await window.electronAPI?.invoke?.('get-discord-config');
         if (cfg) {
           setDiscordEnabled(!!cfg.enabled);
@@ -51,7 +45,6 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
           if (!avail?.available) setDiscordEnabled(false);
         } catch {}
 
-        // General
         try {
           const general = await window.electronAPI?.invoke?.('get-general-config');
           setScanOnStartup(!!general?.scanOnStartup);
@@ -59,7 +52,6 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
           setLaunchOnStartup(!!general?.launchOnStartup);
         } catch {}
 
-        // Steam
         const steamCfg = await window.electronAPI?.invoke?.('get-steam-config');
         if (steamCfg) setSteamEnabled(!!steamCfg.enabled);
         try {
@@ -74,7 +66,6 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
     load();
   }, []);
 
-  // Persist Discord/Steam settings
   useEffect(() => {
     const save = async () => {
       if (!window.electronAPI?.invoke) return;
@@ -94,7 +85,6 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
     return () => clearTimeout(h);
   }, [discordEnabled, discordShowFile, discordShowTitleOpt, steamEnabled]);
 
-  // Persist general settings
   useEffect(() => {
     const saveGeneral = async () => {
       if (!window.electronAPI?.invoke) return;
@@ -106,7 +96,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
     };
     const h = setTimeout(saveGeneral, 300);
     return () => clearTimeout(h);
-  }, [scanOnStartup, exitOnClose]);
+  }, [scanOnStartup, exitOnClose, launchOnStartup]);
 
   const runScanNow = async () => {
     if (!window.electronAPI?.invoke || scanning) return;
@@ -152,12 +142,10 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
         gap: 48,
       }}
     >
-      {/* Section Général */}
       <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <h2 style={{ fontWeight: 700, fontSize: 32, margin: '0 0 8px 0' }}>Général</h2>
         <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
         <div style={{ width: '100%', maxWidth: 520 }}>
-          {/* 1) Scanner au démarrage */}
           <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
             <input type="checkbox" checked={scanOnStartup} onChange={e => setScanOnStartup(e.target.checked)} style={{ width: 20, height: 20 }} />
             <span style={{ fontSize: 16, fontWeight: 500 }}>Scanner au démarrage</span>
@@ -166,7 +154,6 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
             Lance automatiquement un scan des installations Blender au lancement.
           </div>
 
-          {/* 2) Bouton Scanner maintenant (placé entre les deux cases) */}
           <div style={{ height: 14 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 4px 0' }}>
             <button
@@ -190,7 +177,6 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
           </div>
           <div style={{ height: 14 }} />
 
-          {/* 3) Quitter à la fermeture de la fenêtre */}
           <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
             <input
               type="checkbox"
@@ -210,7 +196,6 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
             Si désactivé, la fenêtre sera masquée dans la zone de notification.
           </div>
           <div style={{ height: 12 }} />
-          {/* 4) Lancer au démarrage */}
           <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
             <input
               type="checkbox"
@@ -232,7 +217,6 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
         </div>
       </div>
 
-      {/* Section Affichage / Langue */}
       <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <h2 style={{ fontWeight: 700, fontSize: 32, margin: '0 0 8px 0' }}>{t('display')}</h2>
         <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
@@ -258,7 +242,6 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
         </div>
       </div>
 
-      {/* Section Discord */}
       <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <h2 style={{ fontWeight: 700, fontSize: 32, margin: '0 0 8px 0' }}>Discord</h2>
         <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
@@ -284,7 +267,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
             {lastLaunched && (
               <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#94a3b8' }}>
                 <img
-                  src={lastLaunched.icon || require('../../public/logo/png/Blender-Launcher-64x64.png')}
+                  src={lastLaunched.icon || require('../../../../public/logo/png/Blender-Launcher-64x64.png')}
                   alt="icon"
                   style={{ width: 28, height: 28, borderRadius: 6 }}
                 />
@@ -312,7 +295,6 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
         </div>
       </div>
 
-      {/* Section Steam */}
       <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <h2 style={{ fontWeight: 700, fontSize: 32, margin: '0 0 8px 0' }}>Steam</h2>
         <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
@@ -338,7 +320,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
             {lastLaunched && (
               <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#94a3b8' }}>
                 <img
-                  src={lastLaunched.icon || require('../../public/logo/png/Blender-Launcher-64x64.png')}
+                  src={lastLaunched.icon || require('../../../../public/logo/png/Blender-Launcher-64x64.png')}
                   alt="icon"
                   style={{ width: 28, height: 28, borderRadius: 6 }}
                 />
@@ -354,7 +336,6 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
         </div>
       </div>
 
-      {/* Spacer */}
       <div style={{ height: renderActive ? '20vh' : '16vh' }} />
     </div>
   );

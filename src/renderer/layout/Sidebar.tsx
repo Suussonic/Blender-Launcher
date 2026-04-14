@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PendingBuild } from './ViewBuildManager';
+import { PendingBuild } from '../features/build/ViewBuildManager';
 
 type BlenderExe = {
   path: string;
@@ -28,20 +28,17 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
   const pendingRaf = useRef<number | null>(null);
   const lastClientY = useRef<number | null>(null);
 
-  // Load applications from config.json on mount
   useEffect(() => {
     const loadBlenders = async () => {
       try {
         if (window.electronAPI && window.electronAPI.getBlenders) {
-          console.log('[Sidebar] Chargement des applications depuis config.json');
           const list = await window.electronAPI.getBlenders();
           if (Array.isArray(list)) {
             setBlenders(list as BlenderExe[]);
-            console.log('[Sidebar] Applications chargées:', list.length);
           }
         }
       } catch (e) {
-        console.error('[Sidebar] Erreur lors du chargement:', e);
+        console.error('[Sidebar] load failed:', e);
       }
     };
     loadBlenders();
@@ -49,59 +46,53 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
 
 
   useEffect(() => {
-    // Handler pour recevoir le chemin du fichier sélectionné lors d'un nouvel import
-    if (window.electronAPI && window.electronAPI.on) {
-      console.log('[Sidebar] Enregistrement du listener selected-blender-folder');
-      window.electronAPI.on('selected-blender-folder', (event: any, payload: any) => {
-        // payload = { filePath, iconPath }
-        const filePath = payload?.filePath;
-        console.log('[Sidebar] Event selected-blender-folder reçu, filePath =', filePath);
-        if (!filePath) return;
-        
-        // Vérifie si déjà présent pour afficher l'erreur
-        const exists = blenders.some(b => b.path === filePath);
-        if (exists) {
-          setError(t('import.already_exists', 'Ce fichier est déjà importé !'));
-        }
+    const api = window.electronAPI;
+    if (!api || !api.on) return;
+
+    const refreshList = async () => {
+      try {
+        const list = await api.getBlenders?.();
+        if (Array.isArray(list)) setBlenders(list as BlenderExe[]);
+      } catch (e) {
+        console.error('[Sidebar] refresh failed:', e);
+      }
+    };
+
+    const onSelectedFolder = (_event: any, payload: any) => {
+      const filePath = payload?.filePath;
+      if (!filePath) return;
+      setBlenders((prev) => {
+        const exists = prev.some((b) => b.path === filePath);
+        if (exists) setError(t('import.already_exists', 'Ce fichier est déjà importé !'));
+        return prev;
       });
+    };
 
-      // Handler pour recharger quand la config est mise à jour
-      window.electronAPI.on('config-updated', async () => {
-        console.log('[Sidebar] Config mise à jour, rechargement...');
-        try {
-          const list = await window.electronAPI?.getBlenders();
-          if (Array.isArray(list)) {
-            setBlenders(list as BlenderExe[]);
-          }
-        } catch (e) {
-          console.error('[Sidebar] Erreur lors du rechargement:', e);
-        }
-      });
+    const onConfigUpdated = async () => {
+      await refreshList();
+    };
 
-      // Handler pour mise à jour d'un exécutable spécifique
-      window.electronAPI.on('executable-updated', async (event: any, payload: any) => {
-        console.log('[Sidebar] Exécutable mis à jour:', payload);
-        try {
-          const list = await window.electronAPI?.getBlenders();
-          if (Array.isArray(list)) {
-            setBlenders(list as BlenderExe[]);
-            
-            // Maintenir la sélection sur l'exécutable mis à jour
-            if (payload?.newExecutable && selectedBlender?.path === payload.oldPath) {
-              onSelectBlender(payload.newExecutable);
-            }
-          }
-        } catch (e) {
-          console.error('[Sidebar] Erreur lors de la mise à jour:', e);
-        }
-      });
-    } else {
-      console.log('[Sidebar] electronAPI.on non disponible');
-    }
-  }, [blenders]);
+    const onExecutableUpdated = async (_event: any, payload: any) => {
+      await refreshList();
+      if (payload?.newExecutable && selectedBlender?.path === payload.oldPath) {
+        onSelectBlender(payload.newExecutable);
+      }
+    };
+
+    api.on('selected-blender-folder', onSelectedFolder);
+    api.on('config-updated', onConfigUpdated as any);
+    api.on('executable-updated', onExecutableUpdated as any);
+
+    return () => {
+      try {
+        api.off?.('selected-blender-folder', onSelectedFolder);
+        api.off?.('config-updated', onConfigUpdated as any);
+        api.off?.('executable-updated', onExecutableUpdated as any);
+      } catch {}
+    };
+  }, [onSelectBlender, selectedBlender?.path, t]);
 
 
-  // Auto-clear errors after 2.5s
   React.useEffect(() => {
     if (error) {
       const timer = setTimeout(() => setError(null), 2500);
@@ -109,23 +100,16 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
     }
   }, [error]);
 
-  // Single click selects an executable
   const handleClick = (exe: BlenderExe) => {
     onSelectBlender(exe);
   };
 
-  // Double click launches Blender
   const handleDoubleClick = (exe: BlenderExe) => {
     if (window.electronAPI && window.electronAPI.send) {
       window.electronAPI.send('launch-blender', exe.path);
     }
   };
 
-  // Log pour debug du rendu
-  console.log('[Sidebar] Render, blenders =', blenders);
-  // (Global scrollbar styles now injected in index.html)
-
-  // Spinner keyframes (injected once)
   const spinnerStyle = `
     @keyframes bl-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   `;
@@ -157,7 +141,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* Error popup */}
       {error && (
         <div
           onClick={() => setError(null)}
@@ -182,7 +165,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
           {error}
         </div>
       )}
-      {/* "My applications" title (shown only when at least one item exists) */}
       {blenders.length > 0 && (
         <>
           <div style={{ width: '100%', padding: '24px 0 24px 0', textAlign: 'center', fontWeight: 700, fontSize: 18, color: '#fff', letterSpacing: 0.5, opacity: 0.95 }}>
@@ -192,7 +174,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
         </>
       )}
   <div ref={containerRef} className="hide-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: blenders.length === 0 && pendingBuilds.length === 0 ? 'center' : 'flex-start', alignItems: 'center', overflowY: 'auto', paddingBottom: 24, touchAction: isDragging ? 'none' : 'pan-y' }}>
-        {/* Spinner CSS */}
         <style dangerouslySetInnerHTML={{ __html: spinnerStyle }} />
         {blenders.length === 0 && pendingBuilds.length === 0 ? (
           <span style={{ color: '#888', fontSize: 16, opacity: 0.7, textAlign: 'center', marginTop: 0 }}>{t('no_app')}</span>
@@ -224,7 +205,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
               title={b.path}
             >
               <img
-                src={b.icon ? b.icon : require('../../public/logo/png/Blender-Launcher-64x64.png')}
+                src={b.icon ? b.icon : require('../../../public/logo/png/Blender-Launcher-64x64.png')}
                 alt="icon"
                 style={{ width: 36, height: 36, borderRadius: 7, marginRight: 8, background: 'transparent', flexShrink: 0 }}
                 draggable={false}
@@ -241,29 +222,24 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
                 {b.title || b.name}
               </div>
 
-              {/* Drag handle: six small dots on the right — pointer handlers live here */}
               <div
                 onPointerDown={(ev) => {
                   ev.stopPropagation();
                   (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
-                  console.log('[Sidebar] pointerdown on handle', i, 'type=', ev.pointerType);
                   setPressedIndex(i);
                   if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
                   if (ev.pointerType === 'mouse') {
                     draggingIndexRef.current = i;
                     setIsDragging(true);
-                    console.log('[Sidebar] drag started immediately (mouse) index', i);
                   } else {
                     longPressTimer.current = window.setTimeout(() => {
                       draggingIndexRef.current = i;
                       setIsDragging(true);
-                      console.log('[Sidebar] drag started after long-press index', i);
                     }, 260) as unknown as number;
                   }
                 }}
                 onPointerMove={(ev) => {
                   ev.preventDefault();
-                  // store latest Y and schedule a rAF to process
                   lastClientY.current = ev.clientY;
                   if (!isDragging) return;
                   if (pendingRaf.current) return;
@@ -286,9 +262,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
                       const [moved] = copy.splice(fromIdx, 1);
                       copy.splice(targetIdx, 0, moved);
                       draggingIndexRef.current = targetIdx;
-                      // batch update
                       setBlenders(copy);
-                      console.log('[Sidebar] pointermove (raf): from', fromIdx, 'to', targetIdx);
                     } catch (e) { console.error('pointer drag rAF error', e); }
                     pendingRaf.current = null;
                   });
@@ -300,7 +274,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
                   if (isDragging) {
                     setIsDragging(false);
                     const paths = blenders.map(x => x.path);
-                    try { window.electronAPI?.invoke('reorder-blenders', paths); console.log('[Sidebar] reorder invoked', paths); } catch (e) { console.error('reorder-blenders ipc failed', e); }
+                    try { window.electronAPI?.invoke('reorder-blenders', paths); } catch (e) { console.error('reorder-blenders ipc failed', e); }
                     draggingIndexRef.current = null;
                   }
                   setPressedIndex(null);
@@ -347,7 +321,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
               </div>
             </div>
           ))}
-          {/* ── Pending builds (grayed) ─────────────────────────── */}
           {pendingBuilds.length > 0 && (
             <>
               {blenders.length > 0 && (
@@ -379,11 +352,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
                     onMouseOver={(e) => { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.background = '#1a232b'; }}
                     onMouseOut={(e) => { e.currentTarget.style.opacity = '0.55'; e.currentTarget.style.background = 'transparent'; }}
                   >
-                    {/* thin progress bar at bottom */}
                     {isActive && pb.progress > 0 && (
                       <div style={{ position: 'absolute', bottom: 0, left: 0, height: 2, width: `${pb.progress}%`, background: color, transition: 'width .4s ease', borderRadius: 1 }} />
                     )}
-                    {/* spinning/status icon */}
                     <div style={{ width: 30, height: 30, borderRadius: 7, background: '#1a2430', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {isActive ? (
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'bl-spin 1.2s linear infinite' }}>
