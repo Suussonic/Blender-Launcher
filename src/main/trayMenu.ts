@@ -8,10 +8,15 @@ let overlayWindow: BrowserWindow | null = null;
 
 function resolveTrayHtml(): string {
   const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
-  const candidates = [
-    path.join(appRoot, 'dist', 'tray', 'index.html'),
-    path.join(appRoot, 'src', 'tray', 'index.html'),
-  ];
+  const candidates = app.isPackaged
+    ? [
+        path.join(appRoot, 'dist', 'tray', 'index.html'),
+        path.join(appRoot, 'src', 'tray', 'index.html'),
+      ]
+    : [
+        path.join(appRoot, 'src', 'tray', 'index.html'),
+        path.join(appRoot, 'dist', 'tray', 'index.html'),
+      ];
   for (const p of candidates) {
     if (fs.existsSync(p)) return p;
   }
@@ -33,13 +38,20 @@ function resolveTrayIcon(): string {
 }
 
 function resolveTrayPreload(): string {
-  // Try dist path first (when packaged), then dev source locations
-  const candidates = [
-    path.join(__dirname, '..', 'tray', 'preload.js'),                 // dist: dist/main/../tray/preload.js => dist/tray/preload.js
-    path.join(process.cwd(), 'dist', 'tray', 'preload.js'),           // cwd dist fallback
-    path.join(process.cwd(), 'src', 'main', 'tray', 'preload.js'),    // dev source
-    path.join(__dirname, '../../src/main/tray/preload.js'),           // another dev-resolve relative to dist/main
-  ];
+  // In dev, prefer source preload to avoid stale dist artifacts.
+  const candidates = app.isPackaged
+    ? [
+        path.join(__dirname, '..', 'tray', 'preload.js'),
+        path.join(process.cwd(), 'dist', 'tray', 'preload.js'),
+        path.join(process.cwd(), 'src', 'main', 'tray', 'preload.js'),
+        path.join(__dirname, '../../src/main/tray/preload.js'),
+      ]
+    : [
+        path.join(process.cwd(), 'src', 'main', 'tray', 'preload.js'),
+        path.join(__dirname, '../../src/main/tray/preload.js'),
+        path.join(__dirname, '..', 'tray', 'preload.js'),
+        path.join(process.cwd(), 'dist', 'tray', 'preload.js'),
+      ];
   for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch {} }
   return candidates[0];
 }
@@ -138,10 +150,15 @@ export function initTrayMenu(getMainWindow: () => BrowserWindow | null, ensureMa
     overlayWindow.setIgnoreMouseEvents(false);
     // Load overlay HTML if available (dist first, then src)
     const appRoot = app.isPackaged ? app.getAppPath() : process.cwd();
-    const overlayCandidates = [
-      path.join(appRoot, 'dist', 'tray', 'overlay.html'),
-      path.join(appRoot, 'src', 'tray', 'overlay.html'),
-    ];
+    const overlayCandidates = app.isPackaged
+      ? [
+          path.join(appRoot, 'dist', 'tray', 'overlay.html'),
+          path.join(appRoot, 'src', 'tray', 'overlay.html'),
+        ]
+      : [
+          path.join(appRoot, 'src', 'tray', 'overlay.html'),
+          path.join(appRoot, 'dist', 'tray', 'overlay.html'),
+        ];
     for (const p of overlayCandidates) {
       try { if (fs.existsSync(p)) { overlayWindow.loadFile(p).catch(() => {}); break; } } catch (e) {}
     }

@@ -334,6 +334,13 @@ const App: React.FC = () => {
         try {
           const general = await window.electronAPI.invoke('get-general-config');
           generalScan = !!general?.scanOnStartup;
+          const savedLanguage = general?.language === 'en' ? 'en' : (general?.language === 'fr' ? 'fr' : null);
+          if (savedLanguage && i18n.language !== savedLanguage) {
+            await i18n.changeLanguage(savedLanguage);
+          }
+          if (savedLanguage) {
+            try { window.localStorage.setItem('bl-language', savedLanguage); } catch {}
+          }
         } catch {}
 
         setBootStatus(t('boot.loading_recent_files', 'Récupération des fichiers récents…'));

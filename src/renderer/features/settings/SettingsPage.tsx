@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 type BlenderExe = {
@@ -26,9 +26,43 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
   const [scanOnStartup, setScanOnStartup] = useState<boolean>(false);
   const [exitOnClose, setExitOnClose] = useState<boolean>(false);
   const [launchOnStartup, setLaunchOnStartup] = useState<boolean>(false);
+  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+  const languageMenuRef = useRef<HTMLDivElement | null>(null);
 
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState<string | null>(null);
+
+  const checkboxBaseStyle: React.CSSProperties = {
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    border: '2px solid #3b4454',
+    background: '#121722',
+    display: 'inline-block',
+    cursor: 'pointer',
+    transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s',
+    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.03)',
+  };
+
+  const checkboxCheckedStyle: React.CSSProperties = {
+    background: 'linear-gradient(180deg, #1d4f83 0%, #173a5f 100%)',
+    borderColor: '#60a5fa',
+    boxShadow: 'inset 0 0 0 3px #0f2238, 0 0 0 1px rgba(96,165,250,0.45)',
+  };
+
+  const checkboxSmallStyle: React.CSSProperties = {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+  };
+
+  const checkboxDisabledStyle: React.CSSProperties = {
+    opacity: 0.65,
+    cursor: 'not-allowed',
+    filter: 'grayscale(0.2)',
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -98,6 +132,25 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
     return () => clearTimeout(h);
   }, [scanOnStartup, exitOnClose, launchOnStartup]);
 
+  useEffect(() => {
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      if (!languageMenuRef.current) return;
+      if (!languageMenuRef.current.contains(event.target as Node)) {
+        setIsLanguageMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    return () => document.removeEventListener('mousedown', onDocumentMouseDown);
+  }, []);
+
+  const activeLanguageCode = i18n.language.toLowerCase().startsWith('fr') ? 'fr' : 'en';
+  const languageOptions = [
+    { code: 'fr', label: t('language.french') },
+    { code: 'en', label: t('language.english') },
+  ];
+  const activeLanguageLabel = languageOptions.find(opt => opt.code === activeLanguageCode)?.label || activeLanguageCode.toUpperCase();
+
   const runScanNow = async () => {
     if (!window.electronAPI?.invoke || scanning) return;
     setScanning(true);
@@ -147,7 +200,15 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
         <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
         <div style={{ width: '100%', maxWidth: 520 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
-            <input type="checkbox" checked={scanOnStartup} onChange={e => setScanOnStartup(e.target.checked)} style={{ width: 20, height: 20 }} />
+            <input
+              type="checkbox"
+              checked={scanOnStartup}
+              onChange={e => setScanOnStartup(e.target.checked)}
+              style={{
+                ...checkboxBaseStyle,
+                ...(scanOnStartup ? checkboxCheckedStyle : null),
+              }}
+            />
             <span style={{ fontSize: 16, fontWeight: 500 }}>Scanner au démarrage</span>
           </label>
           <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8' }}>
@@ -161,14 +222,18 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
               disabled={scanning}
               style={{
                 padding: '10px 16px',
-                background: scanning ? '#2a3138' : '#2563eb',
-                border: '1px solid #1e3a8a',
-                color: '#fff',
-                borderRadius: 8,
+                background: scanning ? '#141821' : '#0f2238',
+                border: scanning ? '1px solid #334155' : '1px solid #3b82f6',
+                color: scanning ? '#94a3b8' : '#dbeafe',
+                borderRadius: 10,
                 cursor: scanning ? 'not-allowed' : 'pointer',
                 fontSize: 14,
                 fontWeight: 600,
+                transition: 'background 0.2s, border-color 0.2s',
+                boxShadow: scanning ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,0.04)',
               }}
+              onMouseOver={(e) => { if (!scanning) { e.currentTarget.style.background = '#143054'; e.currentTarget.style.borderColor = '#60a5fa'; } }}
+              onMouseOut={(e) => { if (!scanning) { e.currentTarget.style.background = '#0f2238'; e.currentTarget.style.borderColor = '#3b82f6'; } }}
               title="Scanner immédiatement vos installations Blender"
             >
               {scanning ? 'Scan en cours…' : 'Scanner maintenant'}
@@ -188,7 +253,10 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
                   await window.electronAPI?.invoke?.('update-general-config', { exitOnClose: v });
                 } catch {}
               }}
-              style={{ width: 20, height: 20 }}
+              style={{
+                ...checkboxBaseStyle,
+                ...(exitOnClose ? checkboxCheckedStyle : null),
+              }}
             />
             <span style={{ fontSize: 16, fontWeight: 500 }}>Quitter l’application à la fermeture</span>
           </label>
@@ -207,7 +275,10 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
                   await window.electronAPI?.invoke?.('update-general-config', { launchOnStartup: v });
                 } catch {}
               }}
-              style={{ width: 20, height: 20 }}
+              style={{
+                ...checkboxBaseStyle,
+                ...(launchOnStartup ? checkboxCheckedStyle : null),
+              }}
             />
             <span style={{ fontSize: 16, fontWeight: 500 }}>Lancer au démarrage</span>
           </label>
@@ -222,23 +293,86 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
         <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
         <div style={{ width: '100%', maxWidth: 520, display: 'flex', alignItems: 'center', gap: 24 }}>
           <span style={{ fontSize: 20, fontWeight: 500 }}>{t('change_language')} :</span>
-          <select
-            value={i18n.language}
-            onChange={e => i18n.changeLanguage(e.target.value)}
-            style={{
-              fontSize: 18,
-              padding: '6px 18px',
-              borderRadius: 8,
-              border: '1px solid #23272F',
-              background: '#181A20',
-              color: '#fff',
-              outline: 'none',
-              marginLeft: 8,
-            }}
-          >
-            <option value="fr">Français</option>
-            <option value="en">English</option>
-          </select>
+          <div ref={languageMenuRef} style={{ position: 'relative', minWidth: 200, marginLeft: 8 }}>
+            <button
+              type="button"
+              onClick={() => setIsLanguageMenuOpen(v => !v)}
+              style={{
+                width: '100%',
+                fontSize: 18,
+                padding: '8px 12px',
+                borderRadius: 10,
+                border: isLanguageMenuOpen ? '1px solid #60a5fa' : '1px solid #334155',
+                background: '#0f1724',
+                color: '#e2e8f0',
+                outline: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: isLanguageMenuOpen ? '0 0 0 1px rgba(96,165,250,0.3)' : 'inset 0 0 0 1px rgba(255,255,255,0.03)',
+              }}
+              title={t('change_language')}
+            >
+              <span>{activeLanguageLabel}</span>
+              <span style={{ fontSize: 12, color: '#94a3b8' }}>{isLanguageMenuOpen ? '▲' : '▼'}</span>
+            </button>
+
+            {isLanguageMenuOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  left: 0,
+                  right: 0,
+                  borderRadius: 10,
+                  border: '1px solid #334155',
+                  background: '#0b1320',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
+                  overflow: 'hidden',
+                  zIndex: 30,
+                }}
+              >
+                {languageOptions.map(option => {
+                  const isActive = option.code === activeLanguageCode;
+                  return (
+                    <button
+                      key={option.code}
+                      type="button"
+                      onClick={async () => {
+                        await i18n.changeLanguage(option.code);
+                        try { window.localStorage.setItem('bl-language', option.code); } catch {}
+                        try {
+                          await window.electronAPI?.invoke?.('update-general-config', { language: option.code });
+                        } catch {}
+                        setIsLanguageMenuOpen(false);
+                      }}
+                      style={{
+                        width: '100%',
+                        border: 'none',
+                        borderTop: option.code === languageOptions[0].code ? 'none' : '1px solid rgba(148,163,184,0.15)',
+                        background: isActive ? '#153253' : '#0b1320',
+                        color: isActive ? '#dbeafe' : '#cbd5e1',
+                        textAlign: 'left',
+                        padding: '10px 12px',
+                        fontSize: 16,
+                        fontWeight: isActive ? 700 : 500,
+                        cursor: 'pointer',
+                      }}
+                      onMouseOver={e => {
+                        if (!isActive) e.currentTarget.style.background = '#142033';
+                      }}
+                      onMouseOut={e => {
+                        if (!isActive) e.currentTarget.style.background = '#0b1320';
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -261,7 +395,11 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
               checked={discordEnabled}
               disabled={discordAvailable === false}
               onChange={e => setDiscordEnabled(e.target.checked)}
-              style={{ width: 20, height: 20 }}
+              style={{
+                ...checkboxBaseStyle,
+                ...(discordEnabled ? checkboxCheckedStyle : null),
+                ...(discordAvailable === false ? checkboxDisabledStyle : null),
+              }}
             />
             <span style={{ fontSize: 16, fontWeight: 500 }}>Afficher l'activité</span>
             {lastLaunched && (
@@ -283,11 +421,29 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
           {discordEnabled && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingLeft: 4 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                <input type="checkbox" checked={discordShowFile} onChange={e => setDiscordShowFile(e.target.checked)} style={{ width: 16, height: 16 }} />
+                <input
+                  type="checkbox"
+                  checked={discordShowFile}
+                  onChange={e => setDiscordShowFile(e.target.checked)}
+                  style={{
+                    ...checkboxBaseStyle,
+                    ...checkboxSmallStyle,
+                    ...(discordShowFile ? checkboxCheckedStyle : null),
+                  }}
+                />
                 <span style={{ fontSize: 14 }}>Nom du fichier</span>
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                <input type="checkbox" checked={discordShowTitleOpt} onChange={e => setDiscordShowTitleOpt(e.target.checked)} style={{ width: 16, height: 16 }} />
+                <input
+                  type="checkbox"
+                  checked={discordShowTitleOpt}
+                  onChange={e => setDiscordShowTitleOpt(e.target.checked)}
+                  style={{
+                    ...checkboxBaseStyle,
+                    ...checkboxSmallStyle,
+                    ...(discordShowTitleOpt ? checkboxCheckedStyle : null),
+                  }}
+                />
                 <span style={{ fontSize: 14 }}>Titre du build</span>
               </label>
             </div>
@@ -314,7 +470,11 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
               checked={steamEnabled}
               disabled={steamAvailable === false}
               onChange={e => setSteamEnabled(e.target.checked)}
-              style={{ width: 20, height: 20 }}
+              style={{
+                ...checkboxBaseStyle,
+                ...(steamEnabled ? checkboxCheckedStyle : null),
+                ...(steamAvailable === false ? checkboxDisabledStyle : null),
+              }}
             />
             <span style={{ fontSize: 16, fontWeight: 500 }}>Lancer via Steam</span>
             {lastLaunched && (

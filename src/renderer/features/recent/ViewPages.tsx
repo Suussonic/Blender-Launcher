@@ -270,18 +270,19 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
               <button
                 onClick={handleLaunch}
                 style={{
-                  background: '#22c55e',
-                  border: 'none',
-                  borderRadius: 8,
-                  color: '#fff',
+                  background: '#10271d',
+                  border: '1px solid #22c55e',
+                  borderRadius: 10,
+                  color: '#dcfce7',
                   fontSize: 16,
                   fontWeight: 600,
                   padding: '10px 20px',
                   cursor: 'pointer',
-                  transition: 'background 0.2s',
+                  transition: 'background 0.2s, border-color 0.2s',
+                  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.04)',
                 }}
-                onMouseOver={(e) => e.currentTarget.style.background = '#16a34a'}
-                onMouseOut={(e) => e.currentTarget.style.background = '#22c55e'}
+                onMouseOver={(e) => { e.currentTarget.style.background = '#163927'; e.currentTarget.style.borderColor = '#4ade80'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = '#10271d'; e.currentTarget.style.borderColor = '#22c55e'; }}
               >
                 {t('launch', 'Lancer')}
               </button>

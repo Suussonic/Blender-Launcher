@@ -44,12 +44,13 @@ function migrateConfig() {
     cfg.blenders = Array.isArray(cfg.blenders) ? cfg.blenders : [];
     // Ensure general section exists first in the file (schema-wise)
     if (!cfg.general || typeof cfg.general !== 'object') {
-      cfg.general = { scanOnStartup: false, exitOnClose: false, launchOnStartup: false };
+      cfg.general = { scanOnStartup: false, exitOnClose: false, launchOnStartup: false, language: 'fr' };
       console.log('Migration: ajout bloc general par defaut');
     } else {
   if (typeof cfg.general.scanOnStartup !== 'boolean') cfg.general.scanOnStartup = false;
   if (typeof cfg.general.exitOnClose !== 'boolean') cfg.general.exitOnClose = false;
   if (typeof cfg.general.launchOnStartup !== 'boolean') cfg.general.launchOnStartup = false;
+  if (cfg.general.language !== 'fr' && cfg.general.language !== 'en') cfg.general.language = 'fr';
     }
     if (!cfg.discord) {
       cfg.discord = { enabled: false, showFile: true, showTitle: true, showTime: false, appId: DISCORD_APP_ID };
@@ -108,11 +109,16 @@ export function initSettings(opts: {
     try {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
       const cfg = JSON.parse(raw || '{}');
-  if (!cfg.general || typeof cfg.general !== 'object') return { scanOnStartup: false, exitOnClose: false, launchOnStartup: false };
-  return { scanOnStartup: cfg.general.scanOnStartup === true, exitOnClose: cfg.general.exitOnClose === true, launchOnStartup: cfg.general.launchOnStartup === true };
+  if (!cfg.general || typeof cfg.general !== 'object') return { scanOnStartup: false, exitOnClose: false, launchOnStartup: false, language: 'fr' };
+  return {
+    scanOnStartup: cfg.general.scanOnStartup === true,
+    exitOnClose: cfg.general.exitOnClose === true,
+    launchOnStartup: cfg.general.launchOnStartup === true,
+    language: cfg.general.language === 'en' ? 'en' : 'fr',
+  };
     } catch (e) {
       console.error('[General] get-general-config erreur:', e);
-      return { scanOnStartup: false, exitOnClose: false };
+      return { scanOnStartup: false, exitOnClose: false, launchOnStartup: false, language: 'fr' };
     }
   });
 
@@ -236,12 +242,13 @@ except Exception:
     try {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
       const cfg = JSON.parse(raw || '{}');
-      if (!cfg.general || typeof cfg.general !== 'object') cfg.general = { scanOnStartup: false, exitOnClose: false, launchOnStartup: false };
+      if (!cfg.general || typeof cfg.general !== 'object') cfg.general = { scanOnStartup: false, exitOnClose: false, launchOnStartup: false, language: 'fr' };
       const prevLaunch = cfg.general.launchOnStartup === true;
       cfg.general = { ...cfg.general, ...(partial || {}) };
       cfg.general.scanOnStartup = cfg.general.scanOnStartup === true; // normalize boolean
       cfg.general.exitOnClose = cfg.general.exitOnClose === true;
       cfg.general.launchOnStartup = cfg.general.launchOnStartup === true;
+      cfg.general.language = cfg.general.language === 'en' ? 'en' : 'fr';
       fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf-8');
 
       // If launchOnStartup changed, attempt to apply to OS using Electron API

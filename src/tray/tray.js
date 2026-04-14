@@ -1,5 +1,51 @@
 const $ = (q)=>document.querySelector(q);
 
+const I18N = {
+  fr: {
+    sectionTitle: 'Vos Blender',
+    home: 'Accueil',
+    settings: 'Paramètres',
+    quit: 'Quitter',
+    empty: 'Aucune installation détectée.',
+  },
+  en: {
+    sectionTitle: 'Your Blender',
+    home: 'Home',
+    settings: 'Settings',
+    quit: 'Quit',
+    empty: 'No Blender installation detected.',
+  },
+};
+
+let currentLang = 'fr';
+
+function t(key){
+  const dict = I18N[currentLang] || I18N.fr;
+  return dict[key] || I18N.fr[key] || key;
+}
+
+function applyLocale(){
+  const section = $('#tray-section-title');
+  const homeBtn = $('#btn-home');
+  const settingsBtn = $('#btn-settings');
+  const quitBtn = $('#btn-quit');
+  if (section) section.textContent = t('sectionTitle');
+  if (homeBtn) homeBtn.textContent = t('home');
+  if (settingsBtn) settingsBtn.textContent = t('settings');
+  if (quitBtn) quitBtn.textContent = t('quit');
+  try { document.documentElement.lang = currentLang; } catch {}
+}
+
+async function loadLocale(){
+  try {
+    const general = await window.trayAPI.invoke('get-general-config');
+    currentLang = general?.language === 'en' ? 'en' : 'fr';
+  } catch {
+    currentLang = 'fr';
+  }
+  applyLocale();
+}
+
 function renderList(items){
   const root = $('#blender-list');
   root.innerHTML = '';
@@ -8,7 +54,7 @@ function renderList(items){
     empty.style.color = '#a8b3c7';
     empty.style.fontSize = '12px';
     empty.style.padding = '8px 12px';
-    empty.textContent = 'Aucune installation détectée.';
+    empty.textContent = t('empty');
     root.appendChild(empty);
     return;
   }
@@ -59,8 +105,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
   $('#btn-home').addEventListener('click', ()=> window.trayAPI.send('tray-open-home'));
   $('#btn-settings').addEventListener('click', ()=> window.trayAPI.send('tray-open-settings'));
   $('#btn-quit').addEventListener('click', ()=> window.trayAPI.send('tray-quit'));
-  loadBlenders();
+  loadLocale().then(loadBlenders);
   // Refresh list when popup is shown
-  try { window.trayAPI.on('tray-refresh', () => loadBlenders()); } catch {}
-  window.addEventListener('focus', () => loadBlenders());
+  try { window.trayAPI.on('tray-refresh', async () => { await loadLocale(); await loadBlenders(); }); } catch {}
+  window.addEventListener('focus', async () => { await loadLocale(); await loadBlenders(); });
 });

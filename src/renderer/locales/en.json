@@ -4,6 +4,8 @@
   "work_in_progress": "🚀 Interface inspired by gaming launchers (work in progress)",
   "display": "Display",
   "change_language": "Change language",
+  "language.english": "English",
+  "language.french": "French",
   "my_apps": "My applications",
   "no_app": "No application",
   "folder": "Folder",
