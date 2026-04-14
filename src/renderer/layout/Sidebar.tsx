@@ -20,6 +20,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
   const { t } = useTranslation();
   const [blenders, setBlenders] = useState<BlenderExe[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
   const [pressedIndex, setPressedIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const longPressTimer = useRef<number | null>(null);
@@ -128,6 +129,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
     return '';
   };
 
+  const normalizedQuery = query.trim().toLowerCase();
+  const displayedBlenders = blenders.filter((b) => {
+    if (!normalizedQuery) return true;
+    const text = `${b.title || ''} ${b.name || ''} ${b.path || ''}`.toLowerCase();
+    return text.includes(normalizedQuery);
+  });
+
   return (
     <div style={{
       width: 220,
@@ -170,6 +178,25 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
           <div style={{ width: '100%', padding: '24px 0 24px 0', textAlign: 'center', fontWeight: 700, fontSize: 18, color: '#fff', letterSpacing: 0.5, opacity: 0.95 }}>
             {t('my_apps')}
           </div>
+          <div style={{ width: '100%', padding: '0 14px 12px 14px', boxSizing: 'border-box' }}>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('search', 'Rechercher')}
+              style={{
+                width: '100%',
+                height: 34,
+                borderRadius: 9,
+                border: '1px solid #2b3541',
+                background: '#11161d',
+                color: '#e2e8f0',
+                padding: '0 10px',
+                fontSize: 13,
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
           <div style={{ height: 2, width: '100%', background: 'linear-gradient(90deg, #374151 0%, #6b7280 50%, #374151 100%)', margin: '0 0 8px 0' }} />
         </>
       )}
@@ -179,7 +206,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
           <span style={{ color: '#888', fontSize: 16, opacity: 0.7, textAlign: 'center', marginTop: 0 }}>{t('no_app')}</span>
         ) : (
           <>
-          {blenders.map((b, i) => (
+          {displayedBlenders.length === 0 && blenders.length > 0 && (
+            <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 12, textAlign: 'center', padding: '0 16px' }}>
+              {t('no_result', 'Aucun résultat')}
+            </div>
+          )}
+          {displayedBlenders.map((b, i) => (
             <div
               key={b.path + i}
               style={{
