@@ -1,17 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Lightweight Blender build info extraction.
-
-Inspired by Blender-Launcher-V2 behavior, but re-implemented here without
-copying code to avoid licensing issues. Goal:
-- Run the Blender executable with `-v`
-- Parse output to infer commit date/time, hash, version, and name
-- Write a compatible `.blinfo` file inside the build directory
+"""Extract lightweight build information and write a `.blinfo` file.
 
 CLI usage:
-    python backend/build_info_extractor.py <build_folder> [--exe <blender_path>]
-Prints a JSON summary to stdout and writes `<build_folder>/.blinfo`.
+    python backend/build/info_extractor.py <build_folder> [--exe <blender_path>]
 """
 from __future__ import annotations
 
@@ -66,6 +58,7 @@ def _run_blender_version(exe: Path) -> str:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             check=False,
+            timeout=15,
         )
         return completed.stdout.decode("utf-8", errors="replace")
     except Exception as e:
@@ -157,7 +150,7 @@ def extract_and_write(build_dir: Path, branch: str = "custom", exe_override: Opt
 
 def main(argv: list[str]) -> int:
     if len(argv) < 2:
-        print(json.dumps({"success": False, "error": "Usage: build_info_extractor.py <dossier_build> [--exe <chemin_blender>]"}))
+        print(json.dumps({"success": False, "error": "Usage: info_extractor.py <build_folder> [--exe <blender_path>]"}))
         return 1
 
     build_dir = Path(argv[1]).resolve()

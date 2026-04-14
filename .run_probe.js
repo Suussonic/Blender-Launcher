@@ -2,7 +2,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const exe = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Blender\\blender.exe';
-const script = path.join(process.cwd(), 'backend', 'blender_addons_probe.py');
+const script = path.join(process.cwd(), 'backend', 'addons', 'probe.py');
 console.log('Using exe:', exe);
 console.log('Using script:', script);
 

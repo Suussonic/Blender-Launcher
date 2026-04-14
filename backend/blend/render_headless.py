@@ -1,17 +1,9 @@
-"""
-Headless render runner for Blender-Launcher with progress markers.
+"""Headless render runner with real-time IPC markers.
 
 Usage:
-  blender -b --factory-startup --python backend/render_headless.py -- <file.blend> key=value ...
+    blender -b --factory-startup --python backend/blend/render_headless.py -- <file.blend> key=value ...
 
-It prints single-line markers to stdout that start with BL_REN: so the launcher
-can parse them in real time:
-  BL_REN:INIT mode=ANIMATION total=120
-  BL_REN:FRAME_START frame=1
-  BL_REN:FRAME_DONE frame=1
-  BL_REN:DONE
-  BL_REN:CANCEL
-  BL_REN:ERROR message=...
+The launcher parses `BL_REN:` lines in real time to display progress and errors.
 """
 from __future__ import annotations
 import sys

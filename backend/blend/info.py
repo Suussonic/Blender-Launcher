@@ -1,10 +1,9 @@
-"""
-Robust .blend metadata extractor for Blender-Launcher.
+"""Extract render metadata from a `.blend` file.
 
 Usage:
-  blender -b --factory-startup --python backend/blend_info.py -- <file.blend> --quit
+    blender -b --factory-startup --python backend/blend/info.py -- <file.blend> --quit
 
-Outputs exactly one line prefixed with BL_META: followed by a JSON payload.
+The script prints exactly one `BL_META:` JSON line for IPC parsing.
 """
 from __future__ import annotations
 import sys

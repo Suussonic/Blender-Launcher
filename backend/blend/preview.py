@@ -1,10 +1,10 @@
-"""
-Generate a PNG preview for a .blend file using Blender's Python API.
+"""Generate a PNG preview for a `.blend` file.
 
 Usage:
-  blender -b --factory-startup --python backend/blend_preview.py -- <blend_path> <out_png> <width> <height> --quit
+    blender -b --factory-startup --python backend/blend/preview.py -- <blend_path> <out_png> <width> <height> --quit
 
-Outputs one line prefixed with BL_PREVIEW: followed by a JSON payload.
+The script emits one `BL_PREVIEW:` JSON line and uses multiple fallbacks:
+embedded preview, render result, then lightweight object-mode render.
 """
 from __future__ import annotations
 

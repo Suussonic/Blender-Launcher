@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""
-Probe script to enumerate Blender addons. Intended to be run with the Blender executable
-using: blender --background --python blender_addons_probe.py
+"""Enumerate Blender addons and emit JSON payload markers.
 
-Outputs JSON to stdout wrapped between markers so the caller can extract it reliably.
+Usage:
+    blender --background --python backend/addons/probe.py
 """
 import json
 import sys

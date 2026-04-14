@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
+"""Check and optionally install Windows build prerequisites.
+
+Reference:
+https://developer.blender.org/docs/handbook/building_blender/windows/
+
+Required tools checked here:
+- Git
+- CMake
+- Visual Studio with C++ workload
+- PowerShell 7 (`pwsh.exe`)
 """
-check_build_tools.py - Windows only
-Per Blender official Windows build docs (https://developer.blender.org/docs/handbook/building_blender/windows/):
-Required tools:
-  - Git (for cloning source)
-  - CMake (build configuration)
-  - Visual Studio 2019 or 2022 Community with "Desktop development with C++" workload
-    - PowerShell 7 (pwsh.exe) used by several custom Blender build rules
-"""
-import os, sys, json, subprocess, glob, argparse
+import argparse
+import glob
+import json
+import os
+import subprocess
+import sys
 from typing import List
 try:
     import ctypes  # for admin check on Windows

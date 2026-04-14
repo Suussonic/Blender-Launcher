@@ -1,13 +1,9 @@
-"""
-Download official Blender releases
-"""
+"""Download and extract official Blender builds, then update config.json."""
 import sys
 import os
 import json
 import urllib.request
 import zipfile
-import shutil
-from pathlib import Path
 
 def get_config_path():
     """Resolve config.json path relative to project root."""

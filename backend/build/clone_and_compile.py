@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Clone Blender repository and compile it following official Windows build docs.
-Handles the full pipeline: clone -> make update -> make release -> find blender.exe
+"""Clone and compile a Blender source tree on Windows.
+
+Pipeline:
+1) clone repository,
+2) run `make.bat update`,
+3) run `make.bat release`,
+4) locate `blender.exe`.
+
+This script emits `BL_CLONE:` markers consumed by Electron.
 """
 import sys
 import os
 import subprocess
 import argparse
 import time
-import shutil
-import tempfile
+
+from utils.ipc_output import emit_marker
+from utils.windows_tools import detect_pwsh_failure
+from utils.windows_tools import ensure_pwsh_available
 
 # Force UTF-8 encoding to avoid Windows console rendering issues
 if sys.platform == 'win32':
@@ -20,64 +28,7 @@ if sys.platform == 'win32':
 
 def echo(tag, **kv):
     """Emit an IPC-parseable progress message."""
-    parts = ['BL_CLONE:' + tag]
-    for k, v in kv.items():
-        if v is not None:
-            s = str(v).replace('\n', ' ').replace('\r', ' ').strip()
-            parts.append(f"{k}={s}")
-    try:
-        print(' '.join(parts), flush=True)
-    except:
-        try:
-            sys.stdout.write(' '.join(parts) + '\n')
-            sys.stdout.flush()
-        except:
-            pass
-
-
-def ensure_pwsh_available():
-    """Ensure pwsh.exe resolves in PATH, using a powershell.exe shim if needed."""
-    if shutil.which('pwsh'):
-        return True, 'pwsh'
-
-    powershell_exe = shutil.which('powershell')
-    if not powershell_exe:
-        system_root = os.environ.get('SystemRoot', r'C:\Windows')
-        candidate = os.path.join(system_root, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
-        if os.path.isfile(candidate):
-            powershell_exe = candidate
-
-    if not powershell_exe:
-        return False, None
-
-    shim_dir = os.path.join(tempfile.gettempdir(), 'bl_launcher_pwsh_shim')
-    shim_exe = os.path.join(shim_dir, 'pwsh.exe')
-    try:
-        os.makedirs(shim_dir, exist_ok=True)
-        if not os.path.isfile(shim_exe):
-            shutil.copy2(powershell_exe, shim_exe)
-        path_now = os.environ.get('PATH', '')
-        if shim_dir.lower() not in path_now.lower():
-            os.environ['PATH'] = shim_dir + os.pathsep + path_now
-        return True, shim_exe
-    except Exception:
-        return False, None
-
-
-def detect_pwsh_failure(output: str):
-    """Return a diagnostic string when the build output shows pwsh-related failure."""
-    text = (output or '').lower()
-    if 'pwsh.exe' not in text and 'pwsh' not in text:
-        return None
-    patterns = [
-        'pwsh.exe is not recognized',
-        "'pwsh.exe' is not recognized",
-        "'pwsh' is not recognized",
-        'pwsh was unexpected at this time',
-    ]
-    if any(pattern in text for pattern in patterns):
-        return 'La compilation a échoué silencieusement car pwsh.exe est indisponible. Installez PowerShell 7 ou relancez avec le shim activé.'
-    return None
+    emit_marker('BL_CLONE:', tag, sep=' ', **kv)
 
 
 def warn_if_spaces_in_path(path_value: str):

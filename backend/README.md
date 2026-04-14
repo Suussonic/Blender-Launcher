@@ -1,20 +1,45 @@
-Backend Python tools
+Backend tools
 
-This folder contains lightweight Python utilities used by Blender Launcher to manage existing Blender builds without in-app cloning/building:
+This folder contains Python and Node helpers used by the Electron main process.
 
-- build_info_extractor.py: Run a Blender executable with -v, parse version/hash/date, and write a .blinfo file into a build folder. Inspired by Blender-Launcher-V2 behavior, re-implemented here to avoid license conflicts.
-- library_scanner.py: Scan a library root (e.g., D:\Blenders) to find builds, detect executables, and optionally auto-generate .blinfo files.
+Main groups
 
-Quick usage (Windows PowerShell):
+- Build/clone scripts (`backend/build/`)
+	- `clone_and_compile.py`: clone + compile flow with detailed progress markers.
+	- `build_cloned.py`: compile an already cloned Blender source tree.
+	- `simple_clone.py`: clone-only helper.
+	- `check_tools.py`: detect/install required Windows build dependencies.
 
-```powershell
-# Write .blinfo for a build folder containing blender.exe
-python .\backend\build_info_extractor.py "C:\\Blenders\\stable\\blender-4.1.0"
+- Blend file metadata and preview (`backend/blend/`)
+	- `info.py`: extract render metadata from a `.blend` using Blender Python API.
+	- `preview.py`: generate PNG preview for recent files (fast preview path + robust fallback).
+	- `render_headless.py`: headless render execution helper.
 
-# Scan a library and auto-write .blinfo for builds that don’t have one yet
-python .\backend\library_scanner.py "C:\\Blenders" --write-blinfo
-```
+- Library/config/core helpers
+	- `backend/build/info_extractor.py`: parse `blender -v` output and write `.blinfo`.
+	- `backend/build/library_scanner.py`: scan a Blender library folder and detect executables/builds.
+	- `backend/config/config_manager.py`: config CRUD utilities.
 
-Notes
-- These scripts don’t clone or build Blender. The Electron app UI for clone/build has been removed as requested.
-- You can wire an IPC to call these scripts later if needed (e.g., a "Scan library" button).
+- Node helpers
+	- `backend/integrations/blender_scanner.js`
+	- `backend/integrations/steam_warp.js`
+	- `backend/integrations/discord_rpc_manager.js`
+	- `backend/network/download_blender.py`
+	- `backend/network/fetch_blender_versions.py`
+
+Shared utility modules
+
+- `utils/ipc_output.py`: normalized `BL_*` marker output helpers.
+- `utils/windows_tools.py`: shared Windows helpers (`pwsh`, VS toolchain, CMake discovery).
+- `utils/file_utils.py`: common file/path/title utilities.
+
+Compatibility layer
+
+- Legacy root-level wrappers were removed.
+- Electron/script call sites must target domain folders directly (`backend/build/*`, `backend/blend/*`, `backend/network/*`, `backend/integrations/*`).
+
+Conventions
+
+- Progress output uses `BL_*` markers consumed by Electron.
+- Keep scripts executable as standalone CLIs (no runtime dependency on Electron).
+- Prefer shared helpers in `backend/utils/` over duplicating subprocess/path logic.

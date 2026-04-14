@@ -5,7 +5,7 @@ import extractIcon = require('extract-file-icon');
 import { pathToFileURL, fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 // @ts-ignore - JS backend module without typings
-import { DiscordRPCManager } from '../../backend/discord_rpc_manager';
+import { DiscordRPCManager } from '../../backend/integrations/discord_rpc_manager';
 
 type MainWindowGetter = () => BrowserWindow | null;
 

@@ -6,10 +6,9 @@ Uses the new archive URLs for improved data access
 import sys
 import json
 import urllib.request
-import urllib.parse
 import re
 from html.parser import HTMLParser
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from datetime import datetime
 import dateutil.parser
 
@@ -32,9 +31,6 @@ class BlenderArchiveParser(HTMLParser):
         super().__init__()
         self.version_type = version_type
         self.versions = []
-        self.in_version_row = False
-        self.current_version_data = {}
-        self.current_data_type = None
         self.html_content = ""
         self.current_date = None
         

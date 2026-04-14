@@ -8,22 +8,12 @@ import os
 import subprocess
 import argparse
 
+from utils.ipc_output import emit_marker
+
 def echo(tag, **kv):
     """Emit an IPC-parseable progress message."""
-    parts = ['BL_CLONE:' + tag]
-    for k, v in kv.items():
-        if v is not None:
-            s = str(v).replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').strip()
-            parts.append(f"{k}={s}")
-    # Use tab separator so paths with spaces are not split by the IPC parser
-    try:
-        print('\t'.join(parts), flush=True)
-    except:
-        try:
-            sys.stdout.write('\t'.join(parts) + '\n')
-            sys.stdout.flush()
-        except:
-            pass
+    # Use tab separator so paths with spaces are not split by the IPC parser.
+    emit_marker('BL_CLONE:', tag, sep='\t', **kv)
 
 def main():
     parser = argparse.ArgumentParser(description='Clone Blender repository')

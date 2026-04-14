@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""
-Build script for an already-cloned Blender repository.
-Runs make update (library fetch) followed by make release.
-Emits BL_CLONE markers that can be parsed by IPC.
+"""Build an already-cloned Blender repository on Windows.
+
+The script is resilient to old/new Blender fork layouts and emits `BL_CLONE:`
+markers so Electron can display real-time progress.
 """
 import sys
 import os
@@ -10,7 +10,11 @@ import subprocess
 import argparse
 import time
 import shutil
-import tempfile
+
+from utils.windows_tools import detect_pwsh_failure
+from utils.windows_tools import ensure_pwsh_available
+from utils.windows_tools import find_cmake_dir
+from utils.windows_tools import find_vsdevcmd_path
 
 MARK = 'BL_CLONE:'
 _log_file = None
@@ -98,125 +102,6 @@ def run_and_stream(cmd, cwd=None, stdin_text=None):
         return code, ''.join(out_lines)
     except Exception as e:
         return 1, str(e)
-
-
-def find_vsdevcmd():
-    vswhere_candidates = [
-        r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe",
-        r"C:\Program Files\Microsoft Visual Studio\Installer\vswhere.exe",
-    ]
-    for vswhere in vswhere_candidates:
-        if os.path.exists(vswhere):
-            try:
-                out = subprocess.check_output(
-                    [vswhere, '-latest', '-products', '*',
-                     '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64',
-                     '-property', 'installationPath'],
-                    stderr=subprocess.DEVNULL, text=True, timeout=10
-                )
-                inst = (out or '').strip()
-                if inst:
-                    cand = os.path.join(inst, 'Common7', 'Tools', 'VsDevCmd.bat')
-                    if os.path.exists(cand):
-                        return cand
-            except Exception:
-                pass
-    fallbacks = [
-        r"C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat",
-        r"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\Common7\Tools\VsDevCmd.bat",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\Tools\VsDevCmd.bat",
-    ]
-    for pth in fallbacks:
-        if os.path.exists(pth):
-            return pth
-    return None
-
-
-def find_cmake_dir():
-    """Find cmake.exe and return the directory containing it, or None."""
-    import shutil
-    # 1. Already in PATH?
-    cm = shutil.which('cmake')
-    if cm:
-        return os.path.dirname(cm)
-    # 2. Standard install locations
-    candidates = [
-        r"C:\Program Files\CMake\bin\cmake.exe",
-        r"C:\Program Files (x86)\CMake\bin\cmake.exe",
-    ]
-    # 3. Per-user installs via LOCALAPPDATA
-    local = os.environ.get('LOCALAPPDATA', '')
-    if local:
-        candidates.append(os.path.join(local, 'CMake', 'bin', 'cmake.exe'))
-    # 4. Windows Registry
-    try:
-        import winreg
-        for root_key in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
-            try:
-                with winreg.OpenKey(root_key, r'SOFTWARE\Kitware\CMake') as key:
-                    val, _ = winreg.QueryValueEx(key, 'InstallDir')
-                    if val:
-                        candidates.append(os.path.join(val, 'bin', 'cmake.exe'))
-            except Exception:
-                pass
-    except Exception:
-        pass
-    for c in candidates:
-        if os.path.isfile(c):
-            return os.path.dirname(c)
-    return None
-
-
-def ensure_pwsh_available():
-    """Ensure pwsh.exe can be resolved in PATH.
-
-    Some Blender custom rules invoke `pwsh.exe` explicitly. On machines with only
-    Windows PowerShell 5 (`powershell.exe`), the build may continue but generate
-    incomplete artifacts. We provide a best-effort shim by copying powershell.exe
-    to a temporary pwsh.exe and prepending that folder to PATH.
-    """
-    if shutil.which('pwsh'):
-        return True, 'pwsh'
-
-    powershell_exe = shutil.which('powershell')
-    if not powershell_exe:
-        system_root = os.environ.get('SystemRoot', r'C:\Windows')
-        cand = os.path.join(system_root, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
-        if os.path.isfile(cand):
-            powershell_exe = cand
-
-    if not powershell_exe:
-        return False, None
-
-    shim_dir = os.path.join(tempfile.gettempdir(), 'bl_launcher_pwsh_shim')
-    shim_exe = os.path.join(shim_dir, 'pwsh.exe')
-    try:
-        os.makedirs(shim_dir, exist_ok=True)
-        if not os.path.isfile(shim_exe):
-            shutil.copy2(powershell_exe, shim_exe)
-        path_now = os.environ.get('PATH', '')
-        if shim_dir.lower() not in path_now.lower():
-            os.environ['PATH'] = shim_dir + os.pathsep + path_now
-        return True, shim_exe
-    except Exception:
-        return False, None
-
-
-def detect_pwsh_failure(output: str):
-    """Return a diagnostic string when the build output shows pwsh-related failure."""
-    text = (output or '').lower()
-    if 'pwsh.exe' not in text and 'pwsh' not in text:
-        return None
-    patterns = [
-        'pwsh.exe is not recognized',
-        "'pwsh.exe' is not recognized",
-        "'pwsh' is not recognized",
-        'pwsh was unexpected at this time',
-    ]
-    if any(pattern in text for pattern in patterns):
-        return 'La compilation a échoué silencieusement car pwsh.exe est indisponible. Installez PowerShell 7 ou relancez avec le shim activé.'
-    return None
 
 
 def warn_if_spaces_in_path(path_value: str):
@@ -599,7 +484,7 @@ def main():
         echo('ERROR', message='Compilation Windows uniquement pour le moment')
         return 2
 
-    vsdev = find_vsdevcmd()
+    vsdev = find_vsdevcmd_path()
     vsver = None
     if vsdev:
         low = vsdev.lower()

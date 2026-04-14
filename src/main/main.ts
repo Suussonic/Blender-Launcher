@@ -44,8 +44,8 @@ function requireBackend(modBaseName: string) {
   throw new Error('Backend module introuvable: ' + modBaseName);
 }
 // Charge le warp backend via le résolveur
-const steamWarp = requireBackend('steam_warp');
-const blenderScanner = require('../../backend/blender_scanner');
+const steamWarp = requireBackend('integrations/steam_warp');
+const blenderScanner = requireBackend('integrations/blender_scanner');
 
 // Résolution minimale du chemin de steam.exe sans dépendre d'un module backend
 function getSteamExePathFallback(): string | null {
@@ -707,9 +707,9 @@ app.whenReady().then(() => {
 
       // Prefer running a bundled backend script for robust extraction
       const scriptCandidates = [
-        path.join(__dirname, '../../backend/blend_info.py'), // dev
-        path.join(process.cwd(), 'backend', 'blend_info.py'), // cwd fallback
-        path.join(__dirname, '..', '..', 'backend', 'blend_info.py'), // dist
+        path.join(__dirname, '../../backend/blend/info.py'), // dev
+        path.join(process.cwd(), 'backend', 'blend', 'info.py'), // cwd fallback
+        path.join(__dirname, '..', '..', 'backend', 'blend', 'info.py'), // dist
       ];
       const scriptPath = scriptCandidates.find(p => { try { return fs.existsSync(p); } catch { return false; } });
   // We pass the blend path to the helper after '--' so it can force-open the file
@@ -786,9 +786,9 @@ app.whenReady().then(() => {
       }
 
       const scriptCandidates = [
-        path.join(__dirname, '../../backend/blend_preview.py'),
-        path.join(process.cwd(), 'backend', 'blend_preview.py'),
-        path.join(__dirname, '..', '..', 'backend', 'blend_preview.py'),
+        path.join(__dirname, '../../backend/blend/preview.py'),
+        path.join(process.cwd(), 'backend', 'blend', 'preview.py'),
+        path.join(__dirname, '..', '..', 'backend', 'blend', 'preview.py'),
       ];
       const scriptPath = scriptCandidates.find((p) => { try { return fs.existsSync(p); } catch { return false; } });
       if (!scriptPath) return { success: false, reason: 'script-missing' };
@@ -893,11 +893,11 @@ app.whenReady().then(() => {
   let out = outputDir ? outputDir.replace(/\\/g, '/') : '';
   if (out && !out.endsWith('/')) out += '/';
 
-      // Build headless render using backend/render_headless.py and stream progress markers
+      // Build headless render using backend/blend/render_headless.py and stream progress markers
       const scriptCandidates = [
-        path.join(__dirname, '../../backend/render_headless.py'),
-        path.join(process.cwd(), 'backend', 'render_headless.py'),
-        path.join(__dirname, '..', '..', 'backend', 'render_headless.py'),
+        path.join(__dirname, '../../backend/blend/render_headless.py'),
+        path.join(process.cwd(), 'backend', 'blend', 'render_headless.py'),
+        path.join(__dirname, '..', '..', 'backend', 'blend', 'render_headless.py'),
       ];
       const scriptPath = scriptCandidates.find(p => { try { return fs.existsSync(p); } catch { return false; } });
       if (!scriptPath) return { success: false, reason: 'script-missing' };
@@ -1277,7 +1277,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('check-build-tools', async (_evt, payload?: { includeSvn?: boolean }) => {
     try {
-      const script = resolveBackendScript('check_build_tools.py');
+      const script = resolveBackendScript('build/check_tools.py');
       const py = pythonCandidates();
       if (!script) return { success: false, error: 'script-missing' };
       const { spawn } = require('child_process');
@@ -1326,7 +1326,7 @@ app.whenReady().then(() => {
       if (!toInstall || toInstall.length === 0) {
         // Run the checker locally (same logic as the 'check-build-tools' handler)
         try {
-          const script = resolveBackendScript('check_build_tools.py');
+          const script = resolveBackendScript('build/check_tools.py');
           if (script) {
             const py = pythonCandidates();
             const tryRun = (): Promise<string | null> => new Promise((resolve) => {
@@ -1389,7 +1389,7 @@ app.whenReady().then(() => {
       let index = 0;
       const detectTools = async (): Promise<Record<string, any> | null> => {
         try {
-          const script = resolveBackendScript('check_build_tools.py');
+          const script = resolveBackendScript('build/check_tools.py');
           if (!script) return null;
           const py = pythonCandidates();
           return await new Promise((resolve) => {
@@ -1474,8 +1474,14 @@ app.whenReady().then(() => {
       }
       
       // Call Python script to handle download
-      const scriptPath = path.join(__dirname, '..', '..', 'backend', 'download_blender.py');
+      const scriptPath = resolveBackendScript('network/download_blender.py');
       console.log('[BACKEND] Script Python:', scriptPath);
+
+      if (!scriptPath) {
+        console.error('[BACKEND] Script Python introuvable');
+        send('ERROR', { message: 'script-not-found' });
+        return { success: false, error: 'script-not-found' };
+      }
       
       send('PROGRESS', { progress: 5, text: 'Démarrage du téléchargement...' });
       
@@ -1500,11 +1506,6 @@ app.whenReady().then(() => {
         return { success: false, error: 'python-not-found' };
       }
       console.log('[BACKEND] Python détecté:', pythonCmd);
-      if (!fs.existsSync(scriptPath)) {
-        console.error('[BACKEND] Script Python introuvable:', scriptPath);
-        send('ERROR', { message: 'script-not-found' });
-        return { success: false, error: 'script-not-found' };
-      }
       // Avoid shell so that spaces in path are preserved
       const pythonArgs = [...pythonCmd.args, scriptPath, version, url, targetPath, folderName];
       console.log('[BACKEND] Lancement Python:', pythonCmd.cmd, pythonArgs);
@@ -1625,10 +1626,10 @@ app.whenReady().then(() => {
     console.log('[BACKEND] fetch-blender-versions appelé pour:', versionType);
     
     try {
-      const scriptPath = path.join(__dirname, '..', '..', 'backend', 'fetch_blender_versions.py');
+      const scriptPath = resolveBackendScript('network/fetch_blender_versions.py');
       console.log('[BACKEND] Script fetch Python:', scriptPath);
       
-      if (!fs.existsSync(scriptPath)) {
+      if (!scriptPath || !fs.existsSync(scriptPath)) {
         console.error('[BACKEND] Script fetch Python introuvable:', scriptPath);
         return { success: false, error: 'script-not-found' };
       }
@@ -1750,8 +1751,8 @@ app.whenReady().then(() => {
           return { success: false, error: 'missing-tools', missing };
         }
       } catch { /* ignore preflight errors */ }
-  // Use clone_and_compile.py for clone + full build
-  const script = resolveBackendScript('clone_and_compile.py');
+  // Use build/clone_and_compile.py for clone + full build
+  const script = resolveBackendScript('build/clone_and_compile.py');
       if (!script) { try { send('ERROR', { message: 'script-missing' }); } catch {}; return { success: false, error: 'script-missing' }; }
       const { spawn } = require('child_process');
       const args = [script, '--repo', repoUrl, '--branch', branch, '--target', target].concat(name ? ['--name', name] : []);
@@ -1826,7 +1827,7 @@ app.whenReady().then(() => {
     } catch (e) { return { success: false, error: String(e) }; }
   });
 
-  // ── Clone ONLY (no compilation) – uses simple_clone.py ──────────────────
+  // ── Clone ONLY (no compilation) – uses build/simple_clone.py ──────────────────
     ipcMain.handle('clone-only', async (_event, payload) => {
       try {
         const repoUrl: string = payload?.repoUrl || payload?.url;
@@ -1844,7 +1845,7 @@ app.whenReady().then(() => {
           return { success: false, error: 'missing-params' };
         }
 
-        const script = resolveBackendScript('simple_clone.py');
+        const script = resolveBackendScript('build/simple_clone.py');
         if (!script) {
           send('ERROR', { message: 'script-missing' });
           return { success: false, error: 'script-missing' };
@@ -1946,7 +1947,7 @@ app.whenReady().then(() => {
       } catch { /* ignore */ }
     });
 
-    // ── Build CLONED – uses build_cloned.py ──────────────────────────────────
+    // ── Build CLONED – uses build/build_cloned.py ──────────────────────────────────
     ipcMain.handle('build-cloned', async (_event, payload) => {
       try {
         const src: string = payload?.src;
@@ -1961,7 +1962,7 @@ app.whenReady().then(() => {
           return { success: false, error: 'missing-src' };
         }
 
-        const scriptBuild = resolveBackendScript('build_cloned.py');
+        const scriptBuild = resolveBackendScript('build/build_cloned.py');
         if (!scriptBuild) {
           send('ERROR', { message: 'build-script-missing' });
           return { success: false, error: 'build-script-missing' };

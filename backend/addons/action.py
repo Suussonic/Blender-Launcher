@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""
-Script helper to perform addon actions in Blender (enable/disable).
-Usage (from shell):
-  blender --background --python blender_addon_action.py -- action enable module addon_module_name
+"""Enable or disable a Blender addon from CLI.
 
-Prints marker @@ACTION_OK@@ on success, @@ACTION_FAIL@@ on validation failure, and writes traceback to stderr on exceptions.
+Usage:
+    blender --background --python backend/addons/action.py -- action enable module addon_module_name
+
+Outputs:
+    - `@@ACTION_OK@@` when final state matches requested state
+    - `@@ACTION_FAIL@@` otherwise
 """
 import sys
 import traceback
