@@ -46,6 +46,7 @@ const api = {
       'get-steam-availability'
       , 'scan-and-merge-blenders'
       , 'get-blend-metadata'
+      , 'get-blend-preview'
       , 'select-output-folder'
       , 'start-render'
       // Addons-related IPC

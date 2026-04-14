@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import ModalCloseButton from './components/ModalCloseButton';
 
 type BlenderExe = {
 	path: string;
@@ -16,6 +18,7 @@ interface ViewOpenWithProps {
 }
 
 const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose, onSelect }) => {
+	const { t } = useTranslation();
 	const [blenders, setBlenders] = useState<BlenderExe[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -30,7 +33,7 @@ const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose, 
 				const list = await window.electronAPI?.getBlenders?.();
 				if (!cancelled && list) setBlenders(list as any);
 			} catch (e:any) {
-				if (!cancelled) setError(e.message || 'Erreur chargement');
+				if (!cancelled) setError(e.message || t('loading.error', 'Erreur chargement'));
 			} finally {
 				if (!cancelled) setLoading(false);
 			}
@@ -56,18 +59,16 @@ const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose, 
 		<div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
 			<div style={{ width: 540, maxWidth: '100%', maxHeight: '80vh', background: '#11181f', border: '1px solid #24303a', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 8px 32px -4px rgba(0,0,0,0.6)' }}>
 				<div style={{ padding: '16px 20px', borderBottom: '1px solid #1f2932', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-					<h3 style={{ margin: 0, fontSize: 18, color: '#e2e8f0', fontWeight: 600 }}>Ouvrir avec</h3>
-					<button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }} title="Fermer">
-						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-					</button>
+					<h3 style={{ margin: 0, fontSize: 18, color: '#e2e8f0', fontWeight: 600 }}>{t('open_with', 'Ouvrir avec')}</h3>
+					<ModalCloseButton onClick={onClose} title={t('close', 'Fermer')} />
 				</div>
 				<div className="hide-scrollbar" style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
 					{filePath && (
-						<div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Fichier: {filePath}</div>
+						<div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>{t('file', 'Fichier')}: {filePath}</div>
 					)}
-					{loading && <div style={{ color: '#94a3b8', fontSize: 14 }}>Chargement...</div>}
-					{error && <div style={{ color: '#ef4444', fontSize: 14 }}>Erreur: {error}</div>}
-					{!loading && !error && blenders.length === 0 && <div style={{ color: '#64748b', fontSize: 14 }}>Aucun Blender enregistré.</div>}
+					{loading && <div style={{ color: '#94a3b8', fontSize: 14 }}>{t('loading', 'Chargement...')}</div>}
+					{error && <div style={{ color: '#ef4444', fontSize: 14 }}>{t('error', 'Erreur')}: {error}</div>}
+					{!loading && !error && blenders.length === 0 && <div style={{ color: '#64748b', fontSize: 14 }}>{t('no_blender_saved', 'Aucun Blender enregistré.')}</div>}
 					{!loading && !error && blenders.map((b, idx) => (
 						<button
 							key={b.path + idx}

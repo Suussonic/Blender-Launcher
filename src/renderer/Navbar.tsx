@@ -40,6 +40,7 @@ const windowBtnStyle: React.CSSProperties = {
 interface GitHubImportModalProps { value:string; onChange:(v:string)=>void; onClose:()=>void; onValidate:(url:string)=>{ok?:boolean; error?:string}; }
 
 const GitHubImportModal: React.FC<GitHubImportModalProps> = ({ value, onChange, onClose, onValidate }) => {
+  const { t } = useTranslation();
   const [error,setError] = React.useState<string|null>(null);
   const canSubmit = value.trim()!=='';
 
@@ -77,7 +78,7 @@ const GitHubImportModal: React.FC<GitHubImportModalProps> = ({ value, onChange, 
         boxShadow:'0 8px 28px -8px rgba(0,0,0,0.55), 0 4px 14px -6px rgba(0,0,0,0.45)',
         animation:'modalPop .28s cubic-bezier(.4,.12,.25,1)'
       }}>
-        <button onClick={onClose} title='Fermer' style={{
+        <button onClick={onClose} title={t('close', 'Fermer')} style={{
           position:'absolute',
           top:10,
           right:10,
@@ -104,13 +105,13 @@ const GitHubImportModal: React.FC<GitHubImportModalProps> = ({ value, onChange, 
           letterSpacing:.6,
           color:'#f1f5f9',
           textTransform:'uppercase'
-        }}>Importer un dépôt GitHub</h3>
+        }}>{t('import.github_repo', 'Importer un dépôt GitHub')}</h3>
         <div style={{width:'100%', marginTop:18, display:'flex', justifyContent:'center'}}>
           <input
             type='text'
             autoFocus
             value={value}
-            placeholder='ex: https://github.com/blender/blender'
+            placeholder={t('import.github_placeholder', 'ex: https://github.com/blender/blender')}
             onChange={e=>{ setError(null); onChange(e.target.value); }}
             onKeyDown={e=>{ if(e.key==='Enter') submit(); if(e.key==='Escape') onClose(); }}
             style={{
@@ -147,7 +148,7 @@ const GitHubImportModal: React.FC<GitHubImportModalProps> = ({ value, onChange, 
         }}
           onMouseOver={e=>{ if(canSubmit) e.currentTarget.style.background='linear-gradient(90deg,#3b4a5a,#526174)'; }}
           onMouseOut={e=>{ if(canSubmit) e.currentTarget.style.background='linear-gradient(90deg,#334155,#475569)'; }}
-        >Valider</button>
+        >{t('validate', 'Valider')}</button>
       </div>
     </div>
   );
@@ -311,14 +312,14 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
         <div style={{ display:'flex', alignItems:'center', gap:12, marginLeft:16, marginRight:20, flexShrink:0 }} className='no-drag'>
           <img src={"./public/logo/png/Blender-Launcher-512x512.png"} alt="Logo" style={{ width:32, height:32 }} />
           <span style={{ fontWeight:700, fontSize:22, color:'#fff', letterSpacing:1, whiteSpace:'nowrap' }}>Blender Launcher</span>
-          <button style={{ ...iconBtnStyle, width:38, height:38 }} title="Accueil" onClick={onHome}>
+          <button style={{ ...iconBtnStyle, width:38, height:38 }} title={t('home', 'Accueil')} onClick={onHome}>
             <FiHome size={22} />
           </button>
           {/* Back/Forward */}
           <div style={{ display:'flex', gap:6 }} className="no-drag">
             <button
               style={{ ...iconBtnStyle, width:34, height:34, opacity: canGoBack ? 1 : 0.4 }}
-              title="Précédent"
+              title={t('previous', 'Précédent')}
               disabled={!canGoBack}
               onClick={() => { if (canGoBack && onBack) onBack(); }}
             >
@@ -326,7 +327,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
             </button>
             <button
               style={{ ...iconBtnStyle, width:34, height:34, opacity: canGoForward ? 1 : 0.4 }}
-              title="Suivant"
+              title={t('next', 'Suivant')}
               disabled={!canGoForward}
               onClick={() => { if (canGoForward && onForward) onForward(); }}
             >
@@ -338,7 +339,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
   <div style={{ position:'relative', flex:1, margin:'0 24px', minWidth:260, display:'flex', gap:8 }} className="no-drag">
           <input
             type="text"
-            placeholder="Rechercher builds et extensions..."
+            placeholder={t('search.builds_extensions', 'Rechercher builds et extensions...')}
             value={searchQuery}
             onChange={e=> setSearchQuery(e.target.value)}
             onKeyDown={e=> { 
@@ -368,7 +369,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
               {/* Custom Builds Section */}
               {repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 && (
                 <>
-                  <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5, padding:'4px 8px' }}>Custom Builds</div>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5, padding:'4px 8px' }}>{t('custom_builds', 'Custom Builds')}</div>
                   {repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).map(r=> (
                     <div key={r.link} onClick={()=>{ setSearchQuery(''); onSelectRepo && onSelectRepo(r); }}
                       style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 10px', background:'#232a31', border:'1px solid #2a3036', borderRadius:8, cursor:'pointer', fontSize:14, color:'#fff' }}
@@ -384,8 +385,8 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
               {/* Extensions Section */}
               {(loadingExtensions || extensionResults.length > 0) && (
                 <>
-                  <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5, padding:'4px 8px', marginTop: repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? 4 : 0 }}>Extensions</div>
-                  {loadingExtensions && <div style={{ fontSize:12, color:'#94a3b8', padding:'4px 8px' }}>Chargement...</div>}
+                  <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5, padding:'4px 8px', marginTop: repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? 4 : 0 }}>{t('extensions', 'Extensions')}</div>
+                  {loadingExtensions && <div style={{ fontSize:12, color:'#94a3b8', padding:'4px 8px' }}>{t('loading', 'Chargement...')}</div>}
                   {!loadingExtensions && extensionResults.map((ext, i) => (
                     <div key={i} onClick={()=>{ 
                       setSearchQuery('');
@@ -425,28 +426,28 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
               
               {/* No Results */}
               {!loadingExtensions && repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length===0 && extensionResults.length===0 && (
-                <div style={{ fontSize:12, color:'#94a3b8', padding:'4px 8px' }}>Aucun résultat</div>
+                <div style={{ fontSize:12, color:'#94a3b8', padding:'4px 8px' }}>{t('no_result', 'Aucun résultat')}</div>
               )}
               
               {/* Press Enter hint */}
               {searchQuery.trim() && (
                 <div style={{ fontSize:11, color:'#64748b', padding:'6px 8px', borderTop:'1px solid #2a3036', marginTop:4, textAlign:'center' }}>
-                  Appuyez sur <strong style={{ color:'#94a3b8' }}>Entrée</strong> pour voir tous les résultats sur extensions.blender.org
+                  {t('press_enter_for_all_results', 'Appuyez sur')} <strong style={{ color:'#94a3b8' }}>{t('enter', 'Entrée')}</strong> {t('to_see_all_results_extensions', 'pour voir tous les résultats sur extensions.blender.org')}
                 </div>
               )}
             </div>
           )}
         </div>
         {/* Bouton + (Clone & Build) */}
-        <button style={iconBtnStyle} className="no-drag" title="Clone & Build" onClick={onOpenCloneBuild}>
+        <button style={iconBtnStyle} className="no-drag" title={t('clone_build', 'Clone & Build')} onClick={onOpenCloneBuild}>
           <FiPlus size={22} />
         </button>
         {/* Bouton import */}
-        <button style={iconBtnStyle} className="no-drag" title="Importer" onClick={() => setShowImport(true)}>
+        <button style={iconBtnStyle} className="no-drag" title={t('import', 'Importer')} onClick={() => setShowImport(true)}>
           <FiDownload size={22} />
         </button>
         {/* Bouton paramètres (engrenage) */}
-        <button style={iconBtnStyle} className="no-drag" title="Paramètres" onClick={onSettings}>
+        <button style={iconBtnStyle} className="no-drag" title={t('settings', 'Paramètres')} onClick={onSettings}>
           <FiSettings size={22} />
         </button>
         {/* Séparateur vertical */}
@@ -456,7 +457,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
           <button
             style={{ ...windowBtnStyle, borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
             className="no-drag"
-            title="Minimiser"
+            title={t('window.minimize', 'Minimiser')}
             onClick={() => {
               if (window.electronAPI) {
                 window.electronAPI.send('minimize-window');
@@ -468,7 +469,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
           <button
             style={{ ...windowBtnStyle, borderRadius: 0 }}
             className="no-drag"
-            title="Plein écran"
+            title={t('window.maximize', 'Plein écran')}
             onClick={() => {
               if (window.electronAPI) {
                 window.electronAPI.send('maximize-window');
@@ -481,7 +482,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
           <button
             style={{ ...windowBtnStyle, color: '#f87171', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, display: 'flex', marginRight: 10 }}
             className="no-drag"
-            title="Fermer"
+            title={t('close', 'Fermer')}
             onClick={() => {
               if (window.electronAPI) {
                 window.electronAPI.send('close-window');
@@ -547,7 +548,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
                   outline: 'none',
                   height: '100%',
                 }}
-                title="Importer depuis GitHub"
+                title={t('import.from_github', 'Importer depuis GitHub')}
                 onClick={() => setImportMode('github')}
               >
                 <FiGithub size={80} />
@@ -569,7 +570,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
                   outline: 'none',
                   height: '100%',
                 }}
-                title="Importer depuis un dossier"
+                title={t('import.from_folder', 'Importer depuis un dossier')}
                 onClick={() => {
                   if (window.electronAPI && window.electronAPI.send) {
                     window.electronAPI.send('open-folder-dialog');
@@ -603,7 +604,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
                   setShowImport(false);
                   setImportMode('main');
                 }}
-                title="Fermer"
+                title={t('close', 'Fermer')}
               >
                 <FiX size={28} />
               </button>
@@ -618,7 +619,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
               onValidate={(url) => {
                 // Validation + extraction owner/name
                 const match = url.trim().match(/https?:\/\/github.com\/(?:#!\/)?([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(?:\/.+)?$/);
-                if (!match) return { error: 'Lien GitHub invalide' };
+                if (!match) return { error: t('import.invalid_github_link', 'Lien GitHub invalide') };
                 const owner = match[1];
                 const name = match[2];
                 if (onSelectRepo) onSelectRepo({ name: `${owner}/${name}`, link: `https://github.com/${owner}/${name}` });

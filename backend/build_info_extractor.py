@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Extraction légère d'informations de build Blender.
+Lightweight Blender build info extraction.
 
-Inspiré du comportement du projet Blender-Launcher-V2, mais ré-implémenté ici
-sans copier de code, pour éviter tout problème de licence. Objectif:
-- Lancer l'exécutable Blender avec l'option `-v`
-- Parser la sortie pour en déduire: date/heure du commit, hash, version et nom
-- Écrire un fichier `.blinfo` compatible dans le dossier de build
+Inspired by Blender-Launcher-V2 behavior, but re-implemented here without
+copying code to avoid licensing issues. Goal:
+- Run the Blender executable with `-v`
+- Parse output to infer commit date/time, hash, version, and name
+- Write a compatible `.blinfo` file inside the build directory
 
-Utilisation CLI:
-  python backend/build_info_extractor.py <dossier_build> [--exe <chemin_blender>]
-Retourne un JSON sur stdout avec le résumé et écrit `<dossier_build>/.blinfo`.
+CLI usage:
+    python backend/build_info_extractor.py <build_folder> [--exe <blender_path>]
+Prints a JSON summary to stdout and writes `<build_folder>/.blinfo`.
 """
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ class BuildInfo:
     custom_name: str = ""
     custom_executable: str = ""
 
-    # Format attendu par notre launcher
+    # Format expected by the launcher
     @property
     def file_version(self) -> int:
         return 1
@@ -59,7 +59,7 @@ class BuildInfo:
 
 
 def _run_blender_version(exe: Path) -> str:
-    # Sur Windows, demandez toujours la sortie en UTF-8
+    # On Windows, always decode process output as UTF-8
     try:
         completed = subprocess.run(
             [exe.as_posix(), "-v"],
@@ -73,7 +73,7 @@ def _run_blender_version(exe: Path) -> str:
 
 
 def parse_blender_version_output(output: str, fallback_subversion: Optional[str] = None) -> Tuple[datetime, str, str, str]:
-    """Retourne (commit_time, build_hash, subversion, custom_name)."""
+    """Return (commit_time, build_hash, subversion, custom_name)."""
     # Commit time / date
     ctime = re.search(r"build commit time:\s*(.*)", output)
     cdate = re.search(r"build commit date:\s*(.*)", output)
@@ -82,7 +82,7 @@ def parse_blender_version_output(output: str, fallback_subversion: Optional[str]
         try:
             commit_dt = datetime.strptime(f"{cdate[1].strip()} {ctime[1].strip()}", "%Y-%m-%d %H:%M")
         except Exception:
-            # Format exotique => fallback à maintenant
+            # Unexpected format => fallback to current time
             commit_dt = datetime.now()
     else:
         commit_dt = datetime.now()
@@ -91,12 +91,12 @@ def parse_blender_version_output(output: str, fallback_subversion: Optional[str]
     bh = re.search(r"build hash:\s*([0-9a-fA-F]+)", output)
     build_hash = bh[1].strip() if bh else ""
 
-    # Subversion et nom custom
+    # Subversion and custom name
     subversion = fallback_subversion or ""
     custom_name = ""
 
-    # Exemple de première ligne: "Blender 4.1.0 (hash)" ou "Bforartists 4.1.0"
-    # On essaye d'extraire la dernière paire "<nom> <version>"
+    # Example first line: "Blender 4.1.0 (hash)" or "Bforartists 4.1.0"
+    # Try extracting the "<name> <version>" pair
     first_line = output.splitlines()[0].strip() if output else ""
     m = re.search(r"(Blender|Bforartists)\s+([^\s]+)", first_line)
     if m:
@@ -115,7 +115,7 @@ def write_blinfo(build_dir: Path, info: BuildInfo) -> dict:
 
 
 def detect_executable(build_dir: Path) -> Optional[Path]:
-    # Recherche simple: blender.exe (Windows) ou blender (Linux)
+    # Simple lookup: blender.exe (Windows) or blender (Linux)
     candidates = [
         build_dir / "blender.exe",
         build_dir / "blender",
@@ -125,7 +125,7 @@ def detect_executable(build_dir: Path) -> Optional[Path]:
     for c in candidates:
         if c.exists():
             return c
-    # Sinon, essayer de fouiller un peu (bin/, build/, etc.)
+    # Otherwise, recurse through common output folders (bin/, build/, etc.)
     for sub in ("bin", "build", "Release", "release"):
         p = build_dir / sub
         if p.is_dir():

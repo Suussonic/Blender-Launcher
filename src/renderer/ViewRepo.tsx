@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { marked } from 'marked';
 import './markdown.css';
 import { loadRepoCache, saveRepoCache, needsMeta, needsReadme, needsLicense, needsExtra } from './githubCache';
@@ -14,6 +15,7 @@ interface ViewRepoProps {
 interface RepoMeta { full_name:string; description:string; owner:{ avatar_url:string; login:string }; stargazers_count:number; forks_count:number; html_url:string; watchers_count?:number; subscribers_count?:number; }
 
 const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
+  const { t } = useTranslation();
   const [meta, setMeta] = useState<RepoMeta | null>(null);
   const [readmeHtml, setReadmeHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -29,7 +31,7 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
     let initialSet = false;
     const handler = (_: any, payload: any) => {
       const tag = payload?.event || payload?.tag;
-      const text = payload?.text || (tag === 'START' ? 'Préparation…' : (tag === 'DONE' ? 'Terminé' : (tag === 'ERROR' ? `Erreur: ${payload?.message || 'Echec'}` : '')));
+      const text = payload?.text || (tag === 'START' ? t('prep', 'Préparation…') : (tag === 'DONE' ? t('done', 'Terminé') : (tag === 'ERROR' ? `${t('error', 'Erreur')}: ${payload?.message || t('failure', 'Echec')}` : '')));
       const progress = typeof payload?.progress === 'number' ? Math.max(0, Math.min(100, Math.floor(payload.progress))) : (tag === 'DONE' ? 100 : (tag === 'START' ? 0 : undefined));
       if (tag === 'START' || typeof progress === 'number' || text) {
         onCloneStateChange({ isCloning: true, progress: progress ?? 0, text: text || '', repoName: (meta?.full_name || repo.link.split('/').slice(-2).join('/')) });
@@ -78,7 +80,7 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
         if (!cache || needsMeta(cache)) {
           tasks.push((async()=>{
             const resp = await fetch(`https://api.github.com/repos/${owner}/${name}`);
-            if (!resp.ok) throw new Error('Impossible de charger les métadonnées');
+            if (!resp.ok) throw new Error(t('repo.meta_load_failed', 'Impossible de charger les métadonnées'));
             const js = await resp.json();
             if(cancelled) return; setMeta(js); saveRepoCache(full,{ meta:js, tsMeta:Date.now() });
           })());
@@ -157,7 +159,7 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
 
         await Promise.all(tasks);
       } catch(e:any){
-        if(!cancelled) setError(e.message || 'Erreur inconnue');
+        if(!cancelled) setError(e.message || t('unknown_error', 'Erreur inconnue'));
       } finally {
         if(!cancelled) setLoading(false);
       }
@@ -171,7 +173,7 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
         {meta && <img src={meta.owner.avatar_url} alt="avatar" style={{ width:84, height:84, borderRadius:'50%', flexShrink:0, boxShadow:'0 0 0 2px #1e242a' }} />}
         <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:6 }}>
           <h1 style={{ fontSize:34, fontWeight:700, margin:0, color:'#fff', wordBreak:'break-word' }}>{ meta?.full_name || repo.link.split('/').slice(-2).join('/') }</h1>
-          <p style={{ fontSize:14, color:'#94a3b8', margin:0, lineHeight:1.5 }}>{ meta?.description || 'Aucune description.' }</p>
+          <p style={{ fontSize:14, color:'#94a3b8', margin:0, lineHeight:1.5 }}>{ meta?.description || t('repo.no_description', 'Aucune description.') }</p>
           {meta && (
             <div style={{ display:'flex', flexWrap:'wrap', gap:18, fontSize:12, color:'#94a3b8', alignItems:'center' }}>
               <span>★ {meta.stargazers_count}</span>
@@ -199,14 +201,14 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
                 }}
                 onMouseOver={e => e.currentTarget.style.background = '#15803d'}
                 onMouseOut={e => e.currentTarget.style.background = '#16a34a'}
-                title="Cloner une branche et construire Blender depuis l'application"
+                title={t('repo.clone_build_title', 'Cloner une branche et construire Blender depuis l\'application')}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                   <polyline points="7 10 12 15 17 10"/>
                   <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
-                Cloner & Build
+                {t('repo.clone_build', 'Cloner & Build')}
               </button>
               <div style={{ display:'flex', marginLeft:'auto', gap:0, border:'1px solid #2f3740', borderRadius:8, overflow:'hidden', background:'#161c22' }}>
                 {['readme','license'].map(tab=> (
@@ -233,8 +235,8 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
       </div>
       <div style={{ height:1, background:'#202830', marginTop:18 }} />
       <div className="hide-scrollbar" style={{ flex:1, overflowY:'auto', padding:'24px 32px 48px 32px', color:'#e2e8f0' }}>
-        {loading && <div style={{ color:'#94a3b8' }}>Chargement…</div>}
-        {error && <div style={{ color:'#ef4444' }}>Erreur : {error}</div>}
+        {loading && <div style={{ color:'#94a3b8' }}>{t('loading_with_ellipsis', 'Chargement…')}</div>}
+        {error && <div style={{ color:'#ef4444' }}>{t('error', 'Erreur')} : {error}</div>}
         {!loading && !error && activeTab==='readme' && (
           <div style={{ maxWidth:900 }}
             className='markdown-body'
@@ -242,7 +244,7 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
             dangerouslySetInnerHTML={{ __html: readmeHtml }} />
         )}
         {!loading && !error && activeTab==='license' && (
-          <div style={{ maxWidth:900, fontSize:13 }} dangerouslySetInnerHTML={{ __html: licenseHtml || '<em>Aucune licence trouvée.</em>' }} />
+          <div style={{ maxWidth:900, fontSize:13 }} dangerouslySetInnerHTML={{ __html: licenseHtml || `<em>${t('repo.no_license_found', 'Aucune licence trouvée.')}</em>` }} />
         )}
       </div>
       

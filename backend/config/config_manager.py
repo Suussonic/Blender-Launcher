@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Gestionnaire de configuration pour Blender Launcher
-Gère les opérations CRUD sur le fichier config.json
+Configuration manager for Blender Launcher.
+Handles CRUD operations on config.json.
 """
 
 import json
@@ -13,39 +13,39 @@ from typing import Dict, List, Optional, Union
 
 
 class ConfigManager:
-    """Gestionnaire principal pour les opérations de configuration"""
+    """Main manager for configuration operations."""
     
     def __init__(self, config_path: str):
         """
-        Initialise le gestionnaire de configuration
+        Initialize the configuration manager.
         
         Args:
-            config_path: Chemin vers le fichier config.json
+            config_path: Path to the config.json file.
         """
         self.config_path = Path(config_path)
         self.ensure_config_exists()
     
     def ensure_config_exists(self) -> None:
-        """Crée le fichier config.json s'il n'existe pas"""
+        """Create config.json if it does not exist."""
         if not self.config_path.exists():
             default_config = {"blenders": []}
             self.save_config(default_config)
     
     def load_config(self) -> Dict:
         """
-        Charge la configuration depuis le fichier JSON
+        Load configuration from the JSON file.
         
         Returns:
-            Dict: Configuration chargée
+            Dict: Loaded configuration.
             
         Raises:
-            Exception: Si erreur de lecture ou format JSON invalide
+            Exception: Raised on read failures or invalid JSON format.
         """
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             
-            # Validation de base
+            # Basic validation
             if not isinstance(config, dict):
                 raise ValueError("Format de configuration invalide")
             
@@ -63,16 +63,16 @@ class ConfigManager:
     
     def save_config(self, config: Dict) -> bool:
         """
-        Sauvegarde la configuration dans le fichier JSON
+        Save configuration to the JSON file.
         
         Args:
-            config: Configuration à sauvegarder
+            config: Configuration payload to persist.
             
         Returns:
-            bool: True si succès, False sinon
+            bool: True on success, False otherwise.
         """
         try:
-            # Créer le dossier parent si nécessaire
+            # Create parent directory when needed
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
             
             with open(self.config_path, 'w', encoding='utf-8') as f:
@@ -86,13 +86,13 @@ class ConfigManager:
     
     def find_executable_index(self, exe_path: str) -> int:
         """
-        Trouve l'index d'un exécutable dans la configuration
+        Find an executable index in configuration.
         
         Args:
-            exe_path: Chemin de l'exécutable à chercher
+            exe_path: Executable path to search.
             
         Returns:
-            int: Index de l'exécutable (-1 si non trouvé)
+            int: Executable index (-1 if not found).
         """
         config = self.load_config()
         
@@ -104,14 +104,14 @@ class ConfigManager:
     
     def update_executable_title(self, exe_path: str, new_title: str) -> Dict[str, Union[bool, str]]:
         """
-        Met à jour le titre d'un exécutable
+        Update an executable title.
         
         Args:
-            exe_path: Chemin de l'exécutable
-            new_title: Nouveau titre
+            exe_path: Executable path.
+            new_title: New title value.
             
         Returns:
-            Dict: Résultat de l'opération avec success et message
+            Dict: Operation result with success and message.
         """
         try:
             config = self.load_config()
@@ -148,28 +148,28 @@ class ConfigManager:
     
     def get_executables(self) -> List[Dict]:
         """
-        Récupère la liste de tous les exécutables
+        Get all configured executables.
         
         Returns:
-            List[Dict]: Liste des exécutables configurés
+            List[Dict]: Configured executables.
         """
         config = self.load_config()
         return config.get('blenders', [])
     
     def add_executable(self, exe_data: Dict) -> Dict[str, Union[bool, str]]:
         """
-        Ajoute un nouvel exécutable à la configuration
+        Add a new executable to configuration.
         
         Args:
-            exe_data: Données de l'exécutable (path, name, title, icon)
+            exe_data: Executable data (path, name, title, icon).
             
         Returns:
-            Dict: Résultat de l'opération
+            Dict: Operation result.
         """
         try:
             config = self.load_config()
             
-            # Vérifier si l'exécutable existe déjà
+            # Check whether executable already exists
             if self.find_executable_index(exe_data.get('path', '')) != -1:
                 return {
                     "success": False,
@@ -197,13 +197,13 @@ class ConfigManager:
     
     def remove_executable(self, exe_path: str) -> Dict[str, Union[bool, str]]:
         """
-        Supprime un exécutable de la configuration
+        Remove an executable from configuration.
         
         Args:
-            exe_path: Chemin de l'exécutable à supprimer
+            exe_path: Executable path to remove.
             
         Returns:
-            Dict: Résultat de l'opération
+            Dict: Operation result.
         """
         try:
             config = self.load_config()
@@ -236,7 +236,7 @@ class ConfigManager:
 
 
 def main():
-    """Point d'entrée principal pour les appels en ligne de commande"""
+    """Main CLI entry point."""
     if len(sys.argv) < 2:
         print(json.dumps({
             "success": False,

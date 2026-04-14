@@ -28,7 +28,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
   const pendingRaf = useRef<number | null>(null);
   const lastClientY = useRef<number | null>(null);
 
-  // Charge la liste depuis config.json au montage
+  // Load applications from config.json on mount
   useEffect(() => {
     const loadBlenders = async () => {
       try {
@@ -61,7 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
         // Vérifie si déjà présent pour afficher l'erreur
         const exists = blenders.some(b => b.path === filePath);
         if (exists) {
-          setError('Ce fichier est déjà importé !');
+          setError(t('import.already_exists', 'Ce fichier est déjà importé !'));
         }
       });
 
@@ -101,7 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
   }, [blenders]);
 
 
-  // Efface l’erreur après 2,5s
+  // Auto-clear errors after 2.5s
   React.useEffect(() => {
     if (error) {
       const timer = setTimeout(() => setError(null), 2500);
@@ -109,12 +109,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
     }
   }, [error]);
 
-  // Clic simple pour sélectionner
+  // Single click selects an executable
   const handleClick = (exe: BlenderExe) => {
     onSelectBlender(exe);
   };
 
-  // Double-clic pour lancer Blender
+  // Double click launches Blender
   const handleDoubleClick = (exe: BlenderExe) => {
     if (window.electronAPI && window.electronAPI.send) {
       window.electronAPI.send('launch-blender', exe.path);
@@ -136,11 +136,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
     return '#60a5fa';
   };
   const pendingStatusLabel = (status: PendingBuild['status']) => {
-    if (status === 'cloning') return 'Clonage…';
-    if (status === 'cloned') return 'Prêt à compiler';
-    if (status === 'building') return 'Compilation…';
-    if (status === 'done') return 'Terminé';
-    if (status === 'error') return 'Erreur';
+    if (status === 'cloning') return t('clone.in_progress_short', 'Clonage…');
+    if (status === 'cloned') return t('status.ready_to_build', 'Prêt à compiler');
+    if (status === 'building') return t('compile.in_progress_short', 'Compilation…');
+    if (status === 'done') return t('done', 'Terminé');
+    if (status === 'error') return t('error', 'Erreur');
     return '';
   };
 
@@ -157,7 +157,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* Popup erreur */}
+      {/* Error popup */}
       {error && (
         <div
           onClick={() => setError(null)}
@@ -182,7 +182,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
           {error}
         </div>
       )}
-      {/* Titre Mes applications (affiché seulement si au moins une version) */}
+      {/* "My applications" title (shown only when at least one item exists) */}
       {blenders.length > 0 && (
         <>
           <div style={{ width: '100%', padding: '24px 0 24px 0', textAlign: 'center', fontWeight: 700, fontSize: 18, color: '#fff', letterSpacing: 0.5, opacity: 0.95 }}>
@@ -360,7 +360,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
                 return (
                   <div
                     key={pb.id}
-                    title={`${pb.repoName} · ${label}\nCliqué pour ${pb.status === 'cloned' ? 'compiler' : 'voir le statut'}`}
+                    title={`${pb.repoName} · ${label}\n${t('sidebar.click_for', 'Cliqué pour')} ${pb.status === 'cloned' ? t('compile', 'compiler') : t('view_status', 'voir le statut')}`}
                     onClick={() => onSelectPending?.(pb.id)}
                     style={{
                       padding: '7px 14px 7px 10px',

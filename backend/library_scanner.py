@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Scan simplifié des builds Blender dans un dossier "bibliothèque".
-- Détecte les dossiers contenant un exécutable Blender
-- Optionnel: tente d'écrire .blinfo si absent en lançant Blender -v
+Lightweight scan of Blender builds inside a library folder.
+- Detects directories containing a Blender executable
+- Optionally writes .blinfo when missing by running Blender -v
 
-Inspiré des idées de Blender-Launcher-V2 (lecture d'un .blinfo et détection d'exe),
-mais ré-implémenté ici sans copier de code.
+Inspired by Blender-Launcher-V2 ideas (reading .blinfo and executable detection),
+but re-implemented here without copying code.
 
-Utilisation CLI:
-  python backend/library_scanner.py <library_folder> [--write-blinfo]
-Renvoie un JSON sur stdout.
+CLI usage:
+    python backend/library_scanner.py <library_folder> [--write-blinfo]
+Prints JSON to stdout.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from build_info_extractor import extract_and_write, detect_executable
 
 
 def iter_build_folders(library_root: Path) -> Iterable[Path]:
-    # Parcourt 1 niveau: <library_root>/<subfolder>/<build>
+    # Scan one level deep: <library_root>/<subfolder>/<build>
     if not library_root.is_dir():
         return []
     for sub in library_root.iterdir():
@@ -47,7 +47,7 @@ def scan_library(library_root: Path, write_blinfo: bool = False) -> List[dict]:
                 extract_and_write(build)
                 has_blinfo = True
             except Exception:
-                # On ignore les erreurs de génération de .blinfo
+                # Ignore .blinfo generation errors
                 pass
 
         results.append(

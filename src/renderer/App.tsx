@@ -63,7 +63,7 @@ const App: React.FC = () => {
                 clonedPath: c.clonedPath || '',
                 status: 'cloned' as const,
                 progress: 100,
-                currentText: 'Prêt à compiler',
+                currentText: t('status.ready_to_build', 'Prêt à compiler'),
                 logLines: [],
               }));
             return [...prev, ...restored];
@@ -105,7 +105,7 @@ const App: React.FC = () => {
         setCloneState({
           isDownloading: true,
           progress: data.progress ?? 0,
-          text: data.message || 'Erreur de téléchargement',
+          text: data.message || t('download.error', 'Erreur de téléchargement'),
           version: cloneState?.version || undefined
         });
         return;
@@ -114,7 +114,7 @@ const App: React.FC = () => {
         setCloneState({
           isDownloading: true,
           progress: 100,
-          text: 'Terminé',
+          text: t('done', 'Terminé'),
           version: cloneState?.version || undefined
         });
         // Clear after short delay
@@ -129,7 +129,7 @@ const App: React.FC = () => {
         setCloneState({
           isDownloading: true,
             progress: typeof data.progress === 'number' ? data.progress : 0,
-            text: data.text || 'Téléchargement...',
+            text: data.text || t('download.in_progress', 'Téléchargement...'),
             version: cloneState?.version || undefined
         });
       }
@@ -172,11 +172,11 @@ const App: React.FC = () => {
             clonedPath: '',
             status: 'cloning',
             progress: 0,
-            currentText: logLine || 'Clonage en cours…',
+            currentText: logLine || t('clone.in_progress', 'Clonage en cours…'),
             logLines: logLine ? [logLine] : [],
           };
           // Also show the bottom bar for cloning
-          setCloneState({ isCloning: true, jobId, startTime: Date.now(), progress: 0, text: logLine || 'Clonage en cours…', repoName: data?.repoName || data?.repoUrl || 'Dépôt' });
+          setCloneState({ isCloning: true, jobId, startTime: Date.now(), progress: 0, text: logLine || t('clone.in_progress', 'Clonage en cours…'), repoName: data?.repoName || data?.repoUrl || 'Dépôt' });
           return [...prev, newBuild];
         }
 
@@ -196,7 +196,7 @@ const App: React.FC = () => {
               // If already cloned/building/error, START means a build is beginning
               status: item.status === 'cloned' || item.status === 'building' || item.status === 'error' ? 'building' : 'cloning',
               progress: 0,
-              currentText: logLine || (item.status === 'cloned' || item.status === 'building' || item.status === 'error' ? 'Compilation en cours…' : item.currentText),
+              currentText: logLine || (item.status === 'cloned' || item.status === 'building' || item.status === 'error' ? t('compile.in_progress', 'Compilation en cours…') : item.currentText),
               logLines: newLogs,
             };
             break;
@@ -216,7 +216,7 @@ const App: React.FC = () => {
                 status: 'cloned',
                 clonedPath: data.path,
                 progress: 100,
-                currentText: 'Clone terminé — cliquez pour compiler',
+                currentText: t('clone.done_click_compile', 'Clone terminé — cliquez pour compiler'),
                 logLines: newLogs,
               };
               // Clear bottom bar for clone done
@@ -228,7 +228,7 @@ const App: React.FC = () => {
                 status: 'done',
                 exePath: data.exe,
                 progress: 100,
-                currentText: 'Compilation terminée !',
+                currentText: t('compile.done', 'Compilation terminée !'),
                 logLines: newLogs,
               };
               // Clear bottom bar for build done
@@ -245,7 +245,7 @@ const App: React.FC = () => {
               ...item,
               status: 'error',
               errorMsg: data?.message,
-              currentText: `Erreur: ${data?.message || 'Inconnue'}`,
+              currentText: `${t('error', 'Erreur')}: ${data?.message || t('unknown', 'Inconnue')}`,
               logLines: newLogs,
             };
             // Clear bottom bar on error
@@ -271,7 +271,7 @@ const App: React.FC = () => {
       )
     );
     // Show bottom progress bar for the build
-    setCloneState({ isBuilding: true, jobId: id, startTime: Date.now(), progress: 0, text: 'Démarrage de la compilation…', repoName: build.repoName });
+    setCloneState({ isBuilding: true, jobId: id, startTime: Date.now(), progress: 0, text: t('compile.starting', 'Démarrage de la compilation…'), repoName: build.repoName });
     // Close the popup
     setActivePendingId(null);
     (window as any).electronAPI?.invoke?.('build-cloned', {
@@ -285,7 +285,7 @@ const App: React.FC = () => {
 
   // Écran de chargement au démarrage
   const [isBootLoading, setIsBootLoading] = useState<boolean>(true);
-  const [bootStatus, setBootStatus] = useState<string>('Préparation…');
+  const [bootStatus, setBootStatus] = useState<string>(t('prep', 'Préparation…'));
 
   // Écouter les changements de config pour mettre à jour la sélection
   useEffect(() => {
@@ -344,7 +344,7 @@ const App: React.FC = () => {
       if (!window.electronAPI?.invoke) return;
       try {
         // General config
-        setBootStatus('Chargement de la configuration générale…');
+        setBootStatus(t('boot.loading_general_config', 'Chargement de la configuration générale…'));
         let generalScan = false;
         try {
           const general = await window.electronAPI.invoke('get-general-config');
@@ -352,11 +352,11 @@ const App: React.FC = () => {
         } catch {}
 
         // Précharger la liste des fichiers récents (pour affichage rapide)
-        setBootStatus('Récupération des fichiers récents…');
+        setBootStatus(t('boot.loading_recent_files', 'Récupération des fichiers récents…'));
         try { await window.electronAPI.invoke('get-recent-blend-files'); } catch {}
 
         // Finaliser
-        setBootStatus('Préparation de l’interface…');
+        setBootStatus(t('boot.preparing_interface', 'Préparation de l’interface…'));
         setTimeout(() => setIsBootLoading(false), 250);
 
         // Scanner le système (conditionnel) après l'affichage initial pour réactivité
@@ -439,9 +439,9 @@ const App: React.FC = () => {
       if (!ev) return;
       if (ev === 'INIT') {
         const total = parseInt(payload.total || '1', 10) || 1;
-        setRenderState({ active: true, done: 0, total, label: 'Initialisation du rendu…' });
+        setRenderState({ active: true, done: 0, total, label: t('render.init', 'Initialisation du rendu…') });
       } else if (ev === 'START') {
-        setRenderState((prev) => prev ? { ...prev, label: 'Rendu en cours…' } : { active: true, done: 0, total: 1, label: 'Rendu en cours…' });
+        setRenderState((prev) => prev ? { ...prev, label: t('render.in_progress', 'Rendu en cours…') } : { active: true, done: 0, total: 1, label: t('render.in_progress', 'Rendu en cours…') });
       } else if (ev === 'FRAME_DONE') {
         const done = Math.max(0, parseInt(payload.done || '0', 10));
         const total = Math.max(1, parseInt(payload.total || '1', 10));
@@ -452,11 +452,11 @@ const App: React.FC = () => {
         const pretty = raw ? raw.replace(/_/g, ' ') : '';
         setRenderState((prev) => prev ? { ...prev, stats: pretty } : prev);
       } else if (ev === 'DONE' || ev === 'EXIT') {
-        setRenderState((prev) => prev ? { ...prev, done: prev.total, label: 'Terminé' } : { active: false, done: 1, total: 1, label: 'Terminé' });
+        setRenderState((prev) => prev ? { ...prev, done: prev.total, label: t('done', 'Terminé') } : { active: false, done: 1, total: 1, label: t('done', 'Terminé') });
         // Hide after short delay
         setTimeout(() => setRenderState(null), 1200);
       } else if (ev === 'CANCEL' || ev === 'ERROR') {
-        setRenderState({ active: false, done: 0, total: 1, label: ev === 'ERROR' ? 'Erreur de rendu' : 'Rendu annulé' });
+        setRenderState({ active: false, done: 0, total: 1, label: ev === 'ERROR' ? t('render.error', 'Erreur de rendu') : t('render.cancelled', 'Rendu annulé') });
         setTimeout(() => setRenderState(null), 2000);
       }
     };
@@ -679,7 +679,7 @@ const App: React.FC = () => {
                     onCanGo={(state) => setWebCanGo({ back: !!state.canGoBack, forward: !!state.canGoForward })}
                   />
                 ) : (
-                  <div style={{ color: '#94a3b8', padding: 24 }}>Aucune page</div>
+                  <div style={{ color: '#94a3b8', padding: 24 }}>{t('no_page', 'Aucune page')}</div>
                 )}
               </div>
             )
@@ -705,7 +705,7 @@ const App: React.FC = () => {
             )}
             {cloneState.jobId && (
               <button
-                title="Annuler"
+                title={t('cancel', 'Annuler')}
                 onClick={() => {
                   (window as any).electronAPI?.invoke?.('cancel-job', { jobId: cloneState.jobId }).catch(() => {});
                   setCloneState(null);
@@ -737,7 +737,7 @@ const App: React.FC = () => {
               <div style={{ width: `${Math.min(100, Math.round((renderState.done/renderState.total)*100))}%`, height: '100%', background: '#22c55e', transition: 'width .25s ease' }} />
             </div>
             <div style={{ color: '#cbd5e1', fontSize: 12, minWidth: 120, textAlign: 'right' }}>
-              {renderState.label || 'Rendu en cours…'}
+              {renderState.label || t('render.in_progress', 'Rendu en cours…')}
             </div>
           </div>
           {renderState.stats && (

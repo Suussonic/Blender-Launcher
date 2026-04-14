@@ -12,6 +12,7 @@ console.log('Chargement des modules Electron...');
 import { app, BrowserWindow, ipcMain, nativeImage, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import extractIcon = require('extract-file-icon');
 import { pathToFileURL, fileURLToPath } from 'url';
 import { initSettings, getConfigPath, getDiscordManager } from './settings';
@@ -346,7 +347,7 @@ app.whenReady().then(() => {
     if (probe.broken) {
       console.error('[launch-blender] Build détecté comme cassé au démarrage:', probe.detail || 'probe-failed');
       mainWindow?.webContents.send('toast', {
-        text: 'Ce build Blender crash au démarrage (Failed to read file \'\'). Recompilez après installation de PowerShell 7 (pwsh).',
+        text: 'Ce build Blender crash au démarrage (Failed to read file \'\' / access violation). Le binaire est instable et ne peut pas être lancé.',
         type: 'error'
       });
       return;
@@ -746,6 +747,99 @@ app.whenReady().then(() => {
           resolve({ success: false, reason: 'spawn-failed', error: String(e) });
         }
       });
+
+      return result;
+    } catch (e) {
+      return { success: false, reason: 'exception', error: String(e) };
+    }
+  });
+
+  ipcMain.handle('get-blend-preview', async (_event, payload) => {
+    try {
+      const exePath: string | undefined = payload?.exePath;
+      const blendPath: string | undefined = payload?.blendPath;
+      const width: number = Math.max(64, Math.min(1024, Number(payload?.width) || 320));
+      const height: number = Math.max(64, Math.min(1024, Number(payload?.height) || 180));
+
+      if (!exePath || !blendPath || !fs.existsSync(exePath) || !fs.existsSync(blendPath)) {
+        return { success: false, reason: 'invalid-args' };
+      }
+
+      let st: fs.Stats;
+      try {
+        st = fs.statSync(blendPath);
+      } catch {
+        return { success: false, reason: 'stat-failed' };
+      }
+
+      const cacheRoot = path.join(app.getPath('userData'), 'cache', 'blend-previews');
+      try { fs.mkdirSync(cacheRoot, { recursive: true }); } catch {}
+
+      const cacheKey = crypto
+        .createHash('sha1')
+        .update(`${blendPath}|${st.mtimeMs}|${st.size}|${width}x${height}`)
+        .digest('hex');
+      const previewPath = path.join(cacheRoot, `${cacheKey}.png`);
+
+      if (fs.existsSync(previewPath)) {
+        return { success: true, previewPath, cached: true };
+      }
+
+      const scriptCandidates = [
+        path.join(__dirname, '../../backend/blend_preview.py'),
+        path.join(process.cwd(), 'backend', 'blend_preview.py'),
+        path.join(__dirname, '..', '..', 'backend', 'blend_preview.py'),
+      ];
+      const scriptPath = scriptCandidates.find((p) => { try { return fs.existsSync(p); } catch { return false; } });
+      if (!scriptPath) return { success: false, reason: 'script-missing' };
+
+      const { execFile } = require('child_process');
+      const runPreview = (w: number, h: number, timeoutMs: number) => new Promise<any>((resolve) => {
+        try {
+          const args = ['-b', '--factory-startup', '--python', scriptPath, '--', blendPath, previewPath, String(w), String(h), '--quit'];
+          const child = execFile(exePath, args, { timeout: timeoutMs }, (err: any, stdout: string, stderr: string) => {
+            const lines = ((stdout || '') + '\n' + (stderr || '')).split(/\r?\n/);
+            const tagged = lines.filter((l) => l.includes('BL_PREVIEW:'));
+            if (tagged.length > 0) {
+              const last = tagged[tagged.length - 1];
+              const idx = last.indexOf('BL_PREVIEW:');
+              const jsonPart = last.slice(idx + 'BL_PREVIEW:'.length).trim();
+              try {
+                const parsed = JSON.parse(jsonPart);
+                if (parsed?.success && fs.existsSync(previewPath)) {
+                  return resolve({ success: true, previewPath, cached: false });
+                }
+                // Keep evaluating fallback conditions below, even on parsed failure.
+              } catch {
+                // keep fallback below
+              }
+            }
+
+            // Some Blender runs can exit non-zero while still writing the preview.
+            if (fs.existsSync(previewPath)) {
+              return resolve({ success: true, previewPath, cached: false });
+            }
+
+            if (err) {
+              return resolve({ success: false, reason: 'exec-error', error: String(err) });
+            }
+
+            resolve({ success: false, reason: 'no-output' });
+          });
+          setTimeout(() => { try { child.kill('SIGKILL'); } catch {} }, timeoutMs + 2000);
+        } catch (e) {
+          resolve({ success: false, reason: 'spawn-failed', error: String(e) });
+        }
+      });
+
+      const result = await runPreview(width, height, 90000);
+      if (!result?.success && !fs.existsSync(previewPath)) {
+        // Retry once with a lower resolution to reduce heavy-scene failures.
+        const retryW = Math.max(160, Math.floor(width * 0.7));
+        const retryH = Math.max(100, Math.floor(height * 0.7));
+        const retry = await runPreview(retryW, retryH, 70000);
+        if (retry?.success) return retry;
+      }
 
       return result;
     } catch (e) {
@@ -1181,12 +1275,13 @@ app.whenReady().then(() => {
     return null;
   }
 
-  ipcMain.handle('check-build-tools', async () => {
+  ipcMain.handle('check-build-tools', async (_evt, payload?: { includeSvn?: boolean }) => {
     try {
       const script = resolveBackendScript('check_build_tools.py');
       const py = pythonCandidates();
       if (!script) return { success: false, error: 'script-missing' };
       const { spawn } = require('child_process');
+      const checkerArgs = [script].concat(payload?.includeSvn ? ['--include-svn'] : []);
       let used: string | null = null;
       let out = '';
       let err = '';
@@ -1195,7 +1290,7 @@ app.whenReady().then(() => {
           const cmd = py.shift();
           if (!cmd) return resolve(false);
           try {
-            const child = spawn(cmd, [script], { windowsHide: true });
+            const child = spawn(cmd, checkerArgs, { windowsHide: true });
             used = cmd;
             child.stdout.on('data', (d: Buffer) => out += d.toString());
             child.stderr.on('data', (d: Buffer) => err += d.toString());
@@ -1272,6 +1367,7 @@ app.whenReady().then(() => {
         cmake: { id: 'Kitware.CMake', display: 'CMake', args: ['--silent'] },
         ninja: { id: 'Ninja-build.Ninja', display: 'Ninja', args: ['--silent'] },
         pwsh:  { id: 'Microsoft.PowerShell', display: 'PowerShell 7' },
+        svn:   { id: 'Slik.Subversion', display: 'SlikSVN' },
         // Visual Studio Build Tools with C++ workload
         msvc:  { id: 'Microsoft.VisualStudio.2022.BuildTools', display: 'MSVC', args: ['--override', '--quiet --norestart --wait --nocache --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended'] },
       };
@@ -1630,6 +1726,7 @@ app.whenReady().then(() => {
         const has = (cmd: string) => { try { const r = spawnSync('where', [cmd], { windowsHide: true }); return r && r.status === 0; } catch { return false; } };
         const hasGit = has('git');
         const hasCMake = has('cmake');
+        const hasPwsh = has('pwsh') || has('powershell');
         
         // Check for Visual Studio with C++ workload
         let hasMSVC = false;
@@ -1646,6 +1743,7 @@ app.whenReady().then(() => {
         if (!hasGit) missing.push('git');
         if (!hasCMake) missing.push('cmake');
         if (!hasMSVC) missing.push('msvc');
+        if (!hasPwsh) missing.push('pwsh');
         
         if (missing.length > 0) {
           send('MISSING_TOOLS', { missing });

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utilitaires pour Blender Launcher
-Génération de titres, extraction d'icônes, etc.
+Utility helpers for Blender Launcher.
+Title generation, executable metadata extraction, etc.
 """
 
 import os
@@ -13,18 +13,18 @@ from typing import Optional
 
 def generate_title_from_filename(filename: str) -> str:
     """
-    Génère un titre propre à partir du nom de fichier
+    Generate a clean title from a file name.
     
     Args:
-        filename: Nom du fichier (ex: "blender.exe")
+        filename: File name (example: "blender.exe").
         
     Returns:
-        str: Titre formaté (ex: "Blender")
+        str: Formatted title (example: "Blender").
     """
-    # Retire l'extension
+    # Remove extension
     name_without_ext = Path(filename).stem
     
-    # Cas spéciaux courants
+    # Common special cases
     special_cases = {
         'blender': 'Blender',
         'git-bash': 'Git Bash',
@@ -51,22 +51,22 @@ def generate_title_from_filename(filename: str) -> str:
     if lower_name in special_cases:
         return special_cases[lower_name]
     
-    # Capitalise la première lettre de chaque mot et remplace les séparateurs
+    # Replace separators and capitalize words
     title = (name_without_ext
              .replace('-', ' ')
              .replace('_', ' ')
              .replace('.', ' '))
     
-    # Sépare les mots en CamelCase
+    # Split CamelCase words
     title = re.sub(r'([a-z])([A-Z])', r'\1 \2', title)
     
-    # Capitalise chaque mot
+    # Capitalize each word
     words = title.split()
     capitalized_words = []
     
     for word in words:
         if word:
-            # Garde les acronymes en majuscules (ex: "API", "UI")
+            # Keep short acronyms uppercase (e.g. API, UI)
             if word.isupper() and len(word) <= 4:
                 capitalized_words.append(word)
             else:
@@ -77,58 +77,58 @@ def generate_title_from_filename(filename: str) -> str:
 
 def validate_executable_path(exe_path: str) -> bool:
     """
-    Valide qu'un chemin d'exécutable est valide
+    Validate that an executable path is valid.
     
     Args:
-        exe_path: Chemin vers l'exécutable
+        exe_path: Executable path.
         
     Returns:
-        bool: True si le chemin est valide
+        bool: True if the path is valid.
     """
     if not exe_path:
         return False
     
     path = Path(exe_path)
     
-    # Vérifie que le fichier existe
+    # Ensure the file exists
     if not path.exists():
         return False
     
-    # Vérifie que c'est un fichier (pas un dossier)
+    # Ensure it is a file (not a directory)
     if not path.is_file():
         return False
     
-    # Vérifie l'extension (Windows)
+    # Validate extension on Windows
     if os.name == 'nt':  # Windows
         valid_extensions = ['.exe', '.bat', '.cmd', '.com']
         return path.suffix.lower() in valid_extensions
     else:  # Linux/Mac
-        # Sur Unix, vérifie les permissions d'exécution
+        # On Unix, validate executable permissions
         return os.access(exe_path, os.X_OK)
 
 
 def sanitize_filename(filename: str) -> str:
     """
-    Nettoie un nom de fichier pour éviter les caractères problématiques
+    Sanitize a file name to avoid problematic characters.
     
     Args:
-        filename: Nom de fichier à nettoyer
+        filename: File name to sanitize.
         
     Returns:
-        str: Nom de fichier sécurisé
+        str: Safe file name.
     """
-    # Remplace les caractères interdits par des underscores
+    # Replace forbidden characters with underscores
     invalid_chars = r'[<>:"/\\|?*]'
     clean_name = re.sub(invalid_chars, '_', filename)
     
-    # Limite la longueur
+    # Limit length
     if len(clean_name) > 255:
         clean_name = clean_name[:255]
     
-    # Retire les espaces en début/fin
+    # Trim leading/trailing spaces
     clean_name = clean_name.strip()
     
-    # Évite les noms réservés Windows
+    # Avoid reserved Windows names
     reserved_names = [
         'CON', 'PRN', 'AUX', 'NUL',
         'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
@@ -144,13 +144,13 @@ def sanitize_filename(filename: str) -> str:
 
 def get_executable_info(exe_path: str) -> dict:
     """
-    Extrait les informations d'un exécutable
+    Extract executable metadata.
     
     Args:
-        exe_path: Chemin vers l'exécutable
+        exe_path: Executable path.
         
     Returns:
-        dict: Informations de l'exécutable
+        dict: Executable metadata.
     """
     if not validate_executable_path(exe_path):
         return {
@@ -174,17 +174,17 @@ def get_executable_info(exe_path: str) -> dict:
 
 
 if __name__ == "__main__":
-    # Tests unitaires basiques
+    # Basic unit-style smoke tests
     import sys
     
     if len(sys.argv) > 1:
         test_path = sys.argv[1]
         info = get_executable_info(test_path)
-        print(f"Informations pour {test_path}:")
+        print(f"Information for {test_path}:")
         for key, value in info.items():
             print(f"  {key}: {value}")
     else:
-        # Tests de génération de titre
+        # Title generation tests
         test_cases = [
             "blender.exe",
             "git-bash.exe", 
@@ -195,7 +195,7 @@ if __name__ == "__main__":
             "my_custom_app.exe"
         ]
         
-        print("Tests de génération de titre:")
+        print("Title generation tests:")
         for case in test_cases:
             title = generate_title_from_filename(case)
             print(f"  {case} → {title}")

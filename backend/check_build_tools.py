@@ -132,10 +132,28 @@ def detect_pwsh() -> bool:
             return True
     return False
 
+def detect_svn() -> bool:
+    """Check svn in PATH, then common install locations (including SlikSVN)."""
+    if have('svn'):
+        return True
+    if not IS_WIN:
+        return False
+    candidates = [
+        os.path.join(os.environ.get('ProgramFiles', r'C:\Program Files'), 'SlikSvn', 'bin', 'svn.exe'),
+        os.path.join(os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'), 'SlikSvn', 'bin', 'svn.exe'),
+        os.path.join(os.environ.get('ProgramFiles', r'C:\Program Files'), 'TortoiseSVN', 'bin', 'svn.exe'),
+        os.path.join(os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'), 'TortoiseSVN', 'bin', 'svn.exe'),
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return True
+    return False
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--install', action='store_true', help='Install missing tools using winget')
     parser.add_argument('--tools', type=str, help='Comma-separated list of tools to install (git,cmake,msvc,pwsh). Default: missing only')
+    parser.add_argument('--include-svn', action='store_true', help='Include SVN (SlikSVN) in required tools set')
     args = parser.parse_args()
 
     # Blender Windows requirements: Git, CMake, Visual Studio 2019/2022 Community with Desktop C++ workload
@@ -145,6 +163,8 @@ def main():
         'msvc': detect_visual_studio(),
         'pwsh': detect_pwsh(),
     }
+    if args.include_svn:
+        tools['svn'] = detect_svn()
 
     missing = [k for k, v in tools.items() if v is False]
 
@@ -158,6 +178,7 @@ def main():
         'git':   { 'id': 'Git.Git', 'args': ['--silent'] },
         'cmake': { 'id': 'Kitware.CMake', 'args': ['--silent'] },
         'pwsh':  { 'id': 'Microsoft.PowerShell' },
+        'svn':   { 'id': 'Slik.Subversion' },
         # Visual Studio 2022 Community with Desktop development with C++ workload
         'msvc':  { 
             'id': 'Microsoft.VisualStudio.2022.Community', 
@@ -237,6 +258,8 @@ def main():
         'msvc': detect_visual_studio(),
         'pwsh': detect_pwsh(),
     }
+    if args.include_svn:
+        refreshed['svn'] = detect_svn()
     print(json.dumps({ 
         'success': True, 
         'installed': installed, 

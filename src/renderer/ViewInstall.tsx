@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import ModalCloseButton from './components/ModalCloseButton';
 
 interface ViewInstallProps {
   isOpen: boolean;
@@ -14,6 +16,7 @@ const label = {
 } as const;
 
 const ViewInstall: React.FC<ViewInstallProps> = ({ isOpen, onClose }) => {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'download' | 'compile'>('download');
   const [channel, setChannel] = useState<Channel>('stable');
   const [version, setVersion] = useState<string>('');
@@ -54,7 +57,7 @@ const ViewInstall: React.FC<ViewInstallProps> = ({ isOpen, onClose }) => {
     setInstalling(true);
     setError(null);
     setProgress(0);
-    setProgressText('Préparation…');
+    setProgressText(t('prep', 'Préparation…'));
     try {
       if (mode === 'download') {
         const res = await (window as any).electronAPI?.invoke?.('install-from-download', {
@@ -62,13 +65,13 @@ const ViewInstall: React.FC<ViewInstallProps> = ({ isOpen, onClose }) => {
           version: version?.trim() || undefined,
           target: target,
         });
-        if (!res || !res.success) throw new Error(res?.error || 'Installation échouée');
+        if (!res || !res.success) throw new Error(res?.error || t('install.failed', 'Installation échouée'));
         setProgress(100);
-        setProgressText('Installation terminée');
+        setProgressText(t('install.done', 'Installation terminée'));
         setTimeout(() => onClose(), 600);
       } else {
         const res = await (window as any).electronAPI?.invoke?.('build-from-source', {});
-        if (!res || !res.success) throw new Error(res?.error || 'Compilation échouée');
+        if (!res || !res.success) throw new Error(res?.error || t('compile.failed', 'Compilation échouée'));
       }
     } catch (e: any) {
       setError(e?.message || String(e));
@@ -83,14 +86,14 @@ const ViewInstall: React.FC<ViewInstallProps> = ({ isOpen, onClose }) => {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
       <div style={{ width: 640, maxWidth: '94vw', background: '#0b1220', borderRadius: 12, padding: 20, color: '#e6eef6', border: '1px solid #1f2a3a' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ margin: 0 }}>Installer un build Blender</h3>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#9fb0c2', cursor: 'pointer' }} title="Fermer">✕</button>
+          <h3 style={{ margin: 0 }}>{t('install.title', 'Installer un build Blender')}</h3>
+          <ModalCloseButton onClick={onClose} title={t('close', 'Fermer')} color="#9fb0c2" />
         </div>
 
         <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
           {([
-            { id: 'download', label: 'Télécharger' },
-            { id: 'compile', label: 'Compiler (avancé)' }
+            { id: 'download', label: t('download', 'Télécharger') },
+            { id: 'compile', label: t('compile.advanced', 'Compiler (avancé)') }
           ] as Array<{ id: 'download' | 'compile'; label: string }>).map((opt) => (
             <button key={opt.id} onClick={() => setMode(opt.id as any)} style={{
               padding: '8px 12px',
@@ -120,7 +123,7 @@ const ViewInstall: React.FC<ViewInstallProps> = ({ isOpen, onClose }) => {
               <div style={{ fontSize: 13, marginBottom: 6, color: '#9fb0c2' }}>Dossier d’installation</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input value={target} onChange={e => setTarget(e.target.value)} placeholder="Ex: D:\\Blenders" style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid #253446', background: '#0f1827', color: '#e6eef6' }} />
-                <button onClick={chooseFolder} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #253446', background: '#0f1827', color: '#e6eef6', cursor: 'pointer' }}>Parcourir…</button>
+                <button onClick={chooseFolder} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #253446', background: '#0f1827', color: '#e6eef6', cursor: 'pointer' }}>{t('browse', 'Parcourir…')}</button>
               </div>
             </div>
           </div>
@@ -141,14 +144,14 @@ const ViewInstall: React.FC<ViewInstallProps> = ({ isOpen, onClose }) => {
               </div>
             )}
             {error && (
-              <div style={{ marginTop: 8, background: '#2b1010', color: '#fecaca', padding: 8, borderRadius: 8 }}>Erreur: {error}</div>
+              <div style={{ marginTop: 8, background: '#2b1010', color: '#fecaca', padding: 8, borderRadius: 8 }}>{t('error', 'Erreur')}: {error}</div>
             )}
           </div>
         )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-          <button onClick={onClose} disabled={installing} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #253446', background: '#0f1827', color: '#e6eef6' }}>Fermer</button>
-          <button onClick={startInstall} disabled={!canInstall || installing} style={{ padding: '8px 12px', borderRadius: 8, border: 'none', background: canInstall ? '#1f7aeb' : '#1b2a44', color: '#fff', cursor: canInstall ? 'pointer' : 'not-allowed' }}>Installer</button>
+          <button onClick={onClose} disabled={installing} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #253446', background: '#0f1827', color: '#e6eef6' }}>{t('close', 'Fermer')}</button>
+          <button onClick={startInstall} disabled={!canInstall || installing} style={{ padding: '8px 12px', borderRadius: 8, border: 'none', background: canInstall ? '#1f7aeb' : '#1b2a44', color: '#fff', cursor: canInstall ? 'pointer' : 'not-allowed' }}>{t('install', 'Installer')}</button>
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 // Basic types re-used here to avoid importing app-level types
 export type BlenderExe = {
@@ -188,6 +189,7 @@ const NiceSelect: React.FC<{
 };
 
 const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onChooseBlender, onStartRender, open, onClose, showLauncherButton = true, filePath }) => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = React.useState(false);
   const [blenderList, setBlenderList] = React.useState<BlenderExe[]>(blenders || []);
   const [chosen, setChosen] = React.useState<BlenderExe | null>(selected || null);
@@ -387,13 +389,13 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
             cursor: 'pointer',
             color: '#e5e7eb',
           }}
-          title="Configurer un rendu rapide"
+          title={t('render.quick_configure', 'Configure a quick render')}
         >
           <img src={(chosen?.icon || defaultIcon)} alt="blender" width={28} height={28} style={{ borderRadius: 6 }} />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ fontWeight: 700 }}>{chosen?.title || chosen?.name || 'Choisir un Blender'}</div>
+            <div style={{ fontWeight: 700 }}>{chosen?.title || chosen?.name || t('render.choose_blender', 'Choose a Blender')}</div>
             <div style={{ fontSize: 12, color: '#8ea0b5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {chosen?.path || 'Sélectionnez un exécutable pour rendre'}
+              {chosen?.path || t('render.select_executable_to_render', 'Select an executable to render')}
             </div>
           </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#8ea0b5' }}>
@@ -407,7 +409,7 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
           <div style={{ width: 'min(720px, 95vw)', maxWidth: '95vw', background: '#0F1419', border: '1px solid #26303b', borderRadius: 14, boxShadow: '0 10px 40px rgba(0,0,0,0.5)', padding: 20, overflow: 'hidden', position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <h2 style={{ margin: 0, color: '#e5e7eb' }}>Rendu rapide</h2>
+              <h2 style={{ margin: 0, color: '#e5e7eb' }}>{t('render.quick_title', 'Quick Render')}</h2>
               <button onClick={doClose} style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 20 }}>×</button>
             </div>
 
@@ -416,14 +418,14 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
               <div style={{ position: 'absolute', inset: 0, background: 'rgba(15,20,25,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#cbd5e1', fontWeight: 600 }}>
                   <div className="blender-spinner" style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #334155', borderTopColor: '#60a5fa', animation: 'spin 0.9s linear infinite' }} />
-                  Chargement des paramètres du fichier…
+                  {t('render.loading_file_settings', 'Loading file settings...')}
                 </div>
               </div>
             )}
 
             {filePath && (
               <div style={{ marginBottom: 12, color: '#9ca3af', fontSize: 12 }}>
-                Fichier: <span style={{ color: '#cbd5e1' }}>{filePath}</span>
+                {t('file', 'File')}: <span style={{ color: '#cbd5e1' }}>{filePath}</span>
               </div>
             )}
 
@@ -436,7 +438,7 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
                     if (!showVersionSwitcher) await loadBlendersIfNeeded();
                     setShowVersionSwitcher(v => !v);
                   }}
-                  title={chosen?.path || 'Sélectionner'}
+                  title={chosen?.path || t('render.select', 'Select')}
                   style={{
                     width: '100%',
                     display: 'flex', alignItems: 'center', gap: 10,
@@ -453,7 +455,7 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
                 >
                   <img src={(chosen?.icon || defaultIcon)} alt="" style={{ width: 28, height: 28, borderRadius: 6 }} />
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chosen?.title || chosen?.name || 'Sélectionner'}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chosen?.title || chosen?.name || t('render.select', 'Select')}</div>
                     <div style={{ fontSize: 10, color: '#8ea0b5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chosen?.path || ''}</div>
                   </div>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#8ea0b5', transform: showVersionSwitcher ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
@@ -517,7 +519,7 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
             {/* Switches replaced by dropdowns */}
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
               <div style={{ minWidth: 220 }}>
-                <div style={fieldLabel}>Moteur de rendu</div>
+                <div style={fieldLabel}>{t('render.engine', 'Render engine')}</div>
                 <NiceSelect
                   value={engine}
                   onChange={(v)=> setEngine(v as any)}
@@ -529,7 +531,7 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
                 />
               </div>
               <div style={{ minWidth: 220 }}>
-                <div style={fieldLabel}>Type de rendu</div>
+                <div style={fieldLabel}>{t('render.type', 'Render type')}</div>
                 <NiceSelect
                   value={mode}
                   onChange={(v)=>{
@@ -545,8 +547,8 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
                     }
                   }}
                   options={[
-                    { value: 'IMAGE', label: 'Image' },
-                    { value: 'ANIMATION', label: 'Vidéo' },
+                    { value: 'IMAGE', label: t('render.type.image', 'Image') },
+                    { value: 'ANIMATION', label: t('render.type.video', 'Video') },
                   ]}
                 />
               </div>
@@ -554,7 +556,7 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
 
             {metaError && (
               <div style={{ marginTop: -8, marginBottom: 8, color: '#f87171', fontSize: 12 }}>
-                Impossible de charger les paramètres du .blend ({metaError}).
+                {t('render.metadata_load_failed', 'Unable to load .blend settings')} ({metaError}).
               </div>
             )}
 
@@ -569,27 +571,27 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
               }}
             >
               <div>
-                <div style={fieldLabel}>Résolution (largeur)</div>
+                <div style={fieldLabel}>{t('render.resolution_width', 'Resolution (width)')}</div>
                 <input type="number" value={resW} onChange={e => setResW(Math.max(1, Number(e.target.value||0)))} style={{ ...inputBase, width: 160, height: 38 }} />
               </div>
               <div>
-                <div style={fieldLabel}>Résolution (hauteur)</div>
+                <div style={fieldLabel}>{t('render.resolution_height', 'Resolution (height)')}</div>
                 <input type="number" value={resH} onChange={e => setResH(Math.max(1, Number(e.target.value||0)))} style={{ ...inputBase, width: 160, height: 38 }} />
               </div>
               {mode==='IMAGE' && (
                 <div>
-                  <div style={fieldLabel}>Frame à rendre</div>
+                  <div style={fieldLabel}>{t('render.frame_to_render', 'Frame to render')}</div>
                   <input type="number" value={stillFrame} onChange={e => setStillFrame(Math.max(0, Number(e.target.value||0)))} style={{ ...inputBase, width: 160, height: 38 }} />
                 </div>
               )}
               {mode==='ANIMATION' && (
                 <>
                   <div>
-                    <div style={fieldLabel}>Frame début</div>
+                    <div style={fieldLabel}>{t('render.frame_start', 'Start frame')}</div>
                     <input type="number" value={frameStart} onChange={e => setFrameStart(Number(e.target.value||0))} style={{ ...inputBase, width: 160, height: 38 }} />
                   </div>
                   <div>
-                    <div style={fieldLabel}>Frame fin</div>
+                    <div style={fieldLabel}>{t('render.frame_end', 'End frame')}</div>
                     <input type="number" value={frameEnd} onChange={e => setFrameEnd(Number(e.target.value||0))} style={{ ...inputBase, width: 160, height: 38 }} />
                   </div>
                 </>
@@ -600,7 +602,7 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
             {mode === 'IMAGE' && (
               <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
                 <div>
-                  <div style={fieldLabel}>Format de l'image</div>
+                  <div style={fieldLabel}>{t('render.image_format', 'Image format')}</div>
                   <NiceSelect
                     value={imageFormat}
                     onChange={(v)=> setImageFormat(v as any)}
@@ -619,20 +621,20 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
             {mode === 'ANIMATION' && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(180px, 1fr))', gap: 12, marginBottom: 16, alignItems: 'end' }}>
                 <div>
-                  <div style={fieldLabel}>Type de sortie</div>
+                  <div style={fieldLabel}>{t('render.output_type', 'Output type')}</div>
                   <NiceSelect
                     value={videoMode}
                     onChange={(v)=> setVideoMode(v as any)}
                     options={[
-                      { value: 'VIDEO', label: 'Vidéo (MP4)' },
-                      { value: 'SEQUENCE', label: "Séquence d'images" },
+                      { value: 'VIDEO', label: t('render.output_video', 'Video (MP4)') },
+                      { value: 'SEQUENCE', label: t('render.output_sequence_images', 'Image sequence') },
                     ]}
                   />
                 </div>
                 {videoMode === 'VIDEO' ? (
                   <>
                     <div>
-                      <div style={fieldLabel}>Conteneur</div>
+                      <div style={fieldLabel}>{t('render.container', 'Container')}</div>
                       <NiceSelect
                         value={videoContainer}
                         onChange={(v)=> setVideoContainer(v as any)}
@@ -644,7 +646,7 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
                       />
                     </div>
                     <div>
-                      <div style={fieldLabel}>Codec</div>
+                      <div style={fieldLabel}>{t('render.codec', 'Codec')}</div>
                       <NiceSelect
                         value={videoCodec}
                         onChange={(v)=> setVideoCodec(v as any)}
@@ -659,7 +661,7 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
                   </>
                 ) : (
                   <div>
-                    <div style={fieldLabel}>Format d'image (séquence)</div>
+                    <div style={fieldLabel}>{t('render.sequence_image_format', 'Image format (sequence)')}</div>
                     <NiceSelect
                       value={imageFormat}
                       onChange={(v)=> setImageFormat(v as any)}
@@ -678,13 +680,13 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
 
             {/* Output (clean embedded icon) */}
             <div style={{ marginBottom: 16 }}>
-              <div style={fieldLabel}>Dossier de sortie</div>
+              <div style={fieldLabel}>{t('render.output_folder', 'Output folder')}</div>
               <div style={{ position: 'relative', overflow: 'hidden' }}>
                 <input
                   type="text"
                   value={outputDir}
                   onChange={e => setOutputDir(e.target.value)}
-                  placeholder="Ex: C:\\Rendus"
+                  placeholder={t('render.output_placeholder', 'e.g. C:\\Renders')}
                   style={{
                     ...inputBase,
                     width: '100%',
@@ -696,7 +698,7 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
                 />
                 <button
                   onClick={chooseFolder}
-                  title="Choisir un dossier"
+                  title={t('render.choose_folder', 'Choose folder')}
                   style={{
                     position: 'absolute',
                     top: '50%',
@@ -724,12 +726,12 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
 
             {/* Options */}
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
-              <NiceCheckbox checked={openRenderWindow} onChange={setOpenRenderWindow} label="Ouvrir la fenêtre de rendu" />
-              <NiceCheckbox checked={shutdownOnFinish} onChange={setShutdownOnFinish} label="Éteindre l’ordinateur" />
+              <NiceCheckbox checked={openRenderWindow} onChange={setOpenRenderWindow} label={t('render.open_window', 'Open render window')} />
+              <NiceCheckbox checked={shutdownOnFinish} onChange={setShutdownOnFinish} label={t('render.shutdown_computer', 'Shut down computer')} />
             </div>
             {/* Footer */}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={start} style={{ background: '#22c55e', color: 'white', border: 'none', borderRadius: 8, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}>Lancer le rendu</button>
+              <button onClick={start} style={{ background: '#22c55e', color: 'white', border: 'none', borderRadius: 8, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}>{t('render.start_button', 'Start render')}</button>
             </div>
           </div>
         </div>

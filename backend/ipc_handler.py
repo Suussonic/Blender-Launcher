@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Gestionnaire IPC pour la communication entre Electron et Python
-Traite les commandes reçues d'Electron et retourne les résultats
+IPC handler for communication between Electron and Python.
+Processes commands received from Electron and returns results.
 """
 
 import json
@@ -10,7 +10,7 @@ import sys
 import os
 from pathlib import Path
 
-# Ajouter le dossier parent au path pour les imports
+# Add parent folder to sys.path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from config.config_manager import ConfigManager
@@ -18,11 +18,11 @@ from utils.file_utils import get_executable_info, generate_title_from_filename
 
 
 class IPCHandler:
-    """Gestionnaire principal pour les communications IPC avec Electron"""
+    """Main IPC handler for Electron communications."""
     
     def __init__(self):
-        """Initialise le gestionnaire IPC"""
-        # Chemin vers le config.json (relatif au script)
+        """Initialize the IPC handler."""
+        # Path to config.json (relative to this script)
         self.config_path = os.path.join(
             os.path.dirname(__file__), 
             '..', '..', 
@@ -32,14 +32,14 @@ class IPCHandler:
     
     def handle_update_title(self, exe_path: str, new_title: str) -> dict:
         """
-        Gère la mise à jour du titre d'un exécutable
+        Handle executable title updates.
         
         Args:
-            exe_path: Chemin de l'exécutable
-            new_title: Nouveau titre
+            exe_path: Executable path.
+            new_title: New title value.
             
         Returns:
-            dict: Résultat de l'opération
+            dict: Operation result.
         """
         if not exe_path or not new_title:
             return {
@@ -49,7 +49,7 @@ class IPCHandler:
         
         result = self.config_manager.update_executable_title(exe_path, new_title)
         
-        # Ajouter des informations supplémentaires pour Electron
+        # Add extra metadata for Electron
         if result.get("success"):
             result["action"] = "title_updated"
             result["exe_path"] = exe_path
@@ -58,20 +58,20 @@ class IPCHandler:
     
     def handle_get_executables(self) -> dict:
         """
-        Récupère la liste des exécutables configurés
+        Get the list of configured executables.
         
         Returns:
-            dict: Liste des exécutables avec métadonnées
+            dict: Executable list with metadata.
         """
         try:
             executables = self.config_manager.get_executables()
             
-            # Enrichir chaque exécutable avec des métadonnées
+            # Enrich each executable with metadata
             enriched_executables = []
             for exe in executables:
                 enriched = exe.copy()
                 
-                # Vérifier si le fichier existe encore
+                # Check whether file still exists
                 exe_path = exe.get('path', '')
                 if exe_path and os.path.exists(exe_path):
                     enriched['exists'] = True
@@ -80,7 +80,7 @@ class IPCHandler:
                     enriched['exists'] = False
                     enriched['size'] = 0
                 
-                # S'assurer qu'il y a un titre
+                # Ensure a title exists
                 if not enriched.get('title') and enriched.get('name'):
                     enriched['title'] = generate_title_from_filename(enriched['name'])
                 
@@ -100,16 +100,16 @@ class IPCHandler:
     
     def handle_add_executable(self, exe_path: str, name: str = None, title: str = None, icon: str = None) -> dict:
         """
-        Gère l'ajout d'un nouvel exécutable
+        Handle adding a new executable.
         
         Args:
-            exe_path: Chemin vers l'exécutable
-            name: Nom du fichier (optionnel, déduit du chemin)
-            title: Titre personnalisé (optionnel, généré automatiquement)
-            icon: Chemin vers l'icône (optionnel)
+            exe_path: Executable path.
+            name: File name (optional, inferred from path).
+            title: Custom title (optional, auto-generated).
+            icon: Icon path (optional).
             
         Returns:
-            dict: Résultat de l'opération
+            dict: Operation result.
         """
         if not exe_path:
             return {
@@ -117,7 +117,7 @@ class IPCHandler:
                 "error": "Chemin d'exécutable requis"
             }
         
-        # Obtenir les informations de l'exécutable
+        # Gather executable metadata
         exe_info = get_executable_info(exe_path)
         
         if not exe_info.get("valid"):
@@ -126,7 +126,7 @@ class IPCHandler:
                 "error": exe_info.get("error", "Exécutable invalide")
             }
         
-        # Préparer les données
+        # Prepare payload
         exe_data = {
             "path": exe_info["path"],
             "name": name or exe_info["name"],
@@ -144,13 +144,13 @@ class IPCHandler:
     
     def handle_remove_executable(self, exe_path: str) -> dict:
         """
-        Gère la suppression d'un exécutable
+        Handle executable removal.
         
         Args:
-            exe_path: Chemin de l'exécutable à supprimer
+            exe_path: Executable path to remove.
             
         Returns:
-            dict: Résultat de l'opération
+            dict: Operation result.
         """
         if not exe_path:
             return {

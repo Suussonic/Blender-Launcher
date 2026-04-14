@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import ViewSettings from './ViewSettings';
 import ViewOpenWith from './ViewOpenWith';
@@ -7,6 +7,7 @@ import FindBar from './FindBar';
 import ViewRecentFile from './ViewRecentFile';
 import ViewAddon from './ViewAddon';
 import ViewRender from './ViewRender';
+import { AiOutlineAppstore, AiOutlineUnorderedList } from 'react-icons/ai';
 
 type BlenderExe = {
   path: string;
@@ -32,40 +33,64 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
   const [recentVersion, setRecentVersion] = useState<string | null>(null);
   const [openWithFile, setOpenWithFile] = useState<string | null>(null);
   const [renderForFile, setRenderForFile] = useState<string | null>(null);
+  const [recentViewMode, setRecentViewMode] = useState<'list' | 'preview'>('list');
   // Addons state (moved to ViewAddon)
   const [addonQuery, setAddonQuery] = useState('');
   const [panel, setPanel] = useState<'recent' | 'addons'>('recent');
+  const recentLoadTokenRef = useRef(0);
   // Debug panel for last probe output
   const [debugOpen, setDebugOpen] = useState(false);
   const [lastProbeStdout, setLastProbeStdout] = useState<string | null>(null);
   const [lastProbeStderr, setLastProbeStderr] = useState<string | null>(null);
 
   // Load recent files function (call on selection change or when user switches to Recent panel)
-  const loadRecent = async () => {
+  const loadRecent = async (opts?: { hardReset?: boolean }) => {
+    const token = ++recentLoadTokenRef.current;
     if (!selectedBlender || !window.electronAPI || !window.electronAPI.invoke) {
+      if (token !== recentLoadTokenRef.current) return;
       setRecentFiles([]);
+      setDisplayFiles([]);
       setRecentVersion(null);
+      setRecentLoading(false);
       return;
     }
+
+    if (opts?.hardReset) {
+      setRecentFiles([]);
+      setDisplayFiles([]);
+      setRecentVersion(null);
+    }
+
     setRecentLoading(true);
     setRecentError(null);
     try {
       const res = await window.electronAPI.invoke('get-recent-blend-files', { exePath: selectedBlender.path });
+      if (token !== recentLoadTokenRef.current) return;
       if (res && res.files) {
         setRecentFiles(res.files);
         setRecentVersion(res.version || null);
       } else {
         setRecentFiles([]);
+        setDisplayFiles([]);
         setRecentVersion(res?.version || null);
       }
     } catch (e:any) {
-      setRecentError(e?.message || 'Erreur inconnue');
+      if (token !== recentLoadTokenRef.current) return;
+      setRecentError(e?.message || t('unknown_error', 'Erreur inconnue'));
     } finally {
-      setRecentLoading(false);
+      if (token === recentLoadTokenRef.current) {
+        setRecentLoading(false);
+      }
     }
   };
 
-  useEffect(() => { loadRecent(); }, [selectedBlender?.path]);
+  useEffect(() => { loadRecent({ hardReset: true }); }, [selectedBlender?.path]);
+
+  // When returning to list mode, refresh recents for the current blender to avoid stale rows.
+  useEffect(() => {
+    if (panel !== 'recent' || recentViewMode !== 'list' || !selectedBlender?.path) return;
+    loadRecent();
+  }, [panel, recentViewMode, selectedBlender?.path]);
 
   // Addon loading moved to ViewAddon
 
@@ -288,7 +313,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                 onMouseOver={(e) => e.currentTarget.style.background = '#16a34a'}
                 onMouseOut={(e) => e.currentTarget.style.background = '#22c55e'}
               >
-                Lancer
+                {t('launch', 'Lancer')}
               </button>
               <button
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenSettings(); }}
@@ -307,7 +332,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                 }}
                 onMouseOver={(e) => e.currentTarget.style.color = '#ffffff'}
                 onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
-                title="Changer l'exécutable"
+                title={t('change_executable', 'Changer l\'exécutable')}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="3"/>
@@ -333,7 +358,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                   fontWeight: panel === 'recent' ? 700 : 500
                 }}
               >
-                Fichiers récents
+                {t('recent_files', 'Fichiers récents')}
               </button>
               <button
                 onClick={() => { setPanel('addons'); /* loadAddons will be triggered by effect */ }}
@@ -346,26 +371,72 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                   fontWeight: panel === 'addons' ? 700 : 500
                 }}
               >
-                Add‑ons
+                {t('addons', 'Add-ons')}
               </button>
             </div>
           </div>
           {/* Shared FindBar used for both Recent files and Addons */}
-          <FindBar value={searchQuery} onChange={setSearchQuery} placeholder="Rechercher..." />
+          <FindBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder={t('search', 'Rechercher...')}
+            rightSlot={panel === 'recent' ? (
+              <div style={{ display: 'inline-flex', gap: 4, padding: 2, borderRadius: 10, background: '#1a222b', border: '1px solid #2a3642', flexShrink: 0 }}>
+                <button
+                  onClick={() => setRecentViewMode('list')}
+                  style={{
+                    width: 38,
+                    height: 30,
+                    borderRadius: 8,
+                    border: 'none',
+                    background: recentViewMode === 'list' ? '#334155' : 'transparent',
+                    color: recentViewMode === 'list' ? '#e2e8f0' : '#cbd5e1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
+                  }}
+                  title={t('recent.list_view', 'Vue liste')}
+                >
+                  <AiOutlineUnorderedList size={17} />
+                </button>
+                <button
+                  onClick={() => setRecentViewMode('preview')}
+                  style={{
+                    width: 38,
+                    height: 30,
+                    borderRadius: 8,
+                    border: 'none',
+                    background: recentViewMode === 'preview' ? '#334155' : 'transparent',
+                    color: recentViewMode === 'preview' ? '#e2e8f0' : '#cbd5e1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
+                  }}
+                  title={t('recent.preview_view', 'Vue preview')}
+                >
+                  <AiOutlineAppstore size={17} />
+                </button>
+              </div>
+            ) : null}
+          />
 
           {panel === 'recent' ? (
             <>
               {recentLoading && (
-                <div style={{ color: '#94a3b8', fontSize: 14 }}>Chargement...</div>
+                <div style={{ color: '#94a3b8', fontSize: 14 }}>{t('loading', 'Chargement...')}</div>
               )}
               {recentError && (
-                <div style={{ color: '#ef4444', fontSize: 14 }}>Erreur: {recentError}</div>
+                <div style={{ color: '#ef4444', fontSize: 14 }}>{t('error', 'Erreur')}: {recentError}</div>
               )}
               {!recentLoading && !recentError && recentFiles.length === 0 && (
-                <div style={{ color: '#64748b', fontSize: 14 }}>Aucun fichier récent disponible pour ce build.</div>
+                <div style={{ color: '#64748b', fontSize: 14 }}>{t('recent.none_for_build', 'Aucun fichier récent disponible pour ce build.')}</div>
               )}
-              {/* Filter component (sorting / filtering UI) - it will provide a sorted+filtered set via query prop */}
-              <Filter files={recentFiles} query={searchQuery} onSorted={(sorted) => { setDisplayFiles(sorted); }} />
+              {/* Keep Filter mounted for query/sort computation, hide header in preview mode */}
+              <div style={{ display: recentViewMode === 'list' ? 'block' : 'none' }}>
+                <Filter files={recentFiles} query={searchQuery} onSorted={(sorted) => { setDisplayFiles(sorted); }} />
+              </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
                 <ViewRecentFile
@@ -380,6 +451,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                   onOpenRecent={openRecent}
                   onRevealRecent={revealRecent}
                   onRemoveRecent={removeRecentPersistent}
+                  viewMode={recentViewMode}
                 />
               </div>
             </>

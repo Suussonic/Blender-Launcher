@@ -2,22 +2,24 @@
 # -*- coding: utf-8 -*-
 """
 Clone Blender repository and compile it following official Windows build docs.
-Handles the full pipeline: clone -> make update -> make -> find blender.exe
+Handles the full pipeline: clone -> make update -> make release -> find blender.exe
 """
 import sys
 import os
 import subprocess
 import argparse
 import time
+import shutil
+import tempfile
 
-# Force UTF-8 encoding pour éviter les problèmes d'affichage sur Windows
+# Force UTF-8 encoding to avoid Windows console rendering issues
 if sys.platform == 'win32':
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 def echo(tag, **kv):
-    """Émettre un message de progression parsable par l'IPC"""
+    """Emit an IPC-parseable progress message."""
     parts = ['BL_CLONE:' + tag]
     for k, v in kv.items():
         if v is not None:
@@ -31,6 +33,57 @@ def echo(tag, **kv):
             sys.stdout.flush()
         except:
             pass
+
+
+def ensure_pwsh_available():
+    """Ensure pwsh.exe resolves in PATH, using a powershell.exe shim if needed."""
+    if shutil.which('pwsh'):
+        return True, 'pwsh'
+
+    powershell_exe = shutil.which('powershell')
+    if not powershell_exe:
+        system_root = os.environ.get('SystemRoot', r'C:\Windows')
+        candidate = os.path.join(system_root, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+        if os.path.isfile(candidate):
+            powershell_exe = candidate
+
+    if not powershell_exe:
+        return False, None
+
+    shim_dir = os.path.join(tempfile.gettempdir(), 'bl_launcher_pwsh_shim')
+    shim_exe = os.path.join(shim_dir, 'pwsh.exe')
+    try:
+        os.makedirs(shim_dir, exist_ok=True)
+        if not os.path.isfile(shim_exe):
+            shutil.copy2(powershell_exe, shim_exe)
+        path_now = os.environ.get('PATH', '')
+        if shim_dir.lower() not in path_now.lower():
+            os.environ['PATH'] = shim_dir + os.pathsep + path_now
+        return True, shim_exe
+    except Exception:
+        return False, None
+
+
+def detect_pwsh_failure(output: str):
+    """Return a diagnostic string when the build output shows pwsh-related failure."""
+    text = (output or '').lower()
+    if 'pwsh.exe' not in text and 'pwsh' not in text:
+        return None
+    patterns = [
+        'pwsh.exe is not recognized',
+        "'pwsh.exe' is not recognized",
+        "'pwsh' is not recognized",
+        'pwsh was unexpected at this time',
+    ]
+    if any(pattern in text for pattern in patterns):
+        return 'La compilation a échoué silencieusement car pwsh.exe est indisponible. Installez PowerShell 7 ou relancez avec le shim activé.'
+    return None
+
+
+def warn_if_spaces_in_path(path_value: str):
+    """Warn when the source/build path contains spaces, per Blender docs."""
+    if path_value and ' ' in path_value:
+        echo('LOG', text=f'Attention: le chemin contient des espaces et Blender indique que cela peut casser le build: {path_value}')
 
 def main():
     parser = argparse.ArgumentParser(description='Clone and compile Blender')
@@ -46,8 +99,9 @@ def main():
     folder_name = args.name
 
     echo('START', text='Début du clonage et compilation')
+    warn_if_spaces_in_path(os.path.abspath(target))
 
-    # === ÉTAPE 1: Vérifier Git ===
+    # === STEP 1: Verify Git ===
     echo('PROGRESS', progress=1, text='Vérification de Git...')
     try:
         result = subprocess.run(['git', '--version'], capture_output=True, text=True, timeout=5)
@@ -58,7 +112,7 @@ def main():
         echo('ERROR', message=f'Git introuvable: {e}')
         return 1
 
-    # === ÉTAPE 2: Vérifier CMake ===
+    # === STEP 2: Verify CMake ===
     echo('PROGRESS', progress=2, text='Vérification de CMake...')
     try:
         result = subprocess.run(['cmake', '--version'], capture_output=True, text=True, timeout=5)
@@ -69,7 +123,7 @@ def main():
         echo('ERROR', message=f'CMake introuvable: {e}')
         return 1
     
-    # === ÉTAPE 2.5: Vérifier Visual Studio ===
+    # === STEP 2.5: Verify Visual Studio ===
     echo('PROGRESS', progress=3, text='Vérification de Visual Studio...')
     vswhere_paths = [
         r'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe',
@@ -82,7 +136,7 @@ def main():
     
     for vswhere in vswhere_paths:
         if os.path.exists(vswhere):
-            # Essayer d'abord avec le composant C++ requis
+            # Try first with the required C++ component
             try:
                 result = subprocess.run(
                     [vswhere, '-latest', '-products', '*', 
@@ -95,7 +149,7 @@ def main():
             except:
                 pass
             
-            # Si pas trouvé, chercher n'importe quelle installation VS avec Build Tools
+            # If not found, search any VS installation with build tools
             if not vs_path:
                 try:
                     result = subprocess.run(
@@ -104,7 +158,7 @@ def main():
                     )
                     if result.returncode == 0 and result.stdout.strip():
                         candidate = result.stdout.strip()
-                        # Vérifier si vcvarsall.bat existe
+                        # Verify that vcvarsall.bat exists
                         test_vcvarsall = os.path.join(candidate, 'VC', 'Auxiliary', 'Build', 'vcvarsall.bat')
                         if os.path.exists(test_vcvarsall):
                             vs_path = candidate
@@ -112,13 +166,13 @@ def main():
                     pass
             
             if vs_path:
-                # Chercher vcvarsall.bat
+                # Find vcvarsall.bat
                 vcvarsall_candidate = os.path.join(vs_path, 'VC', 'Auxiliary', 'Build', 'vcvarsall.bat')
                 if os.path.exists(vcvarsall_candidate):
                     vcvarsall_path = vcvarsall_candidate
                     vs_found = True
                 
-                # Chercher VsDevCmd.bat (preferred pour make.bat)
+                # Find VsDevCmd.bat (preferred for make.bat)
                 vsdevcmd_candidate = os.path.join(vs_path, 'Common7', 'Tools', 'VsDevCmd.bat')
                 if os.path.exists(vsdevcmd_candidate):
                     vs_devshell = vsdevcmd_candidate
@@ -130,7 +184,7 @@ def main():
     if not vs_found or not vcvarsall_path:
         echo('ERROR', message='Visual Studio 2022 avec outils C++ introuvable. Installez Build Tools ou Community avec "Desktop development with C++"')
         return 1
-    # === ÉTAPE 2: Créer dossier cible ===
+    # === STEP 3: Create target directory ===
     try:
         if not os.path.isdir(target):
             os.makedirs(target, exist_ok=True)
@@ -138,7 +192,7 @@ def main():
         echo('ERROR', message=f'Impossible de créer le dossier cible: {e}')
         return 1
 
-    # === ÉTAPE 3: Déterminer le nom du dossier ===
+    # === STEP 4: Resolve target folder name ===
     if folder_name:
         clone_dir = os.path.join(target, folder_name)
     else:
@@ -146,7 +200,7 @@ def main():
         safe_branch = branch.replace('/', '_')
         clone_dir = os.path.join(target, f"{repo_name}-{safe_branch}")
 
-    # Vérifier si existe déjà
+    # Check whether target already exists
     if os.path.exists(clone_dir):
         try:
             result = subprocess.run(
@@ -158,7 +212,7 @@ def main():
                 requested_remote = repo_url.strip().lower().rstrip('/').rstrip('.git')
                 if existing_remote.endswith(requested_remote) or requested_remote.endswith(existing_remote):
                     echo('PROGRESS', progress=10, text=f'Dossier {clone_dir} existe déjà, configuration...')
-                    # Configurer core.symlinks=false pour éviter les problèmes Python
+                    # Set core.symlinks=false to avoid Python/library symlink issues
                     try:
                         subprocess.run(
                             ['git', '-C', clone_dir, 'config', 'core.symlinks', 'false'],
@@ -166,18 +220,18 @@ def main():
                         )
                     except:
                         pass
-                    # Sauter le clone mais continuer avec la compilation
+                    # Skip cloning but continue with compilation
                     pass
                 else:
                     clone_dir = f"{clone_dir}-{int(time.time())}"
         except:
             clone_dir = f"{clone_dir}-{int(time.time())}"
     
-    # === ÉTAPE 4: CLONE ===
+    # === STEP 5: Clone ===
     if not os.path.exists(os.path.join(clone_dir, '.git')):
         echo('PROGRESS', progress=5, text=f'Clonage vers {clone_dir}...')
         try:
-            # Clone avec core.symlinks=false pour Windows (sinon Python des libraries ne marche pas)
+            # Clone with core.symlinks=false on Windows (prevents broken Python/library symlinks)
             result = subprocess.run(
                 ['git', '-c', 'core.symlinks=false', 'clone', '--branch', branch, '--depth', '1', repo_url, clone_dir],
                 capture_output=False,
@@ -188,11 +242,11 @@ def main():
                 echo('ERROR', message='Échec du clone git')
                 return 2
             
-            # Configurer le repo pour ne JAMAIS utiliser de symlinks
+            # Configure repository to never use symlinks
             try:
                 subprocess.run(['git', '-C', clone_dir, 'config', 'core.symlinks', 'false'], 
                               capture_output=True, timeout=5)
-                # Configurer aussi pour les submodules
+                # Also configure submodule behavior
                 subprocess.run(['git', '-C', clone_dir, 'config', 'submodule.recurse', 'false'],
                               capture_output=True, timeout=5)
             except:
@@ -208,35 +262,43 @@ def main():
     else:
         echo('PROGRESS', progress=15, text='Repository déjà cloné')
 
-    # === ÉTAPE 5: Vérifier que c'est Windows ===
+    # === STEP 6: Ensure Windows environment ===
     if os.name != 'nt':
         echo('ERROR', message='Compilation Windows uniquement')
         return 3
 
-    # === ÉTAPE 6: Vérifier make.bat ===
+    # Some Blender rules call pwsh.exe explicitly.
+    pwsh_ok, pwsh_ref = ensure_pwsh_available()
+    if not pwsh_ok:
+        echo('ERROR', message='pwsh.exe introuvable. Installez PowerShell 7 (winget install --id Microsoft.PowerShell -e) ou vérifiez powershell.exe.')
+        return 3
+    if pwsh_ref and pwsh_ref != 'pwsh':
+        echo('PROGRESS', progress=19, text='pwsh.exe absent, shim PowerShell activé')
+
+    # === STEP 7: Verify make.bat ===
     make_bat = os.path.join(clone_dir, 'make.bat')
     if not os.path.exists(make_bat):
         echo('ERROR', message='make.bat introuvable dans le repository cloné')
         return 3
 
-    # === ÉTAPE 7: MAKE UPDATE (téléchargement libraries - LONG!) ===
+    # === STEP 8: MAKE UPDATE (library download - LONG) ===
     echo('PROGRESS', progress=20, text='Téléchargement des libraries (peut prendre 10-30 min)...')
     
-    # Ne pas pré-initialiser le submodule - make update le fera automatiquement
+    # Do not pre-initialize submodules; make update handles that automatically
     # avec BUILD_BLENDER_NO_PROMPT=1
     lib_path = os.path.join(clone_dir, 'lib', 'windows_x64')
     
-    # Déterminer les arguments pour make.bat selon le type d'installation VS
+    # Resolve make.bat arguments based on Visual Studio flavor
     make_args = []
     if 'BuildTools' in vs_path:
-        # Utiliser Build Tools version
+        # Use Build Tools variant
         if '2022' in vs_path:
             make_args.append('2022b')
         elif '2019' in vs_path:
             make_args.append('2019b')
         echo('PROGRESS', progress=40, text='Utilisation de Visual Studio Build Tools')
     
-    # Utiliser VsDevCmd.bat si disponible, sinon vcvarsall.bat
+    # Use VsDevCmd.bat when available, otherwise fall back to vcvarsall.bat
     if not vs_devshell:
         vs_devshell = vcvarsall_path
         shell_args = 'x64'
@@ -244,7 +306,7 @@ def main():
         shell_args = '-arch=x64 -host_arch=x64'
     
     try:
-        # Créer un script batch qui utilise cmd.exe comme recommandé par Blender docs
+        # Create a batch script that uses cmd.exe as recommended by Blender docs
         batch_script = os.path.join(clone_dir, 'temp_make_update.bat')
         make_cmd = f'make.bat update {" ".join(make_args)}' if make_args else 'make.bat update'
         
@@ -257,20 +319,20 @@ def main():
             f.write('  exit /b 1\n')
             f.write(')\n')
             f.write('echo ===== VS environment OK =====\n')
-            # Désactiver les prompts interactifs de Blender
+            # Disable interactive Blender prompts
             f.write('set BUILD_BLENDER_NO_PROMPT=1\n')
-            f.write('cd /d "%~dp0"\n')  # CD vers le dossier du script (clone_dir)
-            # Forcer l'utilisation du Python système car le Python des libraries peut être un symlink
+            f.write('cd /d "%~dp0"\n')  # Change to script directory (clone_dir)
+            # Force system Python because bundled Python can be a broken symlink
             f.write('for /f "delims=" %%i in (\'where python\') do set PYTHON=%%i & goto :found_python\n')
             f.write(':found_python\n')
             f.write('echo Using Python: %PYTHON%\n')
             f.write('echo Current directory: %CD%\n')
             f.write(f'echo ===== Running {make_cmd} =====\n')
-            # BUILD_BLENDER_NO_PROMPT=1 désactive toutes les questions interactives
+            # BUILD_BLENDER_NO_PROMPT=1 disables all interactive questions
             f.write(f'{make_cmd}\n')
             f.write('exit /b %errorlevel%\n')
         
-        # Utiliser cmd.exe explicitement comme recommandé par Blender docs
+        # Use cmd.exe explicitly, as recommended by Blender docs
         result = subprocess.run(
             ['cmd.exe', '/c', batch_script],
             cwd=clone_dir,
@@ -279,9 +341,9 @@ def main():
             timeout=3600
         )
         
-        # Logger la sortie complète pour debug
+        # Log output tail for diagnostics
         if result.stdout:
-            # Envoyer les dernières lignes importantes via stderr pour logging
+            # Forward important trailing lines to stderr for logging
             for line in result.stdout.splitlines()[-10:]:
                 if line.strip():
                     try:
@@ -289,17 +351,22 @@ def main():
                     except:
                         pass
         
-        # Supprimer le fichier temporaire
+        # Remove temporary script
         try:
             os.remove(batch_script)
         except:
             pass
+
+        all_output = (result.stdout or '') + '\n' + (result.stderr or '')
+        pwsh_error = detect_pwsh_failure(all_output)
+        if pwsh_error:
+            echo('ERROR', message=pwsh_error)
+            return 4
         
         if result.returncode != 0:
             error_msg = 'Échec make update'
             
-            # Chercher les messages d'erreur dans stdout ET stderr
-            all_output = (result.stdout or '') + '\n' + (result.stderr or '')
+            # Look for error signals in stdout and stderr
             error_lines = []
             
             for line in all_output.splitlines():
@@ -308,14 +375,14 @@ def main():
                     error_lines.append(line_clean)
             
             if error_lines:
-                # Prendre les 5 dernières lignes d'erreur les plus pertinentes
+                # Keep the most relevant trailing error lines
                 error_msg = ' | '.join(error_lines[-5:])[:400]
             elif result.stderr:
                 stderr_lines = [l.strip() for l in result.stderr.splitlines() if l.strip()]
                 if stderr_lines:
                     error_msg = ' | '.join(stderr_lines[-3:])[:300]
             elif result.stdout:
-                # Si pas d'erreur détectée, prendre les dernières lignes de stdout
+                # If no explicit errors found, fall back to trailing stdout lines
                 stdout_lines = [l.strip() for l in result.stdout.splitlines() if l.strip()]
                 if stdout_lines:
                     error_msg = ' | '.join(stdout_lines[-5:])[:400]
@@ -331,12 +398,12 @@ def main():
     
     echo('PROGRESS', progress=60, text='Libraries téléchargées')
 
-    # === ÉTAPE 8: MAKE (compilation - TRÈS LONG!) ===
-    echo('PROGRESS', progress=65, text='Compilation (peut prendre 30-60 min)...')
+    # === STEP 9: MAKE RELEASE (compilation - VERY LONG) ===
+    echo('PROGRESS', progress=65, text='Compilation release (peut prendre 30-60 min)...')
     try:
-        # Créer un script batch temporaire pour compilation
+        # Create a temporary batch script for compilation
         batch_script = os.path.join(clone_dir, 'temp_make.bat')
-        make_cmd = f'make.bat {" ".join(make_args)}' if make_args else 'make.bat'
+        make_cmd = f'make.bat release {" ".join(make_args)} verbose' if make_args else 'make.bat release verbose'
         
         with open(batch_script, 'w', encoding='utf-8') as f:
             f.write('@echo off\n')
@@ -353,7 +420,7 @@ def main():
             f.write(f'{make_cmd}\n')
             f.write('exit /b %errorlevel%\n')
         
-        # Utiliser cmd.exe explicitement
+        # Use cmd.exe explicitly
         result = subprocess.run(
             ['cmd.exe', '/c', batch_script],
             cwd=clone_dir,
@@ -362,18 +429,24 @@ def main():
             timeout=7200
         )
         
-        # Supprimer le script temporaire
+        # Remove temporary script
         try:
             os.remove(batch_script)
         except:
             pass
+
+        all_output = (result.stdout or '') + '\n' + (result.stderr or '')
+        pwsh_error = detect_pwsh_failure(all_output)
+        if pwsh_error:
+            echo('ERROR', message=pwsh_error)
+            return 5
         
         if result.returncode != 0:
             error_msg = 'Échec compilation'
             if result.stderr:
                 stderr_lines = [l.strip() for l in result.stderr.splitlines() if l.strip()]
                 if stderr_lines:
-                    error_msg = f'make: {stderr_lines[-1][:150]}'
+                    error_msg = f'make release: {stderr_lines[-1][:150]}'
             echo('ERROR', message=error_msg)
             return 5
     except subprocess.TimeoutExpired:
@@ -385,19 +458,19 @@ def main():
     
     echo('PROGRESS', progress=95, text='Compilation terminée')
 
-    # === ÉTAPE 9: Trouver blender.exe ===
+    # === STEP 10: Locate blender.exe ===
     echo('PROGRESS', progress=97, text='Recherche de blender.exe...')
     exe_path = None
     try:
-        # Chercher dans build_windows_*
+        # Search in build_windows_* outputs
         for root, dirs, files in os.walk(clone_dir):
-            # Limiter la profondeur pour éviter de chercher trop longtemps
+            # Limit depth to avoid excessive traversal
             if root.count(os.sep) - clone_dir.count(os.sep) > 5:
                 continue
             for f in files:
                 if f.lower() == 'blender.exe':
                     candidate = os.path.join(root, f)
-                    # Vérifier que c'est dans un dossier bin/Release ou similaire
+                    # Prefer locations under bin/Release-style folders
                     if 'bin' in candidate.lower() or 'release' in candidate.lower():
                         exe_path = candidate
                         break

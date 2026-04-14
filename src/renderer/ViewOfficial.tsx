@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FiX, FiDownload, FiFolder, FiPackage, FiClock, FiZap } from 'react-icons/fi';
 
 interface BlenderVersion {
@@ -17,6 +18,7 @@ interface ViewOfficialProps {
 }
 
 const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDownload, onDownloadStateChange }) => {
+  const { t } = useTranslation();
   const [versionType, setVersionType] = useState<'stable' | 'patch' | 'daily'>('stable');
   const [versions, setVersions] = useState<BlenderVersion[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<BlenderVersion | null>(null);
@@ -110,17 +112,17 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
             setSelectedVersion(fetchedVersions[0] || null);
           } else {
             console.error('[ViewOfficial] Fetch failed:', result.error);
-            setError(`Impossible de charger les versions: ${result.error}`);
+            setError(`${t('official.load_versions_failed', 'Impossible de charger les versions')}: ${result.error}`);
             // Fallback to empty array
             setVersions([]);
           }
         } else {
-          setError('API non disponible');
+          setError(t('api.unavailable', 'API non disponible'));
           setVersions([]);
         }
       } catch (e) {
         console.error('[ViewOfficial] Erreur chargement versions:', e);
-        setError('Impossible de charger les versions');
+        setError(t('official.load_versions_failed', 'Impossible de charger les versions'));
         setVersions([]);
       } finally {
         setLoading(false);
@@ -142,7 +144,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
         }
       } catch (e) {
         console.error('[ViewOfficial] Erreur sélection dossier:', e);
-        setError('Impossible de sélectionner le dossier');
+        setError(t('official.select_folder_failed', 'Impossible de sélectionner le dossier'));
       }
     }
   };
@@ -155,17 +157,17 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
     
     if (!selectedVersion) {
       console.warn('[ViewOfficial] Pas de version sélectionnée');
-      setError('Veuillez sélectionner une version');
+      setError(t('official.select_version_required', 'Veuillez sélectionner une version'));
       return;
     }
     if (!targetDir.trim()) {
       console.warn('[ViewOfficial] Pas de dossier de destination');
-      setError('Veuillez sélectionner un dossier de destination');
+      setError(t('official.select_destination_required', 'Veuillez sélectionner un dossier de destination'));
       return;
     }
     if (!folderName.trim()) {
       console.warn('[ViewOfficial] Nom de dossier invalide');
-      setError('Nom de dossier invalide');
+      setError(t('official.invalid_folder_name', 'Nom de dossier invalide'));
       return;
     }
     
@@ -176,7 +178,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
     onDownloadStateChange?.({ 
       isDownloading: true, 
       progress: 0, 
-      text: 'Préparation du téléchargement...', 
+      text: t('official.preparing_download', 'Préparation du téléchargement...'), 
       version: selectedVersion.version 
     });
     
@@ -196,13 +198,13 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
         console.log('[ViewOfficial] Téléchargement résultat:', result);
         if (!result?.success) {
           console.error('[ViewOfficial] Téléchargement échoué:', result?.error);
-          setError(result?.error || 'Échec du téléchargement');
+          setError(result?.error || t('download.failed', 'Échec du téléchargement'));
           setDownloading(false);
           onDownloadStateChange?.(null);
         }
       }).catch((e: any) => {
         console.error('[ViewOfficial] Erreur téléchargement:', e);
-        setError('Échec du téléchargement');
+        setError(t('download.failed', 'Échec du téléchargement'));
         setDownloading(false);
         onDownloadStateChange?.(null);
       });
@@ -271,7 +273,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
         {/* Close button */}
         <button
           onClick={onClose}
-          title="Fermer"
+          title={t('close', 'Fermer')}
           style={{
             position: 'absolute',
             top: 12,
@@ -310,7 +312,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
             textAlign: 'center',
           }}
         >
-          Télécharger Blender Officiel
+          {t('official.download_title', 'Télécharger Blender Officiel')}
         </h2>
 
         {/* Form */}
@@ -327,7 +329,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 letterSpacing: 0.3,
               }}
             >
-              Type de version
+              {t('official.version_type', 'Type de version')}
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {/* Première ligne : Stable Releases (pleine largeur) */}
@@ -432,11 +434,11 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
             </label>
             {loading ? (
               <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
-                Chargement des versions...
+                {t('official.loading_versions', 'Chargement des versions...')}
               </div>
             ) : versions.length === 0 ? (
               <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
-                Aucune version disponible
+                {t('official.no_versions', 'Aucune version disponible')}
               </div>
             ) : (
               <div style={{ 
@@ -520,7 +522,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 letterSpacing: 0.3,
               }}
             >
-              Dossier parent
+              {t('official.parent_folder', 'Dossier parent')}
             </label>
             <div style={{ display: 'flex', gap: 10 }}>
               <input
@@ -530,7 +532,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                   setTargetDir(e.target.value);
                   setError(null);
                 }}
-                placeholder="Sélectionnez un dossier..."
+                placeholder={t('select_folder_path_short', 'Sélectionnez un dossier...')}
                 readOnly
                 style={{
                   flex: 1,
@@ -586,7 +588,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 letterSpacing: 0.3,
               }}
             >
-              Nom du dossier
+              {t('official.folder_name', 'Nom du dossier')}
             </label>
             <input
               type="text"
@@ -660,7 +662,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 e.currentTarget.style.background = '#262c33';
               }}
             >
-              Annuler
+              {t('cancel', 'Annuler')}
             </button>
             <button
               onClick={handleDownload}
@@ -688,7 +690,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
               }}
             >
               <FiDownload size={16} style={{ display: 'inline', marginRight: 8, verticalAlign: 'middle' }} />
-              Télécharger et installer
+              {t('official.download_install', 'Télécharger et installer')}
             </button>
           </div>
         </div>

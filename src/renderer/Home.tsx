@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import Carousel, { CarouselHandle } from './Carousel';
 
 type BlenderExe = {
@@ -49,34 +50,8 @@ const Grid: React.FC<{ columns?: number; children: React.ReactNode }> = ({ colum
   </div>
 );
 
-const linkCard = (label: string, href: string, onOpen?: (url:string)=>void) => (
-  <div
-    onClick={() => (onOpen ? onOpen(href) : window.open(href, '_blank'))}
-    style={{
-      ...cardBase,
-      height: 120,
-      cursor: 'pointer',
-      transition: 'transform .12s ease, box-shadow .12s ease',
-      boxShadow: '0 0 0 rgba(0,0,0,0)',
-      position:'relative',
-      paddingLeft: 18,
-      paddingRight: 18,
-      boxSizing: 'border-box'
-    }}
-    onMouseEnter={(e) => {
-      (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)';
-      (e.currentTarget as HTMLDivElement).style.boxShadow = '0 10px 22px rgba(0,0,0,0.35)';
-    }}
-    onMouseLeave={(e) => {
-      (e.currentTarget as HTMLDivElement).style.transform = 'none';
-      (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 0 rgba(0,0,0,0)';
-    }}
-  >
-    <span style={{ textAlign: 'center', width: '100%', display: 'block' }}>{label}</span>
-  </div>
-);
-
 const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
+  const { t } = useTranslation();
   const carouselRef = useRef<CarouselHandle | null>(null);
 
   return (
@@ -92,8 +67,8 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
                 <div style={{ position: 'absolute', inset: 0, backgroundImage: "url('./public/vignette/documentation.png')", backgroundSize: 'cover', backgroundPosition: 'center', transform: 'scale(1.02)' }} />
                 <div style={{ position: 'absolute', inset: 0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
                 <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>Documentation Utilisateur</div>
-                  <div style={{ opacity: .9 }}>Le manuel complet et à jour pour toutes les fonctionnalités de Blender.</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>{t('home.docs.title', 'Documentation Utilisateur')}</div>
+                  <div style={{ opacity: .9 }}>{t('home.docs.desc', 'Le manuel complet et à jour pour toutes les fonctionnalités de Blender.')}</div>
                 </div>
               </div>,
               // Slide: YouTube Channel
@@ -101,8 +76,8 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
                 <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/youtube.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
                 <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
                 <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>Blender Official sur YouTube</div>
-                  <div style={{ opacity: .9 }}>Tutoriels, annonces, nouveautés — apprends Blender avec la chaîne officielle.</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>{t('home.youtube.title', 'Blender Official sur YouTube')}</div>
+                  <div style={{ opacity: .9 }}>{t('home.youtube.desc', 'Tutoriels, annonces, nouveautés - apprends Blender avec la chaîne officielle.')}</div>
                 </div>
               </div>,
 
@@ -111,8 +86,8 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
                 <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/makeblender.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
                 <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
                 <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>Contribuer au code source</div>
-                  <div style={{ opacity: .9 }}>Guides, rapports et contributions pour développer Blender.</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>{t('home.contrib.title', 'Contribuer au code source')}</div>
+                  <div style={{ opacity: .9 }}>{t('home.contrib.desc', 'Guides, rapports et contributions pour développer Blender.')}</div>
                 </div>
               </div>,
 
@@ -121,8 +96,8 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
                 <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/apipython.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
                 <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
                 <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>API Python</div>
-                  <div style={{ opacity: .9 }}>Référence officielle pour les scripts et addons Blender.</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>{t('home.api.title', 'API Python')}</div>
+                  <div style={{ opacity: .9 }}>{t('home.api.desc', 'Référence officielle pour les scripts et addons Blender.')}</div>
                 </div>
               </div>,
               // Slide 4: Dev Portal (uses provided vignette)
@@ -130,8 +105,8 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
                 <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/portaildev.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
                 <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
                 <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>Portail Développeurs</div>
-                  <div style={{ opacity: .9 }}>Guides techniques, contributions et architecture de Blender.</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>{t('home.dev_portal.title', 'Portail Développeurs')}</div>
+                  <div style={{ opacity: .9 }}>{t('home.dev_portal.desc', 'Guides techniques, contributions et architecture de Blender.')}</div>
                 </div>
               </div>,
               // Slide 5: Demo files
@@ -139,8 +114,8 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
                 <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/demofile.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
                 <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
                 <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>Fichiers Démo</div>
-                  <div style={{ opacity: .9 }}>Télécharge des scènes de démonstration officielles pour tester et apprendre.</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>{t('home.demo.title', 'Fichiers Démo')}</div>
+                  <div style={{ opacity: .9 }}>{t('home.demo.desc', 'Télécharge des scènes de démonstration officielles pour tester et apprendre.')}</div>
                 </div>
               </div>,
               // Slide 6: Art Gallery
@@ -148,8 +123,8 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
                 <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/artgallery.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
                 <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
                 <div style={{ textAlign: 'center', position:'relative', zIndex:2 }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>Galerie d'art</div>
-                  <div style={{ opacity: .9 }}>Parcourez une sélection d'images et rendus d'art créés sous Blender.</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#e2e8f0', marginBottom: 8 }}>{t('home.gallery.title', 'Galerie d\'art')}</div>
+                  <div style={{ opacity: .9 }}>{t('home.gallery.desc', 'Parcourez une sélection d\'images et rendus d\'art créés sous Blender.')}</div>
                 </div>
               </div>,
             ]}
@@ -157,17 +132,17 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
         </div>
 
         {/* Sections */}
-        <Section title="Apprendre Blender">
+        <Section title={t('home.section.learn', 'Apprendre Blender')}>
           <Grid columns={3}>
             <div onClick={() => onOpenLink && onOpenLink('https://www.youtube.com/@BlenderOfficial')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0 }}>
               <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/youtube.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
               <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
-              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>Chaîne YouTube officielle</div>
+              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>{t('home.youtube.channel', 'Chaîne YouTube officielle')}</div>
             </div>
             <div onClick={() => onOpenLink && onOpenLink('https://docs.blender.org/manual/en/latest/')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0 }}>
               <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/documentation.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
               <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
-              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>Documentation Utilisateur</div>
+              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>{t('home.docs.title', 'Documentation Utilisateur')}</div>
             </div>
             {/* Demo card: background image with iPhone-like blur overlay and title */}
             <div onClick={() => onOpenLink && onOpenLink('https://www.blender.org/download/demo-files/')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0 }}>
@@ -176,33 +151,33 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
               {/* blurred translucent overlay (reduced blur) */}
               <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
               {/* content: text centered vertically */}
-              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>Fichiers Démo</div>
+              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>{t('home.demo.title', 'Fichiers Démo')}</div>
             </div>
             {/* Galerie d'art: when it wraps to the 2nd row, center it */}
             <div onClick={() => onOpenLink && onOpenLink('https://download.blender.org/archive/gallery/')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0, gridColumn: '2' }}>
               <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/artgallery.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
               <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
-              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>Galerie d'art</div>
+              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>{t('home.gallery.title', 'Galerie d\'art')}</div>
             </div>
           </Grid>
         </Section>
 
-        <Section title="Développer avec Blender">
+        <Section title={t('home.section.develop', 'Développer avec Blender')}>
           <Grid columns={3}>
             <div onClick={() => onOpenLink && onOpenLink('https://docs.blender.org/api/current/')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0 }}>
               <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/apipython.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
               <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
-              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>API Python</div>
+              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>{t('home.api.title', 'API Python')}</div>
             </div>
             <div onClick={() => onOpenLink && onOpenLink('https://developer.blender.org/docs/')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0 }}>
               <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/portaildev.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
               <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
-              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>Portail Développeurs</div>
+              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>{t('home.dev_portal.title', 'Portail Développeurs')}</div>
             </div>
             <div onClick={() => onOpenLink && onOpenLink('https://developer.blender.org')} style={{ ...cardBase, height: 120, cursor: 'pointer', position:'relative', overflow:'hidden', padding:0 }}>
               <div style={{ position:'absolute', inset:0, backgroundImage:"url('./public/vignette/makeblender.png')", backgroundSize:'cover', backgroundPosition:'center', transform:'scale(1.02)' }} />
               <div style={{ position:'absolute', inset:0, backdropFilter:'blur(2px)', WebkitBackdropFilter:'blur(2px)', background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))' }} />
-              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>Contribuer au code source</div>
+              <div style={{ position:'relative', zIndex:2, height:'100%', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:600, fontSize:16 }}>{t('home.contrib.title', 'Contribuer au code source')}</div>
             </div>
           </Grid>
         </Section>

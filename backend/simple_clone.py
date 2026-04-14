@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Script ultra-simple pour cloner un dépôt Blender.
-UNIQUEMENT LE CLONE - pas de build.
+Minimal script to clone a Blender repository.
+CLONE ONLY - no build.
 """
 import sys
 import os
@@ -9,7 +9,7 @@ import subprocess
 import argparse
 
 def echo(tag, **kv):
-    """Émettre un message de progression parsable par l'IPC"""
+    """Emit an IPC-parseable progress message."""
     parts = ['BL_CLONE:' + tag]
     for k, v in kv.items():
         if v is not None:
@@ -40,7 +40,7 @@ def main():
 
     echo('START', text='Début du clonage')
 
-    # Vérifier que git existe
+    # Verify Git availability
     try:
         result = subprocess.run(['git', '--version'], capture_output=True, text=True, timeout=5)
         if result.returncode != 0:
@@ -50,7 +50,7 @@ def main():
         echo('ERROR', message=f'Git introuvable: {e}')
         return 1
 
-    # Créer le dossier cible si nécessaire
+    # Create target directory when needed
     try:
         if not os.path.isdir(target):
             os.makedirs(target, exist_ok=True)
@@ -58,18 +58,18 @@ def main():
         echo('ERROR', message=f'Impossible de créer le dossier cible: {e}')
         return 1
 
-    # Déterminer le nom du dossier de clone
+    # Resolve clone folder name
     if folder_name:
         clone_dir = os.path.join(target, folder_name)
     else:
-        # Par défaut: nom du repo + branche
+        # Default: repo name + branch
         repo_name = os.path.splitext(os.path.basename(repo_url.rstrip('/')))[0] or 'blender'
         safe_branch = branch.replace('/', '_')
         clone_dir = os.path.join(target, f"{repo_name}-{safe_branch}")
 
-    # Vérifier si le dossier existe déjà
+    # Check if the target folder already exists
     if os.path.exists(clone_dir):
-        # Si c'est déjà un dépôt git du bon remote, on le réutilise
+        # If this is already the expected git remote, reuse it
         try:
             result = subprocess.run(
                 ['git', '-C', clone_dir, 'remote', 'get-url', 'origin'],
@@ -87,13 +87,13 @@ def main():
         except:
             pass
         
-        # Sinon, ajouter un timestamp pour éviter la collision
+        # Otherwise add a timestamp to avoid collisions
         import time
         clone_dir = f"{clone_dir}-{int(time.time())}"
 
     echo('PROGRESS', progress=5, text=f'Clonage vers {clone_dir}')
 
-    # CLONE avec git
+    # Clone with git
     # Skip LFS during clone to avoid failures when LFS budget is exceeded,
     # server is down, or repo has broken LFS pointers. We'll try LFS pull separately after.
     try:
@@ -102,7 +102,7 @@ def main():
         clone_env = os.environ.copy()
         clone_env['GIT_LFS_SKIP_SMUDGE'] = '1'
 
-        # Lancer le clone
+        # Start clone process
         result = subprocess.run(
             ['git', 'clone', '--branch', branch, '--depth', '1', '--progress', repo_url, clone_dir],
             capture_output=False,  # Laisser l'output visible

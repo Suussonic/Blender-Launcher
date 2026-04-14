@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TableHeader } from './Filter';
 import useSort from './useSort';
 
@@ -10,6 +11,7 @@ type Props = {
 };
 
 const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
+  const { t } = useTranslation();
   const [addons, setAddons] = useState<Array<any>>([]);
   const [addonsLoading, setAddonsLoading] = useState(false);
   const [addonsError, setAddonsError] = useState<string | null>(null);
@@ -41,11 +43,11 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
       if (api?.scanAddonsFs) {
         const fsres = await api.scanAddonsFs({ exePath: selectedBlender.path });
         if (fsres?.success) setAddons(fsres.addons || []);
-        else setAddonsError(fsres?.error || 'Scan échoué');
+        else setAddonsError(fsres?.error || t('addons.scan_failed', 'Scan failed'));
       } else if (api?.invoke) {
         const fsres = await api.invoke('scan-addons-fs', { exePath: selectedBlender.path });
         if (fsres?.success) setAddons(fsres.addons || []);
-        else setAddonsError(fsres?.error || 'Scan échoué');
+        else setAddonsError(fsres?.error || t('addons.scan_failed', 'Scan failed'));
       }
     } catch (e:any) { setAddonsError(e?.message || String(e)); }
     setAddonsLoading(false);
@@ -90,9 +92,9 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
       {/* Header for addons list — shows sort icons and handles toggling */}
       <TableHeader variant="addons" activeField={activeField} activeDir={activeDir} onToggle={(f) => toggle(f)} />
-      {addonsLoading && <div style={{ color: '#94a3b8' }}>Scan en cours...</div>}
-      {addonsError && <div style={{ color: '#f87171' }}>Erreur: {addonsError}</div>}
-      {!addonsLoading && addons.length === 0 && <div style={{ color: '#64748b' }}>Aucun add‑on détecté</div>}
+      {addonsLoading && <div style={{ color: '#94a3b8' }}>{t('addons.scanning', 'Scanning...')}</div>}
+      {addonsError && <div style={{ color: '#f87171' }}>{t('addons.error_prefix', 'Error:')} {addonsError}</div>}
+      {!addonsLoading && addons.length === 0 && <div style={{ color: '#64748b' }}>{t('addons.none_detected', 'No add-on detected')}</div>}
       
         {addons.slice().sort((a,b) => {
           if (!activeField) return 0;
@@ -205,7 +207,7 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
                 <button
                   onClick={(e) => { e.stopPropagation(); if (a.module && !updating[a.module]) setAddonEnabled(a.module, !a.enabled); }}
                   disabled={!a.module || !!updating[a.module]}
-                  title={a.enabled ? 'Désactiver' : 'Activer'}
+                  title={a.enabled ? t('addons.disable', 'Disable') : t('addons.enable', 'Enable')}
                   style={{
                     background: a.enabled ? '#16221b' : '#14161a',
                     border: a.enabled ? '1px solid #234d2f' : '1px solid #2a2f36',
@@ -216,12 +218,12 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
                     cursor: a.module && !updating[a.module] ? 'pointer' : 'default'
                   }}
                 >
-                  {updating[a.module] ? '...' : (a.enabled ? 'Activé' : 'Désactivé')}
+                  {updating[a.module] ? '...' : (a.enabled ? t('addons.enabled', 'Enabled') : t('addons.disabled', 'Disabled'))}
                 </button>
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); if (a.path) { (window as any).electronAPI?.send?.('reveal-in-folder', { path: a.path }); } }}
-                title="Ouvrir le dossier"
+                title={t('addons.open_folder', 'Open folder')}
                 style={{
                   background: '#1e2530',
                   border: 'none',
@@ -252,7 +254,7 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
             {isExpanded && (
             <div style={{ marginTop: 8, marginBottom: 8, padding: 12, background: '#071018', border: '1px solid #17202a', borderRadius: 8 }}>
               {bl.description && (
-                <div style={{ color: '#cbd5e1', marginBottom: 8 }}><strong>Description:</strong> <span style={{ color: '#9fb0c6' }}>{bl.description}</span></div>
+                <div style={{ color: '#cbd5e1', marginBottom: 8 }}><strong>{t('addons.description', 'Description')}:</strong> <span style={{ color: '#9fb0c6' }}>{bl.description}</span></div>
               )}
               <div style={{ color: '#9fb0c6', fontSize: 13, overflowX: 'auto' }}>
                 <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, margin: 0 }}>{JSON.stringify(bl, null, 2)}</pre>
@@ -265,14 +267,14 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
       {/* Action popups removed - view-only mode */}
       {debugOpen && (
         <div style={{ marginTop: 12, background: '#071018', border: '1px solid #17202a', padding: 12, borderRadius: 8 }}>
-          <h4 style={{ margin: '0 0 8px 0', color: '#e6eef8' }}>Debug output</h4>
+          <h4 style={{ margin: '0 0 8px 0', color: '#e6eef8' }}>{t('addons.debug_output', 'Debug output')}</h4>
           <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 8 }}>
-            <strong>Stdout:</strong>
-            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#c7f9d4', background: 'transparent', marginTop: 6 }}>{lastProbeStdout || '(empty)'}</pre>
+            <strong>{t('addons.stdout', 'Stdout')}:</strong>
+            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#c7f9d4', background: 'transparent', marginTop: 6 }}>{lastProbeStdout || t('addons.empty', '(empty)')}</pre>
           </div>
           <div style={{ color: '#94a3b8', fontSize: 13 }}>
-            <strong>Stderr:</strong>
-            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#f9c7c7', background: 'transparent', marginTop: 6 }}>{lastProbeStderr || '(empty)'}</pre>
+            <strong>{t('addons.stderr', 'Stderr')}:</strong>
+            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#f9c7c7', background: 'transparent', marginTop: 6 }}>{lastProbeStderr || t('addons.empty', '(empty)')}</pre>
           </div>
         </div>
       )}

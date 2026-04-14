@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Script de compilation pour un dépôt Blender déjà cloné.
-Exécute make update (récupération des bibliothèques) puis make (compilation).
-Émet des marqueurs BL_CLONE: parsables par l'IPC.
+Build script for an already-cloned Blender repository.
+Runs make update (library fetch) followed by make release.
+Emits BL_CLONE markers that can be parsed by IPC.
 """
 import sys
 import os
@@ -47,8 +47,8 @@ def echo(tag: str, **kv):
 
 
 def run_and_stream(cmd, cwd=None, stdin_text=None):
-    """Exécuter une commande en streamant la sortie ligne par ligne.
-    
+    """Run a command while streaming output line by line.
+
     stdin_text: optional string to feed to stdin (for auto-accepting prompts).
     """
     try:
@@ -201,6 +201,28 @@ def ensure_pwsh_available():
         return True, shim_exe
     except Exception:
         return False, None
+
+
+def detect_pwsh_failure(output: str):
+    """Return a diagnostic string when the build output shows pwsh-related failure."""
+    text = (output or '').lower()
+    if 'pwsh.exe' not in text and 'pwsh' not in text:
+        return None
+    patterns = [
+        'pwsh.exe is not recognized',
+        "'pwsh.exe' is not recognized",
+        "'pwsh' is not recognized",
+        'pwsh was unexpected at this time',
+    ]
+    if any(pattern in text for pattern in patterns):
+        return 'La compilation a échoué silencieusement car pwsh.exe est indisponible. Installez PowerShell 7 ou relancez avec le shim activé.'
+    return None
+
+
+def warn_if_spaces_in_path(path_value: str):
+    """Warn when the source/build path contains spaces, per Blender docs."""
+    if path_value and ' ' in path_value:
+        echo('LOG', text=f'Attention: le chemin contient des espaces et Blender indique que cela peut casser le build: {path_value}')
 
 
 def ensure_libs(src, git_exe):
@@ -569,6 +591,8 @@ def main():
         echo('ERROR', message=f'Dossier source introuvable: {src}')
         return 1
 
+    warn_if_spaces_in_path(src)
+
     echo('START', text='Démarrage de la compilation Blender')
 
     if os.name != 'nt':
@@ -633,13 +657,13 @@ def main():
         )
         return 4
 
-    echo('PROGRESS', progress=10, text='Compilation en cours (make.bat téléchargera les libs si nécessaire)…')
+    echo('PROGRESS', progress=10, text='Compilation release en cours (make.bat téléchargera les libs si nécessaire)…')
 
-    # --- Step 2: make (compile) ---
+    # --- Step 2: make release (compile) ---
     # Try with vsver first; if the fork's make.bat doesn't support it
     # (e.g. 'Command "2022" unknown'), retry without.
     def _build_make_cmd(with_vsver):
-        args = ['make.bat']
+        args = ['make.bat', 'release']
         if with_vsver and vsver:
             args.append(vsver)
         bat = os.path.join(src, '_bl_make_build.bat')
@@ -650,10 +674,10 @@ def main():
                 # PATH.  Forks whose make.bat can't autodetect VS need this.
                 if vsdev:
                     f.write(f'call "{vsdev}" -no_logo\r\n')
-                f.write('call ' + ' '.join(args) + '\r\n')
+                f.write('call ' + ' '.join(args) + ' verbose\r\n')
         except Exception:
             bat = None
-        return (['cmd.exe', '/c', bat] if bat else ['cmd.exe', '/c'] + args)
+        return (['cmd.exe', '/c', bat] if bat else ['cmd.exe', '/c'] + args + ['verbose'])
 
     make_build_cmd = _build_make_cmd(with_vsver=bool(vsver))
 
@@ -668,8 +692,13 @@ def main():
             make_build_cmd = _build_make_cmd(with_vsver=False)
             code, out = run_and_stream(make_build_cmd, cwd=src, stdin_text='y\ny\ny\ny\n')
 
+    pwsh_error = detect_pwsh_failure(out or '')
+    if pwsh_error:
+        echo('ERROR', message=pwsh_error)
+        return 4
+
     if code != 0:
-        echo('ERROR', message='Echec de la compilation (make)', detail=(out or '')[-400:])
+        echo('ERROR', message='Echec de la compilation (make release)', detail=(out or '')[-400:])
         return 4
 
     echo('PROGRESS', progress=95, text='Compilation terminée — recherche de blender.exe…')

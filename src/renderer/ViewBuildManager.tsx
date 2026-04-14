@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AiOutlineCheckCircle,
   AiOutlineCloseCircle,
@@ -74,9 +75,14 @@ const TOOL_INFO: Record<string, { label: string; desc: string; winget: string; u
     url: 'https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows',
     hint: 'Après installation, relancez l\'application pour recharger le PATH.',
   },
+  svn: {
+    label: 'SlikSVN (svn.exe)',
+    desc: 'Requis pour certains builds Goo Engine',
+    winget: 'winget install --id Slik.Subversion -e --source winget',
+    url: 'https://sliksvn.com/download/',
+    hint: 'Installez SlikSVN puis relancez la vérification.',
+  },
 };
-
-const TOOL_ORDER: string[] = ['git', 'cmake', 'msvc', 'pwsh'];
 
 const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
   pendingBuild,
@@ -84,6 +90,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
   onStartBuild,
   onRemove,
 }) => {
+  const { t } = useTranslation();
   const [tools, setTools] = useState<Record<string, boolean | undefined>>({});
   const [checkingTools, setCheckingTools] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -96,6 +103,12 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { id, repoName, branch, clonedPath, status, progress, currentText, logLines, errorMsg } = pendingBuild;
+  const isGooBuild = [repoName, pendingBuild.repoUrl, clonedPath]
+    .filter(Boolean)
+    .some((v) => String(v).toLowerCase().includes('goo-engine'));
+  const toolOrder: string[] = isGooBuild
+    ? ['git', 'cmake', 'msvc', 'pwsh', 'svn']
+    : ['git', 'cmake', 'msvc', 'pwsh'];
 
   const isCloning = status === 'cloning';
   const isCloned = status === 'cloned';
@@ -127,12 +140,12 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
   const checkTools = useCallback(async () => {
     setCheckingTools(true);
     try {
-      const res = await (window as any).electronAPI?.invoke?.('check-build-tools');
+      const res = await (window as any).electronAPI?.invoke?.('check-build-tools', { includeSvn: isGooBuild });
       if (res?.success) setTools(res.tools || {});
     } finally {
       setCheckingTools(false);
     }
-  }, []);
+  }, [isGooBuild]);
 
   useEffect(() => {
     if (isCloned) void checkTools();
@@ -193,14 +206,14 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
     ? <AiOutlineSync style={{ color: '#60a5fa', fontSize: 18, verticalAlign: 'middle', animation: 'spin 1.5s linear infinite' }} />
     : <AiOutlineTool style={{ color: '#94a3b8', fontSize: 18, verticalAlign: 'middle' }} />;
   const statusTitle = isDone
-    ? 'Compilation terminée'
+    ? t('compile.done', 'Compilation terminée')
     : isError
-    ? 'Erreur'
+    ? t('error', 'Erreur')
     : isBuilding
-    ? 'Compilation en cours…'
+    ? t('compile.in_progress', 'Compilation en cours…')
     : isCloning
-    ? 'Clonage en cours…'
-    : 'Compiler Blender';
+    ? t('clone.in_progress', 'Clonage en cours…')
+    : t('compile.blender', 'Compiler Blender');
 
   return (
     <div
@@ -258,7 +271,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
           </div>
           <button
             onClick={onClose}
-            title="Fermer"
+            title={t('close', 'Fermer')}
             style={{
               background: 'transparent',
               border: 'none',
@@ -298,7 +311,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                   color: '#94a3b8',
                 }}
               >
-                <span>{currentText || 'Clonage en cours…'}</span>
+                <span>{currentText || t('clone.in_progress', 'Clonage en cours…')}</span>
                 <span style={{ color: '#64748b' }}>{Math.round(progress)}%</span>
               </div>
               <div
@@ -320,7 +333,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                 />
               </div>
               <p style={{ marginTop: 10, fontSize: 12, color: '#475569' }}>
-                Le clonage est en cours. Une fois terminé, vous pourrez lancer la compilation.
+                {t('clone.help_after_done', 'Le clonage est en cours. Une fois terminé, vous pourrez lancer la compilation.')}
               </p>
             </div>
           )}
@@ -337,7 +350,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                 }}
               >
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#cbd5e1' }}>
-                  Outils de build requis
+                  {t('build.required_tools', 'Outils de build requis')}
                 </span>
                 <button
                   onClick={checkTools}
@@ -354,13 +367,13 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                   }}
                 >
                   {checkingTools
-                    ? <><AiOutlineReload style={{ animation: 'spin 1s linear infinite', verticalAlign: 'middle', marginRight: 4 }} /> Vérification…</>
-                    : <><AiOutlineReload style={{ verticalAlign: 'middle', marginRight: 4 }} /> Re-vérifier</>}
+                    ? <><AiOutlineReload style={{ animation: 'spin 1s linear infinite', verticalAlign: 'middle', marginRight: 4 }} /> {t('checking', 'Vérification…')}</>
+                    : <><AiOutlineReload style={{ verticalAlign: 'middle', marginRight: 4 }} /> {t('recheck', 'Re-vérifier')}</>}
                 </button>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
-                {TOOL_ORDER.map((key) => {
+                {toolOrder.map((key) => {
                   const info = TOOL_INFO[key];
                   const ok = tools[key];
                   const isMissing = ok === false;
@@ -437,7 +450,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                             </code>
                             <button
                               onClick={() => handleCopy(key, info.winget)}
-                              title="Copier la commande winget"
+                              title={t('copy_winget_command', 'Copier la commande winget')}
                               style={{
                                 padding: '3px 8px',
                                 background: '#1f2937',
@@ -464,7 +477,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                               textAlign: 'left',
                             }}
                           >
-                            <AiOutlineExport style={{ verticalAlign: 'middle', marginRight: 4 }} /> Installer manuellement
+                            <AiOutlineExport style={{ verticalAlign: 'middle', marginRight: 4 }} /> {t('install_manually', 'Installer manuellement')}
                           </button>
                         </div>
                       )}
@@ -491,8 +504,8 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                     }}
                   >
                     {installing
-                      ? <><AiOutlineDownload style={{ verticalAlign: 'middle', marginRight: 4, animation: 'spin 1.5s linear infinite' }} /> Installation en cours…</>
-                      : <><AiOutlineDownload style={{ verticalAlign: 'middle', marginRight: 4 }} /> Installer automatiquement ({missingTools.length} outil{missingTools.length > 1 ? 's' : ''})</>}
+                      ? <><AiOutlineDownload style={{ verticalAlign: 'middle', marginRight: 4, animation: 'spin 1.5s linear infinite' }} /> {t('install.in_progress', 'Installation en cours…')}</>
+                      : <><AiOutlineDownload style={{ verticalAlign: 'middle', marginRight: 4 }} /> {t('install.auto_with_count', `Installer automatiquement (${missingTools.length} outil${missingTools.length > 1 ? 's' : ''})`)}</>}
                   </button>
                 </div>
               )}
@@ -511,7 +524,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                 }}
               >
                 <span style={{ fontSize: 13, color: '#cbd5e1', fontWeight: 500 }}>
-                  {currentText || 'En cours…'}
+                  {currentText || t('in_progress', 'En cours…')}
                 </span>
                 <span style={{ fontSize: 12, color: '#64748b' }}>
                   {isBuilding && `${Math.round(progress)}%`}
@@ -568,7 +581,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                 }}
               >
                 <span style={{ fontSize: 10 }}>{showLogs ? <AiOutlineUp /> : <AiOutlineDown />}</span>
-                <span>{showLogs ? 'Masquer les logs' : 'Afficher les logs'}</span>
+                <span>{showLogs ? t('hide_logs', 'Masquer les logs') : t('show_logs', 'Afficher les logs')}</span>
               </button>
               {showLogs && (
                 <div
@@ -587,7 +600,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                   }}
                 >
                   {logLines.length === 0 ? (
-                    <span style={{ color: '#374151' }}>Aucun log…</span>
+                    <span style={{ color: '#374151' }}>{t('no_logs', 'Aucun log…')}</span>
                   ) : (
                     logLines.map((l, i) => (
                       <div
@@ -625,7 +638,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                 color: '#86efac',
               }}
             >
-              <AiOutlineCheckCircle style={{ verticalAlign: 'middle', marginRight: 6 }} /> Blender compilé avec succès ! L'exécutable a été ajouté à votre liste d'applications.
+              <AiOutlineCheckCircle style={{ verticalAlign: 'middle', marginRight: 6 }} /> {t('compile.success_banner', 'Blender compilé avec succès ! L\'exécutable a été ajouté à votre liste d\'applications.')}
             </div>
           )}
 
@@ -642,10 +655,10 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                 lineHeight: 1.55,
               }}
             >
-              <AiOutlineCloseCircle style={{ verticalAlign: 'middle', marginRight: 6 }} /> {errorMsg || 'Erreur lors de la compilation'}
+              <AiOutlineCloseCircle style={{ verticalAlign: 'middle', marginRight: 6 }} /> {errorMsg || t('compile.error_banner', 'Erreur lors de la compilation')}
               <br />
               <span style={{ fontSize: 11, color: '#64748b' }}>
-                Consultez les logs pour plus de détails.
+                {t('logs.more_details', 'Consultez les logs pour plus de détails.')}
               </span>
             </div>
           )}
@@ -678,9 +691,9 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                 fontSize: 13,
                 opacity: 0.75,
               }}
-              title="Retirer de la liste"
+              title={t('remove_from_list', 'Retirer de la liste')}
             >
-              <AiOutlineDelete style={{ verticalAlign: 'middle', marginRight: 4 }} /> Supprimer
+              <AiOutlineDelete style={{ verticalAlign: 'middle', marginRight: 4 }} /> {t('delete', 'Supprimer')}
             </button>
           )}
 
@@ -702,10 +715,10 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
               }}
             >
               {checkingTools
-                ? <><AiOutlineReload style={{ verticalAlign: 'middle', marginRight: 4, animation: 'spin 1s linear infinite' }} /> Vérification…</>
+                ? <><AiOutlineReload style={{ verticalAlign: 'middle', marginRight: 4, animation: 'spin 1s linear infinite' }} /> {t('checking', 'Vérification…')}</>
                 : allToolsOk
-                ? <><AiOutlineCaretRight style={{ verticalAlign: 'middle', marginRight: 4 }} /> Démarrer la compilation</>
-                : <><AiOutlineWarning style={{ verticalAlign: 'middle', marginRight: 4 }} /> Outils manquants ({missingTools.length})</>}
+                ? <><AiOutlineCaretRight style={{ verticalAlign: 'middle', marginRight: 4 }} /> {t('compile.start', 'Démarrer la compilation')}</>
+                : <><AiOutlineWarning style={{ verticalAlign: 'middle', marginRight: 4 }} /> {t('missing_tools_count', `Outils manquants (${missingTools.length})`)}</>}
             </button>
           )}
 
@@ -724,7 +737,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                 fontWeight: 500,
               }}
             >
-              <AiOutlineReload style={{ verticalAlign: 'middle', marginRight: 4 }} /> Réessayer
+              <AiOutlineReload style={{ verticalAlign: 'middle', marginRight: 4 }} /> {t('retry', 'Réessayer')}
             </button>
           )}
 
@@ -741,7 +754,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
               fontSize: 13,
             }}
           >
-            {isBuilding ? 'Fermer (build continue)' : isDone ? <><AiOutlineCheck style={{ verticalAlign: 'middle', marginRight: 4 }} /> Fermer</> : 'Fermer'}
+            {isBuilding ? t('close_build_continues', 'Fermer (build continue)') : isDone ? <><AiOutlineCheck style={{ verticalAlign: 'middle', marginRight: 4 }} /> {t('close', 'Fermer')}</> : t('close', 'Fermer')}
           </button>
         </div>
       </div>

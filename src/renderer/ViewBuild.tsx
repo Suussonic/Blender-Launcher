@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AiOutlineCloseCircle } from 'react-icons/ai';
+import { useTranslation } from 'react-i18next';
+import ModalCloseButton from './components/ModalCloseButton';
 
 interface ViewBuildProps {
 	isOpen: boolean;
@@ -11,6 +13,7 @@ interface ViewBuildProps {
 type Tools = { git?: boolean; cmake?: boolean; ninja?: boolean; python?: boolean; msvc?: boolean };
 
 const ViewBuild: React.FC<ViewBuildProps> = ({ isOpen, onClose, onInstalled, missingTools }) => {
+	const { t } = useTranslation();
 	const [tools, setTools] = useState<Tools>({});
 	const [checking, setChecking] = useState(false);
 	const [installing, setInstalling] = useState(false);
@@ -40,7 +43,7 @@ const ViewBuild: React.FC<ViewBuildProps> = ({ isOpen, onClose, onInstalled, mis
 	const doInstall = async () => {
 		setInstalling(true);
 		setProgress(0);
-		setStatus('Préparation de l\'installation…');
+		setStatus(t('build.preparing_install', 'Préparation de l\'installation…'));
 		try {
 			const list = (Array.isArray(missingTools) && missingTools.length > 0)
 				? missingTools
@@ -60,12 +63,12 @@ const ViewBuild: React.FC<ViewBuildProps> = ({ isOpen, onClose, onInstalled, mis
 		<div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
 			<div style={{ width: 720, maxWidth: '94vw', background: '#0b1220', borderRadius: 12, padding: 20, color: '#e6eef6', border: '1px solid #1f2a3a' }}>
 				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-					<h3 style={{ margin: 0 }}>Outils de build requis</h3>
-					<button onClick={onClose} disabled={installing} style={{ background: 'transparent', border: 'none', color: '#9fb0c2', cursor: 'pointer' }} title="Fermer">✕</button>
+					<h3 style={{ margin: 0 }}>{t('build.required_tools', 'Outils de build requis')}</h3>
+					<ModalCloseButton onClick={onClose} disabled={installing} title={t('close', 'Fermer')} color="#9fb0c2" />
 				</div>
 
 				<div style={{ marginTop: 12, padding: 12, background: '#1a0f0f', border: '1px solid #3a1f1f', borderRadius: 8, fontSize: 13, color: '#fca5a5', lineHeight: 1.5 }}>
-					<strong style={{ color: '#ef4444' }}>⚠️ Installation requise</strong>
+					<strong style={{ color: '#ef4444' }}>⚠️ {t('build.install_required', 'Installation requise')}</strong>
 					<br/>
 					Les outils suivants sont nécessaires pour compiler Blender (make update + make compile) :
 					<br/>• <strong>Git</strong> : Clonage du code source
@@ -86,13 +89,13 @@ const ViewBuild: React.FC<ViewBuildProps> = ({ isOpen, onClose, onInstalled, mis
 				</div>
 
 						<div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-					<button onClick={check} disabled={checking || installing} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #253446', background: '#0f1827', color: '#e6eef6' }}>Re-vérifier</button>
+					<button onClick={check} disabled={checking || installing} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #253446', background: '#0f1827', color: '#e6eef6' }}>{t('recheck', 'Re-vérifier')}</button>
 					<button onClick={doInstall} disabled={installing} style={{ padding: '8px 12px', borderRadius: 8, border: 'none', background: '#1f7aeb', color: '#fff' }}>Installer les prérequis</button>
 				</div>
 
 						{Array.isArray(missingTools) && missingTools.length > 0 && (
 							<div style={{ marginTop: 10, padding: 10, background: '#1a0a0a', border: '1px solid #3a1a1a', borderRadius: 8 }}>
-								<div style={{ color: '#ef4444', fontSize: 14, fontWeight: 600, marginBottom: 6 }}><AiOutlineCloseCircle style={{ verticalAlign: 'middle', marginRight: 4 }} /> Impossible de cloner et compiler</div>
+								<div style={{ color: '#ef4444', fontSize: 14, fontWeight: 600, marginBottom: 6 }}><AiOutlineCloseCircle style={{ verticalAlign: 'middle', marginRight: 4 }} /> {t('build.clone_compile_impossible', 'Impossible de cloner et compiler')}</div>
 								<div style={{ color: '#fca5a5', fontSize: 13 }}>
 									Outils manquants détectés : <strong>{missingTools.join(', ')}</strong>
 									<br/><br/>
@@ -114,12 +117,12 @@ const ViewBuild: React.FC<ViewBuildProps> = ({ isOpen, onClose, onInstalled, mis
 							<div style={{ height: 10, background: '#132034', borderRadius: 6, overflow: 'hidden', border: '1px solid #253446' }}>
 								<div style={{ width: `${progress}%`, height: '100%', background: '#1f7aeb', transition: 'width 200ms ease' }} />
 							</div>
-							<div style={{ marginTop: 6, color: '#9fb0c2', fontSize: 12 }}>{status || 'Installation en cours…'}</div>
+							<div style={{ marginTop: 6, color: '#9fb0c2', fontSize: 12 }}>{status || t('install.in_progress', 'Installation en cours…')}</div>
 						</div>
 					)}
 
 				<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-					<button onClick={onClose} disabled={installing} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #253446', background: '#0f1827', color: '#e6eef6' }}>Fermer</button>
+					<button onClick={onClose} disabled={installing} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #253446', background: '#0f1827', color: '#e6eef6' }}>{t('close', 'Fermer')}</button>
 				</div>
 			</div>
 		</div>
