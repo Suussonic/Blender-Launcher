@@ -76,7 +76,10 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
     setRecentLoading(true);
     setRecentError(null);
     try {
-      const res = await window.electronAPI.invoke('get-recent-blend-files', { exePath: selectedBlender.path });
+      const res = await window.electronAPI.invoke('get-recent-blend-files', {
+        exePath: selectedBlender.path,
+        versionHint: selectedBlender.title || selectedBlender.name || ''
+      });
       if (token !== recentLoadTokenRef.current) return;
       if (res && res.files) {
         setRecentFiles(res.files);
@@ -128,7 +131,10 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
       const res = await window.electronAPI.invoke('remove-recent-blend-file', { exePath: selectedBlender.path, blendPath: filePath });
       if (!res?.success) {
         try {
-          const reload = await window.electronAPI.invoke('get-recent-blend-files', { exePath: selectedBlender.path });
+          const reload = await window.electronAPI.invoke('get-recent-blend-files', {
+            exePath: selectedBlender.path,
+            versionHint: selectedBlender.title || selectedBlender.name || ''
+          });
           if (reload && reload.files) {
             setRecentFiles(reload.files);
           }
@@ -147,7 +153,10 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
       refreshing = true;
       if (!selectedBlender?.path || !api?.invoke) return;
       try {
-        const res = await api.invoke('get-recent-blend-files', { exePath: selectedBlender.path });
+        const res = await api.invoke('get-recent-blend-files', {
+          exePath: selectedBlender.path,
+          versionHint: selectedBlender.title || selectedBlender.name || ''
+        });
         if (res && res.files) {
           setRecentFiles(res.files);
         }

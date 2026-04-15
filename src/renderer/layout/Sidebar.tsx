@@ -19,6 +19,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pendingBuilds = [], onSelectPending }) => {
   const { t } = useTranslation();
   const [blenders, setBlenders] = useState<BlenderExe[]>([]);
+  const blendersRef = useRef<BlenderExe[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [pressedIndex, setPressedIndex] = useState<number | null>(null);
@@ -44,6 +45,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
     };
     loadBlenders();
   }, []);
+
+  useEffect(() => {
+    blendersRef.current = blenders;
+  }, [blenders]);
 
 
   useEffect(() => {
@@ -130,11 +135,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
   };
 
   const normalizedQuery = query.trim().toLowerCase();
-  const displayedBlenders = blenders.filter((b) => {
-    if (!normalizedQuery) return true;
-    const text = `${b.title || ''} ${b.name || ''} ${b.path || ''}`.toLowerCase();
-    return text.includes(normalizedQuery);
-  });
+  const displayedBlenders = blenders
+    .map((b, idx) => ({ blender: b, realIndex: idx }))
+    .filter(({ blender }) => {
+      if (!normalizedQuery) return true;
+      const text = `${blender.title || ''} ${blender.name || ''} ${blender.path || ''}`.toLowerCase();
+      return text.includes(normalizedQuery);
+    });
 
   return (
     <div style={{
@@ -213,9 +220,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
               {t('no_result', 'Aucun résultat')}
             </div>
           )}
-          {displayedBlenders.map((b, i) => (
+          {displayedBlenders.map(({ blender: b, realIndex }, i) => (
             <div
               key={b.path + i}
+              data-sidebar-blender-index={realIndex}
               style={{
                 padding: '8px 18px 8px 8px',
                 borderRadius: 8,
@@ -263,11 +271,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
                   setPressedIndex(i);
                   if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
                   if (ev.pointerType === 'mouse') {
-                    draggingIndexRef.current = i;
+                    draggingIndexRef.current = realIndex;
                     setIsDragging(true);
                   } else {
                     longPressTimer.current = window.setTimeout(() => {
-                      draggingIndexRef.current = i;
+                      draggingIndexRef.current = realIndex;
                       setIsDragging(true);
                     }, 260) as unknown as number;
                   }
@@ -282,18 +290,31 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
                       const y = lastClientY.current;
                       const container = containerRef.current;
                       if (!container || y == null) { pendingRaf.current = null; return; }
-                      const children = Array.from(container.children) as HTMLElement[];
-                      let targetIdx = children.length - 1;
-                      for (let idx = 0; idx < children.length; idx++) {
-                        const r = children[idx].getBoundingClientRect();
+                      const rows = Array.from(container.querySelectorAll('[data-sidebar-blender-index]')) as HTMLElement[];
+                      if (rows.length === 0) { pendingRaf.current = null; return; }
+                      let targetIdx = Number(rows[rows.length - 1].getAttribute('data-sidebar-blender-index'));
+                      for (let idx = 0; idx < rows.length; idx++) {
+                        const r = rows[idx].getBoundingClientRect();
                         const mid = r.top + r.height / 2;
-                        if (y < mid) { targetIdx = idx; break; }
+                        if (y < mid) {
+                          const parsed = Number(rows[idx].getAttribute('data-sidebar-blender-index'));
+                          targetIdx = Number.isFinite(parsed) ? parsed : targetIdx;
+                          break;
+                        }
                       }
                       const fromIdx = draggingIndexRef.current;
-                      if (fromIdx == null) { pendingRaf.current = null; return; }
+                      if (fromIdx == null || !Number.isFinite(targetIdx)) { pendingRaf.current = null; return; }
                       if (fromIdx === targetIdx) { pendingRaf.current = null; return; }
-                      const copy = blenders.slice();
+                      const copy = blendersRef.current.slice();
+                      if (fromIdx < 0 || fromIdx >= copy.length || targetIdx < 0 || targetIdx >= copy.length) {
+                        pendingRaf.current = null;
+                        return;
+                      }
                       const [moved] = copy.splice(fromIdx, 1);
+                      if (!moved) {
+                        pendingRaf.current = null;
+                        return;
+                      }
                       copy.splice(targetIdx, 0, moved);
                       draggingIndexRef.current = targetIdx;
                       setBlenders(copy);
@@ -307,7 +328,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
                   if (longPressTimer.current) { window.clearTimeout(longPressTimer.current); longPressTimer.current = null; }
                   if (isDragging) {
                     setIsDragging(false);
-                    const paths = blenders.map(x => x.path);
+                    const paths = blendersRef.current.map(x => x.path);
                     try { window.electronAPI?.invoke('reorder-blenders', paths); } catch (e) { console.error('reorder-blenders ipc failed', e); }
                     draggingIndexRef.current = null;
                   }

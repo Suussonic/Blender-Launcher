@@ -288,7 +288,8 @@ const App: React.FC = () => {
       if (selectedBlender && window.electronAPI && window.electronAPI.getBlenders) {
         try {
           const list = await window.electronAPI.getBlenders();
-          const updated = list.find((b: BlenderExe) => b.path === selectedBlender.path || b.name === selectedBlender.name);
+          const selectedPathNorm = selectedBlender.path.toLowerCase();
+          const updated = list.find((b: BlenderExe) => (b.path || '').toLowerCase() === selectedPathNorm);
           if (updated) {
             setSelectedBlender(updated);
           } else {
@@ -302,7 +303,7 @@ const App: React.FC = () => {
 
     const handleExecutableUpdated = async (_event: any, payload: any) => {
       if (!payload?.newExecutable) return;
-      if (selectedBlender && (payload.oldPath === selectedBlender.path || payload.newExecutable.title === selectedBlender.title)) {
+      if (selectedBlender && payload.oldPath === selectedBlender.path) {
         setSelectedBlender(payload.newExecutable);
       }
     };

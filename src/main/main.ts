@@ -343,15 +343,7 @@ app.whenReady().then(() => {
       });
     };
 
-    const probe = await probeStartupCrash(exePath);
-    if (probe.broken) {
-      console.error('[launch-blender] Build détecté comme cassé au démarrage:', probe.detail || 'probe-failed');
-      mainWindow?.webContents.send('toast', {
-        text: 'Ce build Blender crash au démarrage (Failed to read file \'\' / access violation). Le binaire est instable et ne peut pas être lancé.',
-        type: 'error'
-      });
-      return;
-    }
+    const isSteamExePath = /steamapps[\\/]+common[\\/]+blender[\\/]+blender\.exe$/i.test(String(exePath || ''));
     // Helper: spawn Blender from its own directory (needed for source builds
     // so it can find DLLs, Python, scripts, datafiles relative to the exe)
     const launchDirect = (exe: string) => {
@@ -373,6 +365,19 @@ app.whenReady().then(() => {
       const rawCfg = fs.readFileSync(getConfigPath(), 'utf-8');
       const cfg = JSON.parse(rawCfg || '{}');
       const steamEnabled = !!(cfg.steam && cfg.steam.enabled);
+      // Don't hard-block Steam launch based on direct probe: Steam builds are expected
+      // to be launched through Steam and direct headless probing can false-fail.
+      if (!(steamEnabled && isSteamExePath)) {
+        const probe = await probeStartupCrash(exePath);
+        if (probe.broken) {
+          console.error('[launch-blender] Build détecté comme cassé au démarrage:', probe.detail || 'probe-failed');
+          mainWindow?.webContents.send('toast', {
+            text: 'Ce build Blender crash au démarrage (Failed to read file \'\' / access violation). Le binaire est instable et ne peut pas être lancé.',
+            type: 'error'
+          });
+          return;
+        }
+      }
         if (steamEnabled) {
           const userDataDir = app.getPath('userData');
           const res = await steamWarp.warpToBlender(exePath, userDataDir, []);
@@ -429,7 +434,8 @@ app.whenReady().then(() => {
   // Récupération des fichiers récents Blender pour un exécutable donné
   ipcMain.handle('get-recent-blend-files', async (_event, payload) => {
     try {
-      const exePath: string | undefined = payload?.exePath;
+      const exePath: string | undefined = typeof payload === 'string' ? payload : payload?.exePath;
+      const versionHintRaw: string = typeof payload === 'object' && payload ? String(payload.versionHint || '') : '';
       if (!exePath || !fs.existsSync(exePath)) {
         return { version: null, files: [], error: 'invalid-exe' };
       }
@@ -457,6 +463,10 @@ app.whenReady().then(() => {
       };
 
       let version = await getVersion();
+      if (!version) {
+        const hint = versionHintRaw.match(/(\d+\.\d+)/);
+        if (hint) version = hint[1];
+      }
       if (!version) {
         // Fallback: tenter de deviner à partir du chemin de l'exécutable
         const lower = exePath.toLowerCase();
@@ -494,38 +504,38 @@ app.whenReady().then(() => {
           }
         }
 
-        // 2b) Fallback: scanner toutes les versions et agréger
+        // 2b) Fallback: si version inconnue, choisir la config Blender la plus récente
+        // au lieu d'agréger toutes les versions (évite les listes mélangées, fréquent sur Steam).
         if (appData) {
           const base = path.join(appData, 'Blender Foundation', 'Blender');
-          const agg: any[] = [];
-          const seen = new Set<string>();
           try {
             const entries: any[] = fs.existsSync(base) ? fs.readdirSync(base, { withFileTypes: true }) as any : [];
             const versionDirs = entries
               .filter((e: any) => e.isDirectory && (typeof e.isDirectory !== 'function' || e.isDirectory()) && /^(\d+\.\d+)/.test(e.name))
-              .sort((a:any,b:any)=>{
+              .sort((a: any, b: any) => {
+                const aRf = path.join(base, a.name, 'config', 'recent-files.txt');
+                const bRf = path.join(base, b.name, 'config', 'recent-files.txt');
+                let aTime = 0;
+                let bTime = 0;
+                try { if (fs.existsSync(aRf)) aTime = fs.statSync(aRf).mtimeMs || 0; } catch {}
+                try { if (fs.existsSync(bRf)) bTime = fs.statSync(bRf).mtimeMs || 0; } catch {}
+                if (aTime !== bTime) return bTime - aTime;
                 const ma = a.name.match(/(\d+)\.(\d+)/); const mb = b.name.match(/(\d+)\.(\d+)/);
                 if (ma && mb) {
-                  const va = parseInt(ma[1])*100 + parseInt(ma[2]);
-                  const vb = parseInt(mb[1])*100 + parseInt(mb[2]);
+                  const va = parseInt(ma[1]) * 100 + parseInt(ma[2]);
+                  const vb = parseInt(mb[1]) * 100 + parseInt(mb[2]);
                   return vb - va;
                 }
                 return 0;
               });
+
             for (const d of versionDirs) {
               const rf = path.join(base, d.name, 'config', 'recent-files.txt');
               if (!fs.existsSync(rf)) continue;
-              const items = filesFromTxt(rf);
-              for (const it of items) {
-                const norm = path.normalize(it.path).toLowerCase();
-                if (seen.has(norm)) continue;
-                seen.add(norm);
-                agg.push(it);
-              }
-              if (agg.length >= 40) break;
+              return { version: d.name, files: filesFromTxt(rf) };
             }
           } catch {}
-          return { version: version || null, files: agg.slice(0, 40) };
+          return { version: version || null, files: [] };
         }
       }
 
