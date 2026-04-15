@@ -124,121 +124,81 @@ export function initSettings(opts: {
     }
   });
 
-    // Enable or disable an addon by invoking Blender in background with a small python script.
-    ipcMain.handle('enable-addon', async (_event, params: { exePath?: string; module?: string; enable?: boolean }) => {
+  // Enable or disable an addon by invoking backend/addons/action.py through Blender.
+  ipcMain.handle('enable-addon', async (_event, params: { exePath?: string; module?: string; enable?: boolean }) => {
     try {
       const exePath = params?.exePath;
       const moduleName = params?.module;
       const enable = !!params?.enable;
       if (!exePath || !fs.existsSync(exePath)) return { success: false, error: 'exe-not-found' };
       if (!moduleName) return { success: false, error: 'missing-module' };
+      if (await isExecutableRunning(exePath)) {
+        return {
+          success: false,
+          error: 'Blender est deja ouvert pour cette instance. Ferme Blender avant de modifier les add-ons depuis le launcher.'
+        };
+      }
 
-      const script = `
-try:
-    import sys, traceback, types, importlib
-    # Small compatibility shims to reduce import-time failures
-    try:
-        import bgl
-    except Exception:
-        sys.modules['bgl'] = types.SimpleNamespace()
-    try:
-        import bpy
-        try:
-            if hasattr(bpy.types, 'ThemeView3D') and not hasattr(bpy.types.ThemeView3D, 'handle_sel_vect'):
-                setattr(bpy.types.ThemeView3D, 'handle_sel_vect', (0.0, 0.0, 1.0))
-        except Exception:
-            pass
-    except Exception:
-        pass
+      const trimForLog = (s: string, max = 1000) => {
+        if (!s) return '';
+        if (s.length <= max) return s;
+        return `${s.slice(0, max)} ...[truncated ${s.length - max} chars]`;
+      };
 
-    import addon_utils
-    MARK_OK='@@ACTION_OK@@'
-    MARK_FAIL='@@ACTION_FAIL@@'
-    mod = '${moduleName}'
-    desired = ${enable ? 'True' : 'False'}
+      console.log('[addons][toggle] request', {
+        exePath,
+        module: moduleName,
+        action: enable ? 'enable' : 'disable'
+      });
 
-    # Tolerant check wrapper: don't let compatibility exceptions abort the flow
-    orig_check = getattr(addon_utils, 'check', None)
-    def tolerant_check(m):
-        try:
-            if orig_check:
-                return orig_check(m)
-            return (False, '')
-        except Exception as e:
-            return (False, str(e))
-    try:
-        addon_utils.check = tolerant_check
-    except Exception:
-        pass
-
-    try:
-        if desired:
-            try:
-                addon_utils.enable(mod)
-            except Exception:
-                # Fallback: try importing the module and calling register() directly
-                try:
-                    m = importlib.import_module(mod)
-                    if hasattr(m, 'register'):
-                        try:
-                            m.register()
-                        except Exception:
-                            traceback.print_exc()
-                except Exception:
-                    traceback.print_exc()
-        else:
-            try:
-                addon_utils.disable(mod, default_set=False, persistent=False)
-            except Exception:
-                try:
-                    addon_utils.disable(mod)
-                except Exception:
-                    traceback.print_exc()
-            try:
-                m = importlib.import_module(mod)
-                if hasattr(m, 'unregister'):
-                    try:
-                        m.unregister()
-                    except Exception:
-                        traceback.print_exc()
-            except Exception:
-                traceback.print_exc()
-    except Exception:
-        traceback.print_exc()
-
-    ok = False
-    try:
-        chk = addon_utils.check(mod)
-        if isinstance(chk, (list, tuple)) and len(chk) >= 1:
-            ok = bool(chk[0])
-        else:
-            try:
-                ok = bool(addon_utils.is_enabled(mod))
-            except Exception:
-                ok = False
-    except Exception:
-        try:
-            ok = bool(addon_utils.is_enabled(mod))
-        except Exception:
-            ok = False
-
-    if ok == desired:
-        print(MARK_OK)
-    else:
-        print(MARK_FAIL)
-except Exception:
-    traceback.print_exc()
-`;
-
-      const out = await runBlenderScriptAndCaptureJson(exePath, script, 20000);
+      const out = await runBlenderBackendScript(exePath, path.join('backend', 'addons', 'action.py'), ['action', enable ? 'enable' : 'disable', 'module', moduleName], 25000);
       const stdout = out.stdout || '';
       const stderr = out.stderr || '';
-      const ok = stdout && stdout.indexOf('@@ACTION_OK@@') >= 0;
-      return { success: !!ok, stdout, stderr };
+      const ok = stdout.includes('@@ACTION_OK@@');
+      let actionError: string | undefined;
+      try {
+        const marker = '@@ACTION_ERR@@';
+        const idx = stdout.indexOf(marker);
+        if (idx >= 0) actionError = stdout.substring(idx + marker.length).split('\n')[0].trim();
+      } catch {}
+      if (!actionError && !ok) actionError = 'Impossible de changer l\'etat de ce module.';
+
+      console.log('[addons][toggle] blender-result', {
+        exePath,
+        module: moduleName,
+        action: enable ? 'enable' : 'disable',
+        ok,
+        actionError: actionError || null,
+        stdout: trimForLog(stdout),
+        stderr: trimForLog(stderr)
+      });
+
+      if (ok) {
+        try {
+          const cache = readAddonsCache();
+          if (cache[exePath]) {
+            delete cache[exePath];
+            writeAddonsCache(cache);
+            console.log('[addons][toggle] cache invalidated', { exePath });
+          }
+        } catch (e) {
+          console.warn('[addons] cache invalidation failed after enable-addon', e);
+        }
+      } else {
+        console.warn('[addons][toggle] failed', {
+          exePath,
+          module: moduleName,
+          action: enable ? 'enable' : 'disable',
+          actionError: actionError || null
+        });
+      }
+
+      return { success: !!ok, stdout, stderr, error: actionError };
     } catch (e) {
+      console.error('[addons][toggle] exception', e);
       return { success: false, error: String(e) };
     }
-    });
+  });
 
   ipcMain.handle('update-general-config', async (_event, partial) => {
     try {
@@ -940,15 +900,96 @@ except Exception:
   async function refreshAddonsCacheForExe(exePath: string) {
     try {
       if (!exePath || !fs.existsSync(exePath)) return;
-      const script = `\ntry:\n    import json, addon_utils\n    res = []\n    for m in addon_utils.modules():\n        try:\n            name = (getattr(m, 'bl_info', {}) or {}).get('name') or getattr(m, '__name__', str(m))\n            module = getattr(m, '__name__', None)\n            bl_info = getattr(m, 'bl_info', {}) or {}\n            enabled = False\n            try:\n                enabled = addon_utils.check(module)[0]\n            except Exception:\n                try:\n                    enabled = addon_utils.is_enabled(module)\n                except Exception:\n                    enabled = False\n            res.append({ 'module': module, 'name': name, 'bl_info': bl_info, 'enabled': enabled })\n        except Exception:\n            pass\n    print('@@ADDONS_JSON_START@@')\n    print(json.dumps(res))\n    print('@@ADDONS_JSON_END@@')\nexcept Exception as e:\n    import traceback\n    traceback.print_exc()\n`;
-      const out = await runBlenderScriptAndCaptureJson(exePath, script, 25000);
-      if (out && out.json && Array.isArray(out.json)) {
+      const out = await runBlenderBackendScript(exePath, path.join('backend', 'addons', 'probe.py'), [], 25000);
+      const parsed = extractAddonsJsonFromStdout(out.stdout || '');
+      if (parsed && Array.isArray(parsed)) {
         const cache = readAddonsCache();
-        cache[exePath] = { ts: Date.now(), addons: out.json };
+        cache[exePath] = { ts: Date.now(), addons: parsed };
         writeAddonsCache(cache);
-        try { opts.getMainWindow()?.webContents.send('addons-updated', { exePath, addons: out.json }); } catch {};
+        try { opts.getMainWindow()?.webContents.send('addons-updated', { exePath, addons: parsed }); } catch {};
       }
     } catch (e) { console.warn('[cache] refresh failed for', exePath, e); }
+  }
+
+  function resolveBackendScript(relativePath: string): string | null {
+    const candidates = [
+      path.join(process.cwd(), relativePath),
+      path.join(__dirname, '..', '..', relativePath),
+      path.join(app.getAppPath(), relativePath),
+    ];
+    for (const p of candidates) {
+      try {
+        if (fs.existsSync(p)) return p;
+      } catch {}
+    }
+    return null;
+  }
+
+  async function isExecutableRunning(exePath: string): Promise<boolean> {
+    return await new Promise<boolean>((resolve) => {
+      const normalized = exePath.replace(/\\/g, '\\\\').replace(/'/g, "''");
+      const command = `(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq '${normalized}' } | Select-Object -First 1 ProcessId | ConvertTo-Json -Compress)`;
+      const child = spawn('powershell.exe', ['-NoProfile', '-Command', command], { windowsHide: true });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+      child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+      child.on('error', () => resolve(false));
+      child.on('close', () => {
+        if (stderr && stderr.trim()) {
+          console.warn('[addons] running-process detection stderr', stderr.trim());
+        }
+        try {
+          const trimmed = stdout.trim();
+          if (!trimmed || trimmed === 'null') return resolve(false);
+          const parsed = JSON.parse(trimmed);
+          resolve(!!parsed && !!parsed.ProcessId);
+        } catch {
+          resolve(false);
+        }
+      });
+    });
+  }
+
+  async function runBlenderBackendScript(exePath: string, backendRelativePath: string, scriptArgs: string[] = [], timeoutMs = 25000): Promise<{ stdout: string; stderr: string; error?: string }> {
+    const scriptPath = resolveBackendScript(backendRelativePath);
+    if (!scriptPath) return { stdout: '', stderr: '', error: `backend-script-not-found:${backendRelativePath}` };
+    return await new Promise<{ stdout: string; stderr: string; error?: string }>((resolve) => {
+      const child = spawn(exePath, ['--background', '--python', scriptPath, '--', ...scriptArgs], { windowsHide: true });
+      let stdout = '';
+      let stderr = '';
+      let finished = false;
+      const to = setTimeout(() => {
+        try { child.kill(); } catch {}
+      }, timeoutMs);
+      child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+      child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+      child.on('error', (err) => {
+        clearTimeout(to);
+        if (finished) return;
+        finished = true;
+        resolve({ stdout, stderr, error: String(err) });
+      });
+      child.on('close', () => {
+        clearTimeout(to);
+        if (finished) return;
+        finished = true;
+        resolve({ stdout, stderr });
+      });
+    });
+  }
+
+  function extractAddonsJsonFromStdout(stdout: string): any[] | null {
+    const markerStart = '@@ADDONS_JSON_START@@';
+    const markerEnd = '@@ADDONS_JSON_END@@';
+    const s = stdout || '';
+    const start = s.indexOf(markerStart);
+    const end = s.indexOf(markerEnd, start >= 0 ? start : 0);
+    if (start >= 0 && end > start) {
+      const jsonStr = s.substring(start + markerStart.length, end).trim();
+      try { return JSON.parse(jsonStr); } catch {}
+    }
+    return null;
   }
 
   async function runBlenderScriptAndCaptureJson(exePath: string, scriptContent: string, timeoutMs = 20000): Promise<{ stdout: string; stderr: string; json?: any; error?: string }> {
@@ -1002,24 +1043,12 @@ except Exception:
   ipcMain.handle('get-addons', async (_event, exePath: string) => {
     try {
       if (!exePath || !fs.existsSync(exePath)) return { success: false, error: 'exe-not-found', addons: [] };
-      // Try cache first for fast response
-      try {
-        const cache = readAddonsCache();
-        const entry = cache[exePath];
-        if (entry && Array.isArray(entry.addons) && entry.addons.length >= 0) {
-          // schedule background refresh but return cached result immediately
-          setTimeout(() => { void refreshAddonsCacheForExe(exePath); }, 10);
-          return { success: true, addons: entry.addons, cached: true };
-        }
-      } catch (e) { /* ignore cache read errors */ }
-
-      // Python script that enumerates addons using Blender's addon_utils and prints JSON between markers
-      const script = `\ntry:\n    import json, addon_utils\n    res = []\n    for m in addon_utils.modules():\n        try:\n            name = (getattr(m, 'bl_info', {}) or {}).get('name') or getattr(m, '__name__', str(m))\n            module = getattr(m, '__name__', None)\n            bl_info = getattr(m, 'bl_info', {}) or {}\n            enabled = False\n            try:\n                enabled = addon_utils.check(module)[0]\n            except Exception:\n                try:\n                    enabled = addon_utils.is_enabled(module)\n                except Exception:\n                    enabled = False\n            res.append({ 'module': module, 'name': name, 'bl_info': bl_info, 'enabled': enabled })\n        except Exception:\n            pass\n    print('@@ADDONS_JSON_START@@')\n    print(json.dumps(res))\n    print('@@ADDONS_JSON_END@@')\nexcept Exception as e:\n    import traceback\n    traceback.print_exc()\n`;
-      const out = await runBlenderScriptAndCaptureJson(exePath, script, 25000);
+      const out = await runBlenderBackendScript(exePath, path.join('backend', 'addons', 'probe.py'), [], 25000);
       if (out.error) return { success: false, error: out.error, stdout: out.stdout, stderr: out.stderr, addons: [] };
-      if (out.json) {
-        try { const cache = readAddonsCache(); cache[exePath] = { ts: Date.now(), addons: out.json }; writeAddonsCache(cache); } catch (e) {}
-        return { success: true, addons: out.json, stdout: out.stdout, stderr: out.stderr };
+      const parsed = extractAddonsJsonFromStdout(out.stdout || '');
+      if (parsed) {
+        try { const cache = readAddonsCache(); cache[exePath] = { ts: Date.now(), addons: parsed }; writeAddonsCache(cache); } catch (e) {}
+        return { success: true, addons: parsed, stdout: out.stdout, stderr: out.stderr };
       }
       // fallback: try to parse any JSON like content in stdout
       try {

@@ -701,6 +701,12 @@ app.whenReady().then(() => {
     try {
       const target: string | undefined = payload?.path;
       if (!target) return;
+      try {
+        if (fs.existsSync(target) && fs.statSync(target).isDirectory()) {
+          void shell.openPath(target);
+          return;
+        }
+      } catch {}
       shell.showItemInFolder(target);
     } catch (e) {
       console.error('[IPC] reveal-in-folder erreur:', e);

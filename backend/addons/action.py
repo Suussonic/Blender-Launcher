@@ -1,240 +1,205 @@
 #!/usr/bin/env python3
-"""Enable or disable a Blender addon from CLI.
+"""Enable or disable a Blender add-on using Blender's Python API.
 
 Usage:
-    blender --background --python backend/addons/action.py -- action enable module addon_module_name
-
-Outputs:
-    - `@@ACTION_OK@@` when final state matches requested state
-    - `@@ACTION_FAIL@@` otherwise
+    blender --background --python backend/addons/action.py -- action enable module addon_module
 """
+
 import sys
 import traceback
 
 MARK_OK = "@@ACTION_OK@@"
 MARK_FAIL = "@@ACTION_FAIL@@"
+MARK_ERR = "@@ACTION_ERR@@"
+MARK_DBG = "@@ACTION_DEBUG@@"
+
+
+def _parse_args(argv):
+    if '--' in argv:
+        args = argv[argv.index('--') + 1:]
+    else:
+        args = argv[1:]
+
+    action = None
+    module = None
+
+    if len(args) >= 4 and args[0] == 'action' and args[2] == 'module':
+        action = args[1]
+        module = args[3]
+    else:
+        for i, token in enumerate(args):
+            if token in ('action', '--action') and i + 1 < len(args):
+                action = args[i + 1]
+            if token in ('module', '--module') and i + 1 < len(args):
+                module = args[i + 1]
+
+    return action, module
+
+
+def _pref_enabled(bpy_mod, module_name):
+    try:
+        return bool(bpy_mod.context.preferences.addons.get(module_name, None))
+    except Exception:
+        return False
+
+
+def _check_loaded(addon_utils_mod, module_name):
+    try:
+        chk = addon_utils_mod.check(module_name)
+        if isinstance(chk, (list, tuple)) and len(chk) >= 2:
+            return bool(chk[1])
+        if isinstance(chk, (list, tuple)) and len(chk) >= 1:
+            return bool(chk[0])
+        return bool(chk)
+    except Exception:
+        return False
+
+
+def _enable(addon_utils_mod, bpy_mod, module_name, errors):
+    def err_cb(ex):
+        try:
+            errors.append(str(ex))
+        except Exception:
+            pass
+
+    try:
+        addon_utils_mod.enable(module_name, default_set=True, persistent=True, handle_error=err_cb)
+        return True
+    except TypeError:
+        pass
+    except Exception as e:
+        errors.append(str(e))
+
+    try:
+        addon_utils_mod.enable(module_name, default_set=True, persistent=True)
+        return True
+    except TypeError:
+        pass
+    except Exception as e:
+        errors.append(str(e))
+
+    try:
+        addon_utils_mod.enable(module_name, default_set=True, handle_error=err_cb)
+        return True
+    except TypeError:
+        pass
+    except Exception as e:
+        errors.append(str(e))
+
+    try:
+        addon_utils_mod.enable(module_name, default_set=True)
+        return True
+    except TypeError:
+        pass
+    except Exception as e:
+        errors.append(str(e))
+
+    try:
+        addon_utils_mod.enable(module_name)
+        return True
+    except Exception as e:
+        errors.append(str(e))
+
+    try:
+        bpy_mod.ops.preferences.addon_enable(module=module_name)
+        return True
+    except Exception as e2:
+        errors.append(str(e2))
+        return False
+
+
+def _disable(addon_utils_mod, bpy_mod, module_name, errors):
+    def err_cb(ex):
+        try:
+            errors.append(str(ex))
+        except Exception:
+            pass
+
+    try:
+        addon_utils_mod.disable(module_name, default_set=True, persistent=True, handle_error=err_cb)
+        return True
+    except TypeError:
+        pass
+    except Exception as e:
+        errors.append(str(e))
+
+    try:
+        addon_utils_mod.disable(module_name, default_set=True, persistent=True)
+        return True
+    except TypeError:
+        pass
+    except Exception as e:
+        errors.append(str(e))
+
+    try:
+        addon_utils_mod.disable(module_name, default_set=True, handle_error=err_cb)
+        return True
+    except TypeError:
+        pass
+    except Exception as e:
+        errors.append(str(e))
+
+    try:
+        addon_utils_mod.disable(module_name, default_set=True)
+        return True
+    except TypeError:
+        pass
+    except Exception as e:
+        errors.append(str(e))
+
+    try:
+        addon_utils_mod.disable(module_name)
+        return True
+    except Exception as e:
+        errors.append(str(e))
+
+    try:
+        bpy_mod.ops.preferences.addon_disable(module=module_name)
+        return True
+    except Exception as e2:
+        errors.append(str(e2))
+        return False
 
 
 def main():
     try:
-        if '--' in sys.argv:
-            idx = sys.argv.index('--')
-            args = sys.argv[idx+1:]
-        else:
-            # if run directly, skip script name
-            args = sys.argv[1:]
-        # parse args basic
-        params = {}
-        i = 0
-        while i < len(args):
-            k = args[i]
-            v = None
-            if i+1 < len(args):
-                v = args[i+1]
-            params[k] = v
-            i += 2
-        action = params.get('action')
-        module = params.get('module')
+        action, module = _parse_args(sys.argv)
         if not action or not module:
             print('missing-params', file=sys.stderr)
             sys.exit(2)
 
+        desired = action.lower() == 'enable'
+        errors = []
+
         import addon_utils
-        import importlib
-        desired = (action.lower() == 'enable')
-        ok = False
-        # Try to be defensive: monkeypatch some bpy helpers to avoid crashes in addons' unregister
-        try:
-            import bpy
-            # patch unregister_class to ignore errors coming from malformed classes
-            try:
-                _orig_unregister_class = bpy.utils.unregister_class
-                def _safe_unregister_class(cls):
-                    try:
-                        _orig_unregister_class(cls)
-                    except Exception:
-                        # swallow errors during unregister
-                        pass
-                bpy.utils.unregister_class = _safe_unregister_class
-            except Exception:
-                pass
-        except Exception:
-            bpy = None
+        import bpy
 
-        # Provide safe helpers inspired by BBAM to avoid KeyError on keymap access
-        def _safe_get_keymap(kc, km_name):
-            try:
-                if not kc:
-                    return None
-                if km_name in kc.keymaps:
-                    return kc.keymaps[km_name]
-            except Exception:
-                try:
-                    # fallback: iterate and match by name
-                    for km in getattr(kc, 'keymaps', []) or []:
-                        try:
-                            if getattr(km, 'name', None) == km_name:
-                                return km
-                        except Exception:
-                            continue
-                except Exception:
-                    pass
-            return None
+        before_pref = _pref_enabled(bpy, module)
+        before_loaded = _check_loaded(addon_utils, module)
+        print(f"{MARK_DBG} before pref={before_pref} loaded={before_loaded} desired={desired}")
 
-        def _safe_remove_keymap_items():
-            try:
-                if not bpy:
-                    return
-                wm = bpy.context.window_manager
-                kc = getattr(wm, 'keyconfigs', None)
-                if not kc:
-                    return
-                # common failure: accessing km.keymap_items['mesh.knife_tool'] may raise KeyError
-                # we will iterate safely and ignore missing items
-                for cfg_name in ('user_default', 'addon'):
-                    try:
-                        kconf = kc.get(cfg_name, None) if isinstance(kc, dict) else getattr(kc, cfg_name, None)
-                        if not kconf:
-                            continue
-                        km = _safe_get_keymap(kconf, 'Mesh') or _safe_get_keymap(kconf, 'mesh') or _safe_get_keymap(kconf, 'mesh.knife_tool')
-                        # just attempt to remove items if present
-                        if km:
-                            try:
-                                # iterate copy to avoid runtime mutation issues
-                                for item in list(getattr(km, 'keymap_items', []) or []):
-                                    try:
-                                        # if item.idname contains 'knife' or similar, remove attributes safely
-                                        name = getattr(item, 'idname', '')
-                                        if 'knife' in str(name).lower():
-                                            try:
-                                                # attempt to clear states that may cause errors
-                                                setattr(item, 'alt', False)
-                                            except Exception:
-                                                pass
-                                    except Exception:
-                                        continue
-                            except Exception:
-                                pass
-                    except Exception:
-                        continue
-            except Exception:
-                pass
-
-        stderr_captured = []
-        def _safe_print_stderr(msg: str):
-            try:
-                stderr_captured.append(msg)
-            except Exception:
-                pass
+        op_ok = _enable(addon_utils, bpy, module, errors) if desired else _disable(addon_utils, bpy, module, errors)
 
         try:
-            # Try addon_utils API first
-            if desired:
-                try:
-                    addon_utils.enable(module)
-                except Exception:
-                    try:
-                        if bpy:
-                            bpy.ops.preferences.addon_enable(module=module)
-                    except Exception:
-                        pass
-            else:
-                # attempt to import module and call its unregister manually in a safe way
-                try:
-                    m = importlib.import_module(module)
-                    try:
-                        if hasattr(m, 'unregister'):
-                            try:
-                                m.unregister()
-                            except Exception:
-                                # swallow errors from addon unregister
-                                pass
-                    except Exception:
-                        pass
-                except Exception:
-                    # module might not be importable; fall back to addon_utils.disable
-                    pass
+            bpy.ops.wm.save_userpref()
+        except Exception as e:
+            errors.append(str(e))
 
-                try:
-                    # Attempt to monkeypatch the module.unregister to a safe wrapper so addon_utils.disable
-                    # won't let the addon unregister exceptions escape.
-                    try:
-                        m = importlib.import_module(module)
-                        if hasattr(m, 'unregister'):
-                            try:
-                                orig_unreg = m.unregister
-                                def _safe_unreg():
-                                    try:
-                                        orig_unreg()
-                                    except Exception:
-                                        import traceback as _tb
-                                        _tb.print_exc()
-                                m.unregister = _safe_unreg
-                            except Exception:
-                                pass
-                    except Exception:
-                        pass
-                    try:
-                        addon_utils.disable(module, default_set=False, persistent=False)
-                    except TypeError:
-                        addon_utils.disable(module)
-                except Exception as e:
-                    # capture stderr info and attempt bpy fallback
-                    try:
-                        _safe_print_stderr(str(e))
-                    except Exception:
-                        pass
-                    try:
-                        if bpy:
-                            bpy.ops.preferences.addon_disable(module=module)
-                    except Exception as e2:
-                        try:
-                            _safe_print_stderr(str(e2))
-                        except Exception:
-                            pass
-        except Exception:
-            pass
+        after_pref = _pref_enabled(bpy, module)
+        after_loaded = _check_loaded(addon_utils, module)
+        print(f"{MARK_DBG} after pref={after_pref} loaded={after_loaded} desired={desired}")
 
-        # validate
-        try:
-            chk = addon_utils.check(module)
-            if isinstance(chk, (list, tuple)) and len(chk) >= 1:
-                ok = bool(chk[0])
-            else:
-                try:
-                    ok = bool(addon_utils.is_enabled(module))
-                except Exception:
-                    ok = False
-        except Exception:
-            try:
-                ok = bool(addon_utils.is_enabled(module))
-            except Exception:
-                ok = False
-
-        # If stderr captured but the final check reports the desired state, accept it.
-        if ok == desired:
+        if after_pref == desired:
             print(MARK_OK)
-            sys.stdout.flush()
-            return
         else:
-            # if we have captured stderr lines (exceptions), but addon_utils reports the addon is not enabled when desired==False, accept as OK
-            if not desired:
-                try:
-                    # final attempt: consider disabled if is_enabled returns False
-                    try:
-                        is_en = addon_utils.is_enabled(module)
-                        if not is_en:
-                            print(MARK_OK)
-                            sys.stdout.flush()
-                            return
-                    except Exception:
-                        pass
-                except Exception:
-                    pass
             print(MARK_FAIL)
-            sys.stdout.flush()
-            return
-
+            if not op_ok:
+                errors.append('addon-operation-failed')
+            if errors:
+                msg = (errors[-1] or '').replace('\n', ' ').strip()
+                if msg:
+                    print(MARK_ERR + msg)
+        sys.stdout.flush()
     except Exception:
         traceback.print_exc()
         sys.stderr.flush()

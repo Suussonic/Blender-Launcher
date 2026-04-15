@@ -23,30 +23,55 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
 
   const loadAddons = async () => {
     if (!selectedBlender) return;
+    console.log('[addons-ui] loadAddons:start', { exePath: selectedBlender.path });
     setAddonsLoading(true); setAddonsError(null);
     try {
       const api: any = (window as any).electronAPI;
       if (api?.getAddons) {
         const res = await api.getAddons(selectedBlender.path);
+        console.log('[addons-ui] loadAddons:api.getAddons result', {
+          success: !!res?.success,
+          count: Array.isArray(res?.addons) ? res.addons.length : null,
+          error: res?.error || null
+        });
         if (res?.stdout) setLastProbeStdout(res.stdout);
         if (res?.stderr) setLastProbeStderr(res.stderr);
-        if (res?.success && Array.isArray(res.addons)) { setAddons(res.addons); setAddonsLoading(false); return; }
+        if (res?.success && Array.isArray(res.addons)) { setAddons(res.addons); setErrors({}); setAddonsLoading(false); return; }
       } else if (api?.invoke) {
         const res = await api.invoke('get-addons', selectedBlender.path);
+        console.log('[addons-ui] loadAddons:api.invoke(get-addons) result', {
+          success: !!res?.success,
+          count: Array.isArray(res?.addons) ? res.addons.length : null,
+          error: res?.error || null
+        });
         if (res?.stdout) setLastProbeStdout(res.stdout);
         if (res?.stderr) setLastProbeStderr(res.stderr);
-        if (res?.success && Array.isArray(res.addons)) { setAddons(res.addons); setAddonsLoading(false); return; }
+        if (res?.success && Array.isArray(res.addons)) { setAddons(res.addons); setErrors({}); setAddonsLoading(false); return; }
       }
       if (api?.scanAddonsFs) {
         const fsres = await api.scanAddonsFs({ exePath: selectedBlender.path });
+        console.log('[addons-ui] loadAddons:scanAddonsFs fallback', {
+          success: !!fsres?.success,
+          count: Array.isArray(fsres?.addons) ? fsres.addons.length : null,
+          error: fsres?.error || null
+        });
         if (fsres?.success) setAddons(fsres.addons || []);
         else setAddonsError(fsres?.error || t('addons.scan_failed', 'Scan failed'));
       } else if (api?.invoke) {
         const fsres = await api.invoke('scan-addons-fs', { exePath: selectedBlender.path });
+        console.log('[addons-ui] loadAddons:invoke(scan-addons-fs) fallback', {
+          success: !!fsres?.success,
+          count: Array.isArray(fsres?.addons) ? fsres.addons.length : null,
+          error: fsres?.error || null
+        });
         if (fsres?.success) setAddons(fsres.addons || []);
         else setAddonsError(fsres?.error || t('addons.scan_failed', 'Scan failed'));
       }
-    } catch (e:any) { setAddonsError(e?.message || String(e)); }
+    } catch (e:any) {
+      console.error('[addons-ui] loadAddons:error', e);
+      setAddonsError(e?.message || String(e));
+    }
+    console.log('[addons-ui] loadAddons:end', { exePath: selectedBlender.path });
     setAddonsLoading(false);
   };
 
@@ -55,6 +80,11 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
   const setAddonEnabled = async (moduleName: string, enable: boolean) => {
     if (!selectedBlender || !moduleName) return;
     try {
+      console.log('[addons-ui] toggle:start', {
+        exePath: selectedBlender.path,
+        module: moduleName,
+        action: enable ? 'enable' : 'disable'
+      });
       setUpdating(prev => ({ ...prev, [moduleName]: true }));
       const api: any = (window as any).electronAPI;
       let res: any = null;
@@ -63,9 +93,21 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
       } else if (api?.invoke) {
         res = await api.invoke('enable-addon', { exePath: selectedBlender.path, module: moduleName, enable });
       }
-      const message = (res && (res.error || res.stderr || res.stdout)) ? String(res.error || res.stderr || res.stdout) : null;
+      console.log('[addons-ui] toggle:result', {
+        exePath: selectedBlender.path,
+        module: moduleName,
+        action: enable ? 'enable' : 'disable',
+        success: !!res?.success,
+        error: res?.error || null
+      });
+      const message = (res?.success === false && (res.error || res.stderr || res.stdout)) ? String(res.error || res.stderr || res.stdout) : null;
       setErrors(prev => ({ ...prev, [moduleName]: message }));
       await loadAddons();
+      console.log('[addons-ui] toggle:after-reload', {
+        exePath: selectedBlender.path,
+        module: moduleName,
+        action: enable ? 'enable' : 'disable'
+      });
       return res;
     } catch (e) {
       console.error('enable-addon error', e);
@@ -126,6 +168,10 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
           const q = query.trim().toLowerCase();
           return ((a.name||'') + ' ' + (a.module||'') + ' ' + (a.path||'')).toLowerCase().includes(q);
         }).map((a, idx) => {
+          const prefEnabled = !!a.enabled;
+          const loaded = !!a.loaded;
+          const mixedState = prefEnabled !== loaded;
+          const effectiveEnabled = prefEnabled || loaded;
           const createdStr = '';
           const usedStr = '';
           const sizeStr = '';
@@ -186,20 +232,30 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: 140, justifyContent: 'flex-end', flexShrink: 0 }}>
               <div style={{ marginRight: 6 }}>
                 <button
-                  onClick={(e) => { e.stopPropagation(); if (a.module && !updating[a.module]) setAddonEnabled(a.module, !a.enabled); }}
+                  onClick={(e) => { e.stopPropagation(); if (a.module && !updating[a.module]) setAddonEnabled(a.module, !effectiveEnabled); }}
                   disabled={!a.module || !!updating[a.module]}
-                  title={a.enabled ? t('addons.disable', 'Disable') : t('addons.enable', 'Enable')}
+                  title={mixedState
+                    ? `${t('addons.pref_state', 'Preference')}: ${prefEnabled ? t('addons.enabled', 'Enabled') : t('addons.disabled', 'Disabled')} | ${t('addons.loaded_state', 'Loaded')}: ${loaded ? t('addons.enabled', 'Enabled') : t('addons.disabled', 'Disabled')}`
+                    : (effectiveEnabled ? t('addons.disable', 'Disable') : t('addons.enable', 'Enable'))}
                   style={{
-                    background: a.enabled ? 'color-mix(in srgb, var(--success) 22%, var(--bg-card))' : 'var(--bg-card)',
-                    border: a.enabled ? '1px solid color-mix(in srgb, var(--success) 45%, var(--border-color))' : '1px solid var(--border-color)',
-                    color: a.enabled ? 'var(--text-success)' : 'var(--text-secondary)',
+                    background: mixedState
+                      ? 'color-mix(in srgb, var(--warning, #f59e0b) 16%, var(--bg-card))'
+                      : (effectiveEnabled ? 'color-mix(in srgb, var(--success) 22%, var(--bg-card))' : 'var(--bg-card)'),
+                    border: mixedState
+                      ? '1px solid color-mix(in srgb, var(--warning, #f59e0b) 45%, var(--border-color))'
+                      : (effectiveEnabled ? '1px solid color-mix(in srgb, var(--success) 45%, var(--border-color))' : '1px solid var(--border-color)'),
+                    color: mixedState ? 'var(--warning, #f59e0b)' : (effectiveEnabled ? 'var(--text-success)' : 'var(--text-secondary)'),
                     padding: '6px 10px',
                     borderRadius: 8,
                     fontSize: 12,
                     cursor: a.module && !updating[a.module] ? 'pointer' : 'default'
                   }}
                 >
-                  {updating[a.module] ? '...' : (a.enabled ? t('addons.enabled', 'Enabled') : t('addons.disabled', 'Disabled'))}
+                  {updating[a.module]
+                    ? '...'
+                    : (mixedState
+                      ? t('addons.mixed_state', 'Mixed state')
+                      : (effectiveEnabled ? t('addons.enabled', 'Enabled') : t('addons.disabled', 'Disabled')))}
                 </button>
               </div>
               <button
@@ -228,6 +284,11 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
             {errMsg && (
               <div style={{ color: 'var(--text-danger)', fontSize: 12, marginTop: 6, gridColumn: '1 / -1' }} title={errMsg}>
                 {errMsg.split('\n').slice(0,3).join(' ')}{errMsg.split('\n').length > 3 ? '…' : ''}
+              </div>
+            )}
+            {mixedState && (
+              <div style={{ color: 'var(--warning, #f59e0b)', fontSize: 12, marginTop: 6, gridColumn: '1 / -1' }}>
+                {t('addons.mixed_state_hint', 'Etat mixte detecte: preference et session Blender differente. Ferme/reouvre Blender pour resynchroniser l affichage.')}
               </div>
             )}
             </div>
