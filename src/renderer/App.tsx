@@ -26,6 +26,14 @@ const App: React.FC = () => {
   type NavEntry = { page: 'home'|'settings'|'web'|'repo'|'pages'|'extensions'; webUrl?:string; repo?: SimpleRepoRef | null; blender?: BlenderExe | null; extensionQuery?: string | null };
   const [appHistory, setAppHistory] = useState<NavEntry[]>([{ page: 'home' }]);
   const [appIndex, setAppIndex] = useState<number>(0);
+  const appHistoryRef = useRef<NavEntry[]>([{ page: 'home' }]);
+  const appIndexRef = useRef<number>(0);
+  useEffect(() => {
+    appHistoryRef.current = appHistory;
+  }, [appHistory]);
+  useEffect(() => {
+    appIndexRef.current = appIndex;
+  }, [appIndex]);
   const [webUrl, setWebUrl] = useState<string>('');
   const [webHistory, setWebHistory] = useState<string[]>([]);
   const [webIndex, setWebIndex] = useState<number>(-1);
@@ -459,30 +467,36 @@ const App: React.FC = () => {
 
   // Centralized app history so toolbar back/forward stays deterministic.
   const pushAppEntry = (entry: NavEntry) => {
-    setAppHistory((prev) => {
-      const base = prev.slice(0, appIndex + 1);
-      const next = base.concat(entry);
-      return next;
-    });
-    setAppIndex((i) => i + 1);
+    const currentIndex = appIndexRef.current;
+    const base = appHistoryRef.current.slice(0, currentIndex + 1);
+    const next = base.concat(entry);
+    appHistoryRef.current = next;
+    setAppHistory(next);
+    const nextIndex = currentIndex + 1;
+    appIndexRef.current = nextIndex;
+    setAppIndex(nextIndex);
     setPage(entry.page as any);
     setSelectedRepo(entry.repo || null);
     setSelectedBlender(entry.blender || null);
+    setExtensionQuery(entry.extensionQuery || null);
     if (entry.page === 'web') setWebUrl(entry.webUrl || '');
   };
 
   const restoreAppEntry = (index: number) => {
-    const entry = appHistory[index];
+    const entry = appHistoryRef.current[index];
     if (!entry) return;
+    appIndexRef.current = index;
     setAppIndex(index);
     setPage(entry.page as any);
     setSelectedRepo(entry.repo || null);
     setSelectedBlender(entry.blender || null);
+    setExtensionQuery(entry.extensionQuery || null);
     if (entry.page === 'web') setWebUrl(entry.webUrl || ''); else setWebUrl('');
   };
 
   const handleSelectBlender = (b: BlenderExe | null) => {
     setSelectedRepo(null);
+    setExtensionQuery(null);
     if (!b) {
       setSelectedBlender(null);
       return;
@@ -494,6 +508,7 @@ const App: React.FC = () => {
   const handleHome = () => {
     setSelectedBlender(null);
     setSelectedRepo(null);
+    setExtensionQuery(null);
     pushAppEntry({ page: 'home' });
   };
 
@@ -585,8 +600,8 @@ const App: React.FC = () => {
   <Navbar
     onHome={handleHome}
     onSettings={() => pushAppEntry({ page: 'settings' })}
-    onSelectRepo={(r)=> { setSelectedRepo(r); setSelectedBlender(null); pushAppEntry({ page: 'repo', repo: r }); }}
-    onSearchExtensions={(q)=> { setExtensionQuery(q); setSelectedRepo(null); setSelectedBlender(null); pushAppEntry({ page: 'extensions' }); }}
+    onSelectRepo={(r)=> { setSelectedRepo(r); setSelectedBlender(null); setExtensionQuery(null); pushAppEntry({ page: 'repo', repo: r, extensionQuery: null }); }}
+    onSearchExtensions={(q)=> { setExtensionQuery(q); setSelectedRepo(null); setSelectedBlender(null); pushAppEntry({ page: 'extensions', extensionQuery: q }); }}
     onOpenWeb={openWeb}
     onOpenCloneBuild={() => setShowCloneBuildPopup(true)}
     canGoBack={appIndex > 0}
