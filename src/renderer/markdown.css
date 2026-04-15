@@ -3,7 +3,7 @@
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Arial, sans-serif;
   line-height: 1.55;
   font-size: 14px;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .markdown-body h1,
@@ -16,8 +16,8 @@
   font-weight: 600;
 }
 
-.markdown-body h1 { font-size: 30px; border-bottom: 1px solid #2a323a; padding-bottom: 6px; }
-.markdown-body h2 { font-size: 24px; border-bottom: 1px solid #2a323a; padding-bottom: 4px; }
+.markdown-body h1 { font-size: 30px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; }
+.markdown-body h2 { font-size: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; }
 .markdown-body h3 { font-size: 20px; }
 .markdown-body h4 { font-size: 17px; }
 
@@ -27,29 +27,29 @@
 
 .markdown-body code, .markdown-body pre code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  background: #1d252d;
-  color: #93c5fd;
-  border: 1px solid #2a323a;
+  background: var(--code-bg);
+  color: var(--text-code);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 2px 5px;
   font-size: 13px;
 }
 
 .markdown-body pre {
-  background: #1d252d;
+  background: var(--code-bg);
   padding: 14px 16px;
   overflow: auto;
-  border: 1px solid #2a323a;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   margin: 18px 0;
 }
 
 .markdown-body table { border-collapse: collapse; margin: 18px 0; width: 100%; }
-.markdown-body th, .markdown-body td { border: 1px solid #2a323a; padding: 6px 10px; }
-.markdown-body th { background: #182028; font-weight: 600; }
-.markdown-body tr:nth-child(even) td { background: #141c23; }
+.markdown-body th, .markdown-body td { border: 1px solid var(--border-color); padding: 6px 10px; }
+.markdown-body th { background: var(--table-head-bg); font-weight: 600; }
+.markdown-body tr:nth-child(even) td { background: var(--table-row-alt-bg); }
 
-.markdown-body a { color: #38bdf8; text-decoration: none; }
+.markdown-body a { color: var(--text-link); text-decoration: none; }
 .markdown-body a:hover { text-decoration: underline; }
 
 /* Images scaling and framing */
@@ -58,23 +58,23 @@
   height: auto;
   display: block;
   margin: 18px auto;
-  background: rgba(255,255,255,0.02);
-  border: 1px solid #2a323a;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 6px;
-  box-shadow: 0 4px 14px -4px rgba(0,0,0,0.55);
+  box-shadow: 0 4px 14px -4px var(--shadow-color);
 }
 
 /* Horizontal rule */
-.markdown-body hr { border: none; border-top: 1px solid #2a323a; margin: 32px 0; }
+.markdown-body hr { border: none; border-top: 1px solid var(--border-color); margin: 32px 0; }
 
 /* Blockquotes */
 .markdown-body blockquote {
-  border-left: 4px solid #33404c;
+  border-left: 4px solid var(--blockquote-border);
   margin: 18px 0;
   padding: 8px 14px;
-  background: #182028;
-  color: #cbd5e1;
+  background: var(--blockquote-bg);
+  color: var(--text-primary);
   border-radius: 4px;
 }
 

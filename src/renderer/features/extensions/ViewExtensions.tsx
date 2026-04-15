@@ -213,10 +213,10 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
   }, [onOpenWeb, onBack]);
 
   return (
-    <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#1a1d24', overflow:'hidden' }}>
-      <style>{`.extension-card:hover { border-color: #3c4652 !important; transform: translateY(-4px); }`}</style>
+    <div style={{ flex:1, display:'flex', flexDirection:'column', background:'var(--bg-primary)', overflow:'hidden' }}>
+      <style>{`.extension-card:hover { border-color: var(--border-strong) !important; transform: translateY(-4px); }`}</style>
       {/* Header */}
-      <div style={{ padding:'20px 32px', borderBottom:'1px solid #2a3036' }}>
+      <div style={{ padding:'20px 32px', borderBottom:'1px solid var(--border-color)' }}>
         <h2 style={{ fontSize:20, fontWeight:600, margin:0, marginBottom:16 }}>Extensions Blender : "{query}"</h2>
         
         {/* Filters and Sort */}
@@ -230,9 +230,9 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
             style={{
               flex:'1 1 220px',
               minWidth:220,
-              background:'#23272F',
-              border:'1px solid #2a3036',
-              color:'#fff',
+              background:'var(--bg-card)',
+              border:'1px solid var(--border-color)',
+              color:'var(--text-inverse)',
               fontSize:13,
               padding:'7px 12px',
               borderRadius:6,
@@ -245,9 +245,9 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
             value={filterAuthor}
             onChange={e => setFilterAuthor(e.target.value)}
             style={{
-              background:'#23272F',
-              border:'1px solid #2a3036',
-              color:'#fff',
+              background:'var(--bg-card)',
+              border:'1px solid var(--border-color)',
+              color:'var(--text-inverse)',
               fontSize:13,
               padding:'7px 12px',
               borderRadius:6,
@@ -265,9 +265,9 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
             <button
               onClick={() => handleSort('title')}
               style={{
-                background: sortField === 'title' ? '#2563eb' : '#23272F',
-                border:'1px solid #2a3036',
-                color:'#fff',
+                background: sortField === 'title' ? 'var(--accent)' : 'var(--bg-card)',
+                border:'1px solid var(--border-color)',
+                color:'var(--text-inverse)',
                 fontSize:12,
                 padding:'6px 12px',
                 borderRadius:6,
@@ -280,9 +280,9 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
             <button
               onClick={() => handleSort('author')}
               style={{
-                background: sortField === 'author' ? '#2563eb' : '#23272F',
-                border:'1px solid #2a3036',
-                color:'#fff',
+                background: sortField === 'author' ? 'var(--accent)' : 'var(--bg-card)',
+                border:'1px solid var(--border-color)',
+                color:'var(--text-inverse)',
                 fontSize:12,
                 padding:'6px 12px',
                 borderRadius:6,
@@ -295,9 +295,9 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
             <button
               onClick={() => handleSort('rating')}
               style={{
-                background: sortField === 'rating' ? '#2563eb' : '#23272F',
-                border:'1px solid #2a3036',
-                color:'#fff',
+                background: sortField === 'rating' ? 'var(--accent)' : 'var(--bg-card)',
+                border:'1px solid var(--border-color)',
+                color:'var(--text-inverse)',
                 fontSize:12,
                 padding:'6px 12px',
                 borderRadius:6,
@@ -310,9 +310,9 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
             <button
               onClick={() => handleSort('downloads')}
               style={{
-                background: sortField === 'downloads' ? '#2563eb' : '#23272F',
-                border:'1px solid #2a3036',
-                color:'#fff',
+                background: sortField === 'downloads' ? 'var(--accent)' : 'var(--bg-card)',
+                border:'1px solid var(--border-color)',
+                color:'var(--text-inverse)',
                 fontSize:12,
                 padding:'6px 12px',
                 borderRadius:6,
@@ -326,7 +326,7 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
         </div>
         
         {/* Results count */}
-        <div style={{ marginTop:12, fontSize:13, color:'#64748b' }}>
+        <div style={{ marginTop:12, fontSize:13, color:'var(--text-tertiary)' }}>
           {filteredExtensions.length} résultat{filteredExtensions.length > 1 ? 's' : ''} 
           {filteredExtensions.length !== extensions.length && ` sur ${extensions.length}`}
         </div>
@@ -334,12 +334,12 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
 
       {/* Content */}
       <div style={{ flex:1, overflowY:'auto', padding:'24px 32px' }}>
-        {loading && <div style={{ color:'#94a3b8', fontSize:15 }}>Chargement...</div>}
+        {loading && <div style={{ color:'var(--text-secondary)', fontSize:15 }}>Chargement...</div>}
         {!loading && extensions.length === 0 && (
-          <div style={{ color:'#94a3b8', fontSize:15 }}>Aucune extension trouvée pour "{query}"</div>
+          <div style={{ color:'var(--text-secondary)', fontSize:15 }}>Aucune extension trouvée pour "{query}"</div>
         )}
         {!loading && filteredExtensions.length === 0 && extensions.length > 0 && (
-          <div style={{ color:'#94a3b8', fontSize:15 }}>Aucune extension ne correspond aux filtres sélectionnés</div>
+          <div style={{ color:'var(--text-secondary)', fontSize:15 }}>Aucune extension ne correspond aux filtres sélectionnés</div>
         )}
         {!loading && filteredExtensions.length > 0 && (
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:20 }}>
@@ -349,8 +349,8 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
                 onClick={() => openExtension(ext.href)} 
                 className="extension-card"
                 style={{ 
-                  background:'#23272F', 
-                  border:'1px solid #2a3036', 
+                  background:'var(--bg-card)', 
+                  border:'1px solid var(--border-color)', 
                   borderRadius:12, 
                   overflow:'hidden', 
                   cursor:'pointer',
@@ -362,21 +362,21 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
                 {ext.thumb ? (
                   <img src={ext.thumb} alt={ext.title} style={{ width:'100%', height:160, objectFit:'cover', display:'block' }} />
                 ) : (
-                  <div style={{ width:'100%', height:160, background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:48, color:'#94a3b8' }}><AiOutlineInbox /></div>
+                  <div style={{ width:'100%', height:160, background:'var(--bg-muted)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:48, color:'var(--text-secondary)' }}><AiOutlineInbox /></div>
                 )}
                 <div style={{ padding:16, flex:1, display:'flex', flexDirection:'column', gap:6, position:'relative' }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5 }}>{ext.type?.toUpperCase() || 'ADD-ON'}</div>
-                  <h3 style={{ fontSize:16, fontWeight:600, margin:0, color:'#fff', lineHeight:1.3 }}>{ext.title}</h3>
-                  {ext.author && <div style={{ fontSize:13, color:'#94a3b8' }}>{ext.author}</div>}
+                  <div style={{ fontSize:10, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:0.5 }}>{ext.type?.toUpperCase() || 'ADD-ON'}</div>
+                  <h3 style={{ fontSize:16, fontWeight:600, margin:0, color:'var(--text-inverse)', lineHeight:1.3 }}>{ext.title}</h3>
+                  {ext.author && <div style={{ fontSize:13, color:'var(--text-secondary)' }}>{ext.author}</div>}
                   
                   {ext.tags && (
                     <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:6 }}>
                       {ext.tags.split(',').map((tag, idx) => (
                         <span key={idx} style={{ 
                           fontSize:11, 
-                          color:'#94a3b8', 
-                          background:'rgba(55, 65, 81, 0.5)', 
-                          border:'1px solid #374151',
+                          color:'var(--text-secondary)', 
+                          background:'color-mix(in srgb, var(--bg-muted) 55%, transparent)', 
+                          border:'1px solid var(--bg-muted)',
                           padding:'4px 10px', 
                           borderRadius:6,
                           fontWeight:400
@@ -389,13 +389,13 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
                   
                   <div style={{ marginTop:'auto', paddingTop:8, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                     {ext.rating && (
-                      <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#fbbf24' }}>
-                        <FiStar size={13} fill="#fbbf24" />
+                      <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'var(--text-warning)' }}>
+                        <FiStar size={13} fill="var(--text-warning)" />
                         <span style={{ fontWeight:600 }}>{ext.rating}</span>
                       </div>
                     )}
                     {ext.downloads && (
-                      <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#64748b' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'var(--text-tertiary)' }}>
                         <FiDownload size={13} />
                         <span>{ext.downloads}</span>
                       </div>
@@ -412,3 +412,5 @@ const ViewExtensions: React.FC<ViewExtensionsProps> = ({ query, onBack, onOpenWe
 };
 
 export default ViewExtensions;
+
+

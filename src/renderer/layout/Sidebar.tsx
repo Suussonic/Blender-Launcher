@@ -116,9 +116,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
   `;
 
   const pendingStatusColor = (status: PendingBuild['status']) => {
-    if (status === 'done') return '#22c55e';
-    if (status === 'error') return '#ef4444';
-    return '#60a5fa';
+    if (status === 'done') return 'var(--success)';
+    if (status === 'error') return 'var(--danger)';
+    return 'var(--accent-hover)';
   };
   const pendingStatusLabel = (status: PendingBuild['status']) => {
     if (status === 'cloning') return t('clone.in_progress_short', 'Clonage…');
@@ -139,8 +139,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
   return (
     <div style={{
       width: 220,
-      background: '#181A20',
-      borderRight: '1.5px solid #23272F',
+      background: 'var(--bg-primary, var(--bg-primary))',
+      borderRight: '1.5px solid var(--border-color, var(--bg-card))',
+      transition: 'background 0.3s',
+      color: 'var(--text-primary, var(--text-primary))',
       minHeight: '100vh',
       height: '100vh',
       display: 'flex',
@@ -157,12 +159,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
             top: 24,
             left: 16,
             right: 16,
-            background: '#ef4444',
-            color: '#fff',
+            background: 'var(--danger)',
+            color: 'var(--text-inverse)',
             fontWeight: 600,
             fontSize: 15,
             borderRadius: 10,
-            boxShadow: '0 2px 12px #ef444488',
+            boxShadow: '0 2px 12px color-mix(in srgb, var(--danger) 50%, transparent)',
             padding: '14px 18px',
             textAlign: 'center',
             zIndex: 999,
@@ -175,7 +177,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
       )}
       {blenders.length > 0 && (
         <>
-          <div style={{ width: '100%', padding: '24px 0 24px 0', textAlign: 'center', fontWeight: 700, fontSize: 18, color: '#fff', letterSpacing: 0.5, opacity: 0.95 }}>
+          <div style={{ width: '100%', padding: '24px 0 24px 0', textAlign: 'center', fontWeight: 700, fontSize: 18, color: 'var(--text-inverse)', letterSpacing: 0.5, opacity: 0.95 }}>
             {t('my_apps')}
           </div>
           <div style={{ width: '100%', padding: '0 14px 12px 14px', boxSizing: 'border-box' }}>
@@ -187,9 +189,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
                 width: '100%',
                 height: 34,
                 borderRadius: 9,
-                border: '1px solid #2b3541',
-                background: '#11161d',
-                color: '#e2e8f0',
+                border: '1px solid var(--border-strong)',
+                background: 'var(--bg-surface-1)',
+                color: 'var(--text-primary)',
                 padding: '0 10px',
                 fontSize: 13,
                 outline: 'none',
@@ -197,17 +199,17 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
               }}
             />
           </div>
-          <div style={{ height: 2, width: '100%', background: 'linear-gradient(90deg, #374151 0%, #6b7280 50%, #374151 100%)', margin: '0 0 8px 0' }} />
+          <div style={{ height: 2, width: '100%', background: 'linear-gradient(90deg, var(--bg-muted) 0%, var(--text-tertiary) 50%, var(--bg-muted) 100%)', margin: '0 0 8px 0' }} />
         </>
       )}
   <div ref={containerRef} className="hide-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, justifyContent: blenders.length === 0 && pendingBuilds.length === 0 ? 'center' : 'flex-start', alignItems: 'center', overflowY: 'auto', paddingBottom: 24, touchAction: isDragging ? 'none' : 'pan-y' }}>
         <style dangerouslySetInnerHTML={{ __html: spinnerStyle }} />
         {blenders.length === 0 && pendingBuilds.length === 0 ? (
-          <span style={{ color: '#888', fontSize: 16, opacity: 0.7, textAlign: 'center', marginTop: 0 }}>{t('no_app')}</span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: 16, opacity: 0.7, textAlign: 'center', marginTop: 0 }}>{t('no_app')}</span>
         ) : (
           <>
           {displayedBlenders.length === 0 && blenders.length > 0 && (
-            <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 12, textAlign: 'center', padding: '0 16px' }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 12, textAlign: 'center', padding: '0 16px' }}>
               {t('no_result', 'Aucun résultat')}
             </div>
           )}
@@ -221,8 +223,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
                 transition: 'background 0.15s, transform 0.18s cubic-bezier(.2,.9,.2,1), box-shadow 0.12s',
                 willChange: 'transform',
                 transform: pressedIndex === i || (isDragging && draggingIndexRef.current === i) ? 'translateY(-6px) scale(1.02)' : undefined,
-                boxShadow: pressedIndex === i || (isDragging && draggingIndexRef.current === i) ? '0 8px 18px rgba(0,0,0,0.45)' : undefined,
-                color: '#fff',
+                boxShadow: pressedIndex === i || (isDragging && draggingIndexRef.current === i) ? '0 8px 18px var(--shadow-soft)' : undefined,
+                color: 'var(--text-inverse)',
                 fontWeight: 500,
                 fontSize: 16,
                 userSelect: 'none',
@@ -230,7 +232,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
                 alignItems: 'center',
                 gap: 12,
                 width: 180,
-                background: selectedBlender?.path === b.path ? '#2a2d36' : 'transparent',
+                background: selectedBlender?.path === b.path ? 'var(--border-color)' : 'transparent',
               }}
               onClick={() => { if (isDragging) { console.log('[Sidebar] click suppressed because dragging'); return; } handleClick(b); }}
               onDoubleClick={() => handleDoubleClick(b)}
@@ -335,7 +337,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
               >
                 {(() => {
                   const active = (pressedIndex === i) || (isDragging && draggingIndexRef.current === i);
-                  const fill = active ? '#ffffff' : '#94a3b8';
+                  const fill = active ? 'var(--text-inverse)' : 'var(--text-secondary)';
                   const opacity = active ? 1 : 0.95;
                   return (
                     <svg width="16" height="24" viewBox="0 0 16 24" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }} aria-hidden>
@@ -356,7 +358,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
           {pendingBuilds.length > 0 && (
             <>
               {blenders.length > 0 && (
-                <div style={{ height: 1, width: 160, background: '#1f2937', margin: '6px 0 4px 0', opacity: 0.6 }} />
+                <div style={{ height: 1, width: 160, background: 'var(--bg-muted)', margin: '6px 0 4px 0', opacity: 0.6 }} />
               )}
               {pendingBuilds.map((pb) => {
                 const isActive = pb.status === 'building' || pb.status === 'cloning';
@@ -381,27 +383,27 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
                       position: 'relative',
                       overflow: 'hidden',
                     }}
-                    onMouseOver={(e) => { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.background = '#1a232b'; }}
+                    onMouseOver={(e) => { e.currentTarget.style.opacity = '0.85'; e.currentTarget.style.background = 'var(--bg-surface-2)'; }}
                     onMouseOut={(e) => { e.currentTarget.style.opacity = '0.55'; e.currentTarget.style.background = 'transparent'; }}
                   >
                     {isActive && pb.progress > 0 && (
                       <div style={{ position: 'absolute', bottom: 0, left: 0, height: 2, width: `${pb.progress}%`, background: color, transition: 'width .4s ease', borderRadius: 1 }} />
                     )}
-                    <div style={{ width: 30, height: 30, borderRadius: 7, background: '#1a2430', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <div style={{ width: 30, height: 30, borderRadius: 7, background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {isActive ? (
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'bl-spin 1.2s linear infinite' }}>
                           <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                         </svg>
                       ) : pb.status === 'done' ? (
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
                       ) : pb.status === 'error' ? (
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                       ) : (
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 8 12 12 14 14"/></svg>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-hover)" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 8 12 12 14 14"/></svg>
                       )}
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {pb.repoName.split('/').pop() || pb.repoName}
                       </div>
                       <div style={{ fontSize: 10, color, marginTop: 1 }}>{label}</div>
@@ -419,3 +421,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelectBlender, selectedBlender, pen
 };
 
 export default Sidebar;
+
+
+

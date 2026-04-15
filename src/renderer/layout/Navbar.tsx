@@ -7,7 +7,7 @@ import { AiOutlineInbox, AiOutlineStar, AiOutlineDownload } from 'react-icons/ai
 const iconBtnStyle: React.CSSProperties = {
   background: 'none',
   border: 'none',
-  color: '#fff',
+  color: 'var(--text-inverse)',
   fontSize: 22,
   width: 40,
   height: 40,
@@ -23,7 +23,7 @@ const iconBtnStyle: React.CSSProperties = {
 const windowBtnStyle: React.CSSProperties = {
   background: 'none',
   border: 'none',
-  color: '#fff',
+  color: 'var(--text-inverse)',
   fontSize: 18,
   width: 40,
   height: 56,
@@ -60,7 +60,7 @@ const GitHubImportModal: React.FC<GitHubImportModalProps> = ({ value, onChange, 
       display:'flex',
       alignItems:'center',
       justifyContent:'center',
-      background:'rgba(0,0,0,0.55)'
+      background:'var(--shadow-color)'
     }}
       onClick={onClose}
     >
@@ -69,13 +69,13 @@ const GitHubImportModal: React.FC<GitHubImportModalProps> = ({ value, onChange, 
         width:420,
         maxWidth:'90vw',
         padding:'36px 34px 34px',
-        background:'#1F2328',
-        border:'1px solid #30363d',
+        background:'var(--bg-card)',
+        border:'1px solid var(--border-color)',
         borderRadius:24,
         display:'flex',
         flexDirection:'column',
         alignItems:'center',
-        boxShadow:'0 8px 28px -8px rgba(0,0,0,0.55), 0 4px 14px -6px rgba(0,0,0,0.45)',
+        boxShadow:'0 8px 28px -8px var(--shadow-color), 0 4px 14px -6px var(--shadow-soft)',
         animation:'modalPop .28s cubic-bezier(.4,.12,.25,1)'
       }}>
         <button onClick={onClose} title={t('close', 'Fermer')} style={{
@@ -84,7 +84,7 @@ const GitHubImportModal: React.FC<GitHubImportModalProps> = ({ value, onChange, 
           right:10,
           background:'transparent',
           border:'none',
-          color:'#d1d5db',
+          color:'var(--text-primary)',
           width:34,
           height:34,
           display:'flex',
@@ -93,7 +93,7 @@ const GitHubImportModal: React.FC<GitHubImportModalProps> = ({ value, onChange, 
           borderRadius:10,
           cursor:'pointer'
         }}
-          onMouseOver={e=>{ e.currentTarget.style.background='#262c33'; }}
+          onMouseOver={e=>{ e.currentTarget.style.background='var(--bg-card-hover)'; }}
           onMouseOut={e=>{ e.currentTarget.style.background='transparent'; }}
         >
           <FiX size={18} />
@@ -103,7 +103,7 @@ const GitHubImportModal: React.FC<GitHubImportModalProps> = ({ value, onChange, 
           fontSize:15,
           fontWeight:600,
           letterSpacing:.6,
-          color:'#f1f5f9',
+          color:'var(--text-primary)',
           textTransform:'uppercase'
         }}>{t('import.github_repo', 'Importer un dépôt GitHub')}</h3>
         <div style={{width:'100%', marginTop:18, display:'flex', justifyContent:'center'}}>
@@ -116,38 +116,38 @@ const GitHubImportModal: React.FC<GitHubImportModalProps> = ({ value, onChange, 
             onKeyDown={e=>{ if(e.key==='Enter') submit(); if(e.key==='Escape') onClose(); }}
             style={{
               width:'90%',
-              background:'#0f1419',
-              border:'1px solid '+(error?'#b91c1c':'#30363d'),
-              color:'#e2e8f0',
+              background:'var(--bg-card)',
+              border:'1px solid '+(error?'var(--danger)':'var(--border-color)'),
+              color:'var(--text-primary)',
               fontSize:15,
               padding:'12px 14px',
               borderRadius:14,
               outline:'none',
-              boxShadow: error? '0 0 0 1px #b91c1c' : '0 2px 4px rgba(0,0,0,0.25)',
+              boxShadow: error? '0 0 0 1px var(--danger)' : '0 2px 4px var(--shadow-soft)',
               transition:'border-color .18s, background .18s, box-shadow .18s'
             }}
-            onFocus={e=>{ e.currentTarget.style.borderColor= error? '#b91c1c':'#3d4650'; }}
-            onBlur={e=>{ e.currentTarget.style.borderColor= error? '#b91c1c':'#30363d'; }}
+            onFocus={e=>{ e.currentTarget.style.borderColor= error? 'var(--danger)':'var(--border-strong)'; }}
+            onBlur={e=>{ e.currentTarget.style.borderColor= error? 'var(--danger)':'var(--border-color)'; }}
           />
         </div>
-        {error && <div style={{color:'#ef4444', fontSize:12, fontWeight:500, marginTop:6}}>{error}</div>}
+        {error && <div style={{color:'var(--danger)', fontSize:12, fontWeight:500, marginTop:6}}>{error}</div>}
         <button onClick={submit} disabled={!canSubmit} style={{
           marginTop:24,
           minWidth:170,
-          background: canSubmit ? 'linear-gradient(90deg,#334155,#475569)' : '#2a3138',
-          border:'1px solid #3a454f',
-          color:'#fff',
+          background: canSubmit ? 'linear-gradient(90deg,var(--bg-muted),var(--text-tertiary))' : 'var(--bg-surface-2)',
+          border:'1px solid var(--border-strong)',
+          color:'var(--text-inverse)',
           fontSize:14,
           fontWeight:600,
           letterSpacing:.5,
           padding:'11px 0',
           borderRadius:14,
           cursor: canSubmit ? 'pointer':'not-allowed',
-          boxShadow: canSubmit ? '0 4px 14px -6px rgba(0,0,0,0.55)' : 'none',
+          boxShadow: canSubmit ? '0 4px 14px -6px var(--shadow-color)' : 'none',
           transition:'background .22s, transform .15s'
         }}
-          onMouseOver={e=>{ if(canSubmit) e.currentTarget.style.background='linear-gradient(90deg,#3b4a5a,#526174)'; }}
-          onMouseOut={e=>{ if(canSubmit) e.currentTarget.style.background='linear-gradient(90deg,#334155,#475569)'; }}
+          onMouseOver={e=>{ if(canSubmit) e.currentTarget.style.background='linear-gradient(90deg,var(--bg-card-hover),var(--text-secondary))'; }}
+          onMouseOut={e=>{ if(canSubmit) e.currentTarget.style.background='linear-gradient(90deg,var(--bg-muted),var(--text-tertiary))'; }}
         >{t('validate', 'Valider')}</button>
       </div>
     </div>
@@ -287,8 +287,8 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
           display: 'flex',
           alignItems: 'center',
           height: 56,
-          background: '#181A20',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+          background: 'var(--bg-primary, var(--bg-primary))',
+          boxShadow: '0 2px 8px var(--shadow-soft)',
           padding: 0,
           gap: 0,
           position: 'fixed',
@@ -298,12 +298,13 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
           width: '100%',
           zIndex: 200,
           borderTopLeftRadius: 0,
+          transition: 'background 0.3s',
           borderTopRightRadius: 0,
         }}
       >
         <div style={{ display:'flex', alignItems:'center', gap:12, marginLeft:16, marginRight:20, flexShrink:0 }} className='no-drag'>
           <img src={"./public/logo/png/Blender-Launcher-512x512.png"} alt="Logo" style={{ width:32, height:32 }} />
-          <span style={{ fontWeight:700, fontSize:22, color:'#fff', letterSpacing:1, whiteSpace:'nowrap' }}>Blender Launcher</span>
+          <span style={{ fontWeight:700, fontSize:22, color:'var(--text-inverse)', letterSpacing:1, whiteSpace:'nowrap' }}>Blender Launcher</span>
           <button style={{ ...iconBtnStyle, width:38, height:38 }} title={t('home', 'Accueil')} onClick={onHome}>
             <FiHome size={22} />
           </button>
@@ -343,28 +344,28 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
               flex:1,
               height:36,
               borderRadius:18,
-              border:'1px solid #23272F',
-              background:'#23272F',
-              color:'#fff',
+              border:'1px solid var(--bg-card)',
+              background:'var(--bg-card)',
+              color:'var(--text-inverse)',
               fontSize:15,
               padding:'0 18px',
               outline:'none',
               transition:'border-color .15s, background .15s'
             }}
-            onFocus={e=>{ e.currentTarget.style.borderColor='#3c4652'; e.currentTarget.style.background='#262d34'; }}
-            onBlur={e=>{ e.currentTarget.style.borderColor='#23272F'; e.currentTarget.style.background='#23272F'; }}
+            onFocus={e=>{ e.currentTarget.style.borderColor='var(--border-strong)'; e.currentTarget.style.background='var(--bg-card-hover)'; }}
+            onBlur={e=>{ e.currentTarget.style.borderColor='var(--bg-card)'; e.currentTarget.style.background='var(--bg-card)'; }}
           />
           {searchQuery && (
-            <div style={{ position:'absolute', top:40, left:0, right:0, background:'#1f242b', border:'1px solid #2a3036', borderRadius:12, padding:8, display:'flex', flexDirection:'column', gap:8, maxHeight:420, overflowY:'auto', zIndex:500 }}>
+            <div style={{ position:'absolute', top:40, left:0, right:0, background:'var(--bg-card)', border:'1px solid var(--border-color)', borderRadius:12, padding:8, display:'flex', flexDirection:'column', gap:8, maxHeight:420, overflowY:'auto', zIndex:500 }}>
               {repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 && (
                 <>
-                  <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5, padding:'4px 8px' }}>{t('custom_builds', 'Custom Builds')}</div>
+                  <div style={{ fontSize:11, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:0.5, padding:'4px 8px' }}>{t('custom_builds', 'Custom Builds')}</div>
                   {repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).map(r=> (
                     <div key={r.link} onClick={()=>{ setSearchQuery(''); onSelectRepo && onSelectRepo(r); }}
-                      style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 10px', background:'#232a31', border:'1px solid #2a3036', borderRadius:8, cursor:'pointer', fontSize:14, color:'#fff' }}
-                      onMouseOver={e=>{ e.currentTarget.style.background='#2b333b'; }}
-                      onMouseOut={e=>{ e.currentTarget.style.background='#232a31'; }}>
-                        {r.avatar ? <img src={r.avatar} style={{ width:26, height:26, borderRadius:'50%', display:'block' }} /> : <span style={{ width:26, height:26, borderRadius:'50%', background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12 }}>{r.name.charAt(0)}</span>}
+                      style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 10px', background:'var(--bg-surface-1)', border:'1px solid var(--border-color)', borderRadius:8, cursor:'pointer', fontSize:14, color:'var(--text-inverse)' }}
+                      onMouseOver={e=>{ e.currentTarget.style.background='var(--bg-card-hover)'; }}
+                      onMouseOut={e=>{ e.currentTarget.style.background='var(--bg-surface-1)'; }}>
+                        {r.avatar ? <img src={r.avatar} style={{ width:26, height:26, borderRadius:'50%', display:'block' }} /> : <span style={{ width:26, height:26, borderRadius:'50%', background:'var(--bg-muted)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12 }}>{r.name.charAt(0)}</span>}
                         <span style={{ fontWeight:500 }}>{r.name}</span>
                     </div>
                   ))}
@@ -373,8 +374,8 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
               
               {(loadingExtensions || extensionResults.length > 0) && (
                 <>
-                  <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:0.5, padding:'4px 8px', marginTop: repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? 4 : 0 }}>{t('extensions', 'Extensions')}</div>
-                  {loadingExtensions && <div style={{ fontSize:12, color:'#94a3b8', padding:'4px 8px' }}>{t('loading', 'Chargement...')}</div>}
+                  <div style={{ fontSize:11, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:0.5, padding:'4px 8px', marginTop: repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? 4 : 0 }}>{t('extensions', 'Extensions')}</div>
+                  {loadingExtensions && <div style={{ fontSize:12, color:'var(--text-secondary)', padding:'4px 8px' }}>{t('loading', 'Chargement...')}</div>}
                   {!loadingExtensions && extensionResults.map((ext, i) => (
                     <div key={i} onClick={()=>{ 
                       setSearchQuery('');
@@ -387,21 +388,21 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
                         } catch {} 
                       }
                     }}
-                      style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 10px', background:'#232a31', border:'1px solid #2a3036', borderRadius:8, cursor:'pointer', fontSize:14, color:'#fff' }}
-                      onMouseOver={e=>{ e.currentTarget.style.background='#2b333b'; }}
-                      onMouseOut={e=>{ e.currentTarget.style.background='#232a31'; }}>
-                        {ext.thumb ? <img src={ext.thumb} style={{ width:40, height:26, borderRadius:4, objectFit:'cover' }} alt="" /> : <span style={{ width:40, height:26, borderRadius:4, background:'#374151', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:'#94a3b8' }}><AiOutlineInbox /></span>}
+                      style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 10px', background:'var(--bg-surface-1)', border:'1px solid var(--border-color)', borderRadius:8, cursor:'pointer', fontSize:14, color:'var(--text-inverse)' }}
+                      onMouseOver={e=>{ e.currentTarget.style.background='var(--bg-card-hover)'; }}
+                      onMouseOut={e=>{ e.currentTarget.style.background='var(--bg-surface-1)'; }}>
+                        {ext.thumb ? <img src={ext.thumb} style={{ width:40, height:26, borderRadius:4, objectFit:'cover' }} alt="" /> : <span style={{ width:40, height:26, borderRadius:4, background:'var(--bg-muted)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:'var(--text-secondary)' }}><AiOutlineInbox /></span>}
                         <div style={{ flex:1, display:'flex', flexDirection:'column', gap:2 }}>
                           <span style={{ fontWeight:500, fontSize:13 }}>{ext.title}</span>
                           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                            {ext.author && <span style={{ fontSize:11, color:'#94a3b8' }}>{ext.author}</span>}
+                            {ext.author && <span style={{ fontSize:11, color:'var(--text-secondary)' }}>{ext.author}</span>}
                             {ext.rating && (
-                              <span style={{ fontSize:10, color:'#fbbf24', display:'flex', alignItems:'center', gap:2 }}>
+                              <span style={{ fontSize:10, color:'var(--text-warning)', display:'flex', alignItems:'center', gap:2 }}>
                                 <AiOutlineStar style={{ verticalAlign:'middle', marginRight:2 }} /> {ext.rating}
                               </span>
                             )}
                             {ext.downloads && (
-                              <span style={{ fontSize:10, color:'#64748b', display:'flex', alignItems:'center', gap:2 }}>
+                              <span style={{ fontSize:10, color:'var(--text-tertiary)', display:'flex', alignItems:'center', gap:2 }}>
                                 <AiOutlineDownload style={{ verticalAlign:'middle', marginRight:2 }} /> {ext.downloads}
                               </span>
                             )}
@@ -413,12 +414,12 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
               )}
               
               {!loadingExtensions && repoList.filter(r=> r.name.toLowerCase().includes(searchQuery.toLowerCase())).length===0 && extensionResults.length===0 && (
-                <div style={{ fontSize:12, color:'#94a3b8', padding:'4px 8px' }}>{t('no_result', 'Aucun résultat')}</div>
+                <div style={{ fontSize:12, color:'var(--text-secondary)', padding:'4px 8px' }}>{t('no_result', 'Aucun résultat')}</div>
               )}
               
               {searchQuery.trim() && (
-                <div style={{ fontSize:11, color:'#64748b', padding:'6px 8px', borderTop:'1px solid #2a3036', marginTop:4, textAlign:'center' }}>
-                  {t('press_enter_for_all_results', 'Appuyez sur')} <strong style={{ color:'#94a3b8' }}>{t('enter', 'Entrée')}</strong> {t('to_see_all_results_extensions', 'pour voir tous les résultats sur extensions.blender.org')}
+                <div style={{ fontSize:11, color:'var(--text-tertiary)', padding:'6px 8px', borderTop:'1px solid var(--border-color)', marginTop:4, textAlign:'center' }}>
+                  {t('press_enter_for_all_results', 'Appuyez sur')} <strong style={{ color:'var(--text-secondary)' }}>{t('enter', 'Entrée')}</strong> {t('to_see_all_results_extensions', 'pour voir tous les résultats sur extensions.blender.org')}
                 </div>
               )}
             </div>
@@ -433,7 +434,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
         <button style={iconBtnStyle} className="no-drag" title={t('settings', 'Paramètres')} onClick={onSettings}>
           <FiSettings size={22} />
         </button>
-        <div style={{ width: 1, height: 32, background: '#23272F', margin: '0 8px 0 16px' }} />
+        <div style={{ width: 1, height: 32, background: 'var(--bg-card)', margin: '0 8px 0 16px' }} />
         <div style={{ display: 'flex', gap: 0, alignItems: 'center', height: 56 }}>
           <button
             style={{ ...windowBtnStyle, borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
@@ -461,7 +462,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
           </button>
 
           <button
-            style={{ ...windowBtnStyle, color: '#f87171', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, display: 'flex', marginRight: 10 }}
+            style={{ ...windowBtnStyle, color: 'var(--text-danger)', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, display: 'flex', marginRight: 10 }}
             className="no-drag"
             title={t('close', 'Fermer')}
             onClick={() => {
@@ -481,7 +482,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
           left: 0,
           width: '100vw',
           height: '100vh',
-          background: 'rgba(0,0,0,0.35)',
+          background: 'var(--shadow-soft)',
           zIndex: 9999,
           display: 'flex',
           alignItems: 'center',
@@ -494,9 +495,9 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
         >
           {importMode === 'main' && (
             <div style={{
-              background: '#23272F',
+              background: 'var(--bg-card)',
               borderRadius: 24,
-              boxShadow: '0 4px 32px rgba(0,0,0,0.25)',
+              boxShadow: '0 4px 32px var(--shadow-soft)',
               width: '70vw',
               height: '60vh',
               minWidth: 480,
@@ -513,9 +514,9 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
               <button
                 style={{
                   flex: 1,
-                  background: '#181A20',
+                  background: 'var(--bg-primary)',
                   border: 'none',
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -523,7 +524,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
                   fontSize: 48,
                   cursor: 'pointer',
                   transition: 'background 0.2s',
-                  borderRight: '2px solid #23272F',
+                  borderRight: '2px solid var(--border-color)',
                   outline: 'none',
                   height: '100%',
                 }}
@@ -536,9 +537,9 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
               <button
                 style={{
                   flex: 1,
-                  background: '#181A20',
+                  background: 'var(--bg-primary)',
                   border: 'none',
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -568,7 +569,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
                   right: 16,
                   background: 'none',
                   border: 'none',
-                  color: '#fff',
+                  color: 'var(--text-inverse)',
                   fontSize: 28,
                   cursor: 'pointer',
                   borderRadius: 20,
@@ -614,3 +615,7 @@ const Navbar: React.FC<NavbarProps> = ({ onHome, onSettings, onSelectRepo, onSea
 };
 
 export default Navbar;
+
+
+
+

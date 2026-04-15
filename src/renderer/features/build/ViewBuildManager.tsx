@@ -194,17 +194,17 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
   })();
 
   // ---- Visual styles matching project theme ----
-  const barColor = isError ? '#ef4444' : isDone ? '#22c55e' : '#2563eb';
+  const barColor = isError ? 'var(--danger)' : isDone ? 'var(--success)' : 'var(--accent)';
 
   const statusIcon = isDone
-    ? <AiOutlineCheckCircle style={{ color: '#22c55e', fontSize: 18, verticalAlign: 'middle' }} />
+    ? <AiOutlineCheckCircle style={{ color: 'var(--success)', fontSize: 18, verticalAlign: 'middle' }} />
     : isError
-    ? <AiOutlineCloseCircle style={{ color: '#ef4444', fontSize: 18, verticalAlign: 'middle' }} />
+    ? <AiOutlineCloseCircle style={{ color: 'var(--danger)', fontSize: 18, verticalAlign: 'middle' }} />
     : isBuilding
-    ? <AiOutlineSetting style={{ color: '#60a5fa', fontSize: 18, verticalAlign: 'middle', animation: 'spin 2s linear infinite' }} />
+    ? <AiOutlineSetting style={{ color: 'var(--accent-hover)', fontSize: 18, verticalAlign: 'middle', animation: 'spin 2s linear infinite' }} />
     : isCloning
-    ? <AiOutlineSync style={{ color: '#60a5fa', fontSize: 18, verticalAlign: 'middle', animation: 'spin 1.5s linear infinite' }} />
-    : <AiOutlineTool style={{ color: '#94a3b8', fontSize: 18, verticalAlign: 'middle' }} />;
+    ? <AiOutlineSync style={{ color: 'var(--accent-hover)', fontSize: 18, verticalAlign: 'middle', animation: 'spin 1.5s linear infinite' }} />
+    : <AiOutlineTool style={{ color: 'var(--text-secondary)', fontSize: 18, verticalAlign: 'middle' }} />;
   const statusTitle = isDone
     ? t('compile.done', 'Compilation terminée')
     : isError
@@ -220,7 +220,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.78)',
+        background: 'var(--shadow-color)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -229,15 +229,15 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
     >
       <div
         style={{
-          background: '#11181f',
-          border: '1px solid #24303a',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-soft)',
           borderRadius: 16,
           width: 660,
           maxWidth: '95vw',
           maxHeight: '92vh',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 16px 56px rgba(0,0,0,0.75)',
+          boxShadow: '0 16px 56px var(--shadow-color)',
           overflow: 'hidden',
         }}
       >
@@ -245,7 +245,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
         <div
           style={{
             padding: '18px 22px',
-            borderBottom: '1px solid #1f2932',
+            borderBottom: '1px solid var(--border-color)',
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'space-between',
@@ -253,16 +253,16 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
           }}
         >
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, color: '#e2e8f0', fontWeight: 600 }}>
+            <h3 style={{ margin: 0, fontSize: 16, color: 'var(--text-primary)', fontWeight: 600 }}>
               {statusIcon} {statusTitle}
             </h3>
-            <p style={{ margin: '5px 0 0', fontSize: 12, color: '#64748b' }}>
-              <strong style={{ color: '#94a3b8' }}>{repoName}</strong>
-              {branch && <> &nbsp;·&nbsp; <span style={{ color: '#475569' }}>{branch}</span></>}
+            <p style={{ margin: '5px 0 0', fontSize: 12, color: 'var(--text-tertiary)' }}>
+              <strong style={{ color: 'var(--text-secondary)' }}>{repoName}</strong>
+              {branch && <> &nbsp;·&nbsp; <span style={{ color: 'var(--text-tertiary)' }}>{branch}</span></>}
               {clonedPath && (
                 <>
                   &nbsp;·&nbsp;
-                  <code style={{ fontSize: 10, color: '#374151', background: '#0d141c', padding: '1px 4px', borderRadius: 4 }}>
+                  <code style={{ fontSize: 10, color: 'var(--bg-muted)', background: 'var(--bg-surface-3)', padding: '1px 4px', borderRadius: 4 }}>
                     {clonedPath}
                   </code>
                 </>
@@ -275,7 +275,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#475569',
+              color: 'var(--text-tertiary)',
               cursor: 'pointer',
               fontSize: 22,
               lineHeight: 1,
@@ -308,16 +308,16 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                   justifyContent: 'space-between',
                   marginBottom: 8,
                   fontSize: 13,
-                  color: '#94a3b8',
+                  color: 'var(--text-secondary)',
                 }}
               >
                 <span>{currentText || t('clone.in_progress', 'Clonage en cours…')}</span>
-                <span style={{ color: '#64748b' }}>{Math.round(progress)}%</span>
+                <span style={{ color: 'var(--text-tertiary)' }}>{Math.round(progress)}%</span>
               </div>
               <div
                 style={{
                   height: 7,
-                  background: '#1f2937',
+                  background: 'var(--bg-muted)',
                   borderRadius: 999,
                   overflow: 'hidden',
                 }}
@@ -326,13 +326,13 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                   style={{
                     width: `${Math.min(100, progress)}%`,
                     height: '100%',
-                    background: '#2563eb',
+                    background: 'var(--accent)',
                     transition: 'width .3s ease',
                     borderRadius: 999,
                   }}
                 />
               </div>
-              <p style={{ marginTop: 10, fontSize: 12, color: '#475569' }}>
+              <p style={{ marginTop: 10, fontSize: 12, color: 'var(--text-tertiary)' }}>
                 {t('clone.help_after_done', 'Le clonage est en cours. Une fois terminé, vous pourrez lancer la compilation.')}
               </p>
             </div>
@@ -349,7 +349,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                   marginBottom: 12,
                 }}
               >
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#cbd5e1' }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
                   {t('build.required_tools', 'Outils de build requis')}
                 </span>
                 <button
@@ -358,9 +358,9 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                   style={{
                     padding: '5px 12px',
                     background: 'transparent',
-                    border: '1px solid #24303a',
+                    border: '1px solid var(--border-soft)',
                     borderRadius: 7,
-                    color: '#94a3b8',
+                    color: 'var(--text-secondary)',
                     cursor: checkingTools ? 'not-allowed' : 'pointer',
                     fontSize: 12,
                     opacity: checkingTools ? 0.6 : 1,
@@ -381,8 +381,8 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                     <div
                       key={key}
                       style={{
-                        background: '#151d26',
-                        border: `1.5px solid ${ok === true ? '#1a3a24' : isMissing ? '#3a1f1f' : '#1e2a38'}`,
+                        background: 'var(--bg-surface-1)',
+                        border: `1.5px solid ${ok === true ? 'color-mix(in srgb, var(--success) 32%, var(--bg-card))' : isMissing ? 'color-mix(in srgb, var(--danger) 32%, var(--bg-card))' : 'var(--border-soft)'}`,
                         borderRadius: 10,
                         padding: '10px 13px',
                         display: 'flex',
@@ -397,37 +397,37 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                             height: 8,
                             borderRadius: '50%',
                             background:
-                              ok === true ? '#22c55e' : isMissing ? '#ef4444' : '#475569',
+                              ok === true ? 'var(--success)' : isMissing ? 'var(--danger)' : 'var(--text-tertiary)',
                             flexShrink: 0,
                           }}
                         />
-                        <span style={{ fontWeight: 600, fontSize: 13, color: '#e2e8f0' }}>
+                        <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>
                           {info.label}
                         </span>
-                        <span style={{ fontSize: 10, color: '#475569', marginLeft: 2 }}>
+                        <span style={{ fontSize: 10, color: 'var(--text-tertiary)', marginLeft: 2 }}>
                           {ok === true
-                            ? <><AiOutlineCheck style={{ color: '#22c55e', verticalAlign: 'middle', marginRight: 2 }} /> installé</>
+                            ? <><AiOutlineCheck style={{ color: 'var(--success)', verticalAlign: 'middle', marginRight: 2 }} /> installé</>
                             : isMissing
-                            ? <><AiOutlineClose style={{ color: '#ef4444', verticalAlign: 'middle', marginRight: 2 }} /> manquant</>
+                            ? <><AiOutlineClose style={{ color: 'var(--danger)', verticalAlign: 'middle', marginRight: 2 }} /> manquant</>
                             : '?'}
                         </span>
                       </div>
-                      <div style={{ fontSize: 11, color: '#475569', lineHeight: 1.4 }}>{info.desc}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.4 }}>{info.desc}</div>
                       {isMissing && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 2 }}>
                           {info.hint && (
                             <div
                               style={{
                                 fontSize: 11,
-                                color: '#fde68a',
-                                background: '#1a1500',
-                                border: '1px solid #3a2a00',
+                                color: 'var(--text-warning)',
+                                background: 'color-mix(in srgb, var(--text-warning) 16%, var(--bg-card))',
+                                border: '1px solid color-mix(in srgb, var(--text-warning) 34%, var(--bg-card))',
                                 borderRadius: 5,
                                 padding: '4px 7px',
                                 lineHeight: 1.4,
                               }}
                             >
-                              <AiOutlineBulb style={{ color: '#fde68a', verticalAlign: 'middle', marginRight: 4, flexShrink: 0 }} /> {info.hint}
+                              <AiOutlineBulb style={{ color: 'var(--text-warning)', verticalAlign: 'middle', marginRight: 4, flexShrink: 0 }} /> {info.hint}
                             </div>
                           )}
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -435,8 +435,8 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                               style={{
                                 flex: 1,
                                 fontSize: 10,
-                                color: '#94a3b8',
-                                background: '#0d141c',
+                                color: 'var(--text-secondary)',
+                                background: 'var(--bg-surface-3)',
                                 borderRadius: 5,
                                 padding: '3px 6px',
                                 overflow: 'hidden',
@@ -453,10 +453,10 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                               title={t('copy_winget_command', 'Copier la commande winget')}
                               style={{
                                 padding: '3px 8px',
-                                background: '#1f2937',
-                                border: '1px solid #24303a',
+                                background: 'var(--bg-muted)',
+                                border: '1px solid var(--border-soft)',
                                 borderRadius: 5,
-                                color: copiedTool === key ? '#22c55e' : '#94a3b8',
+                                color: copiedTool === key ? 'var(--success)' : 'var(--text-secondary)',
                                 cursor: 'pointer',
                                 fontSize: 11,
                                 flexShrink: 0,
@@ -473,7 +473,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                               padding: 0,
                               cursor: 'pointer',
                               fontSize: 11,
-                              color: '#60a5fa',
+                              color: 'var(--accent-hover)',
                               textAlign: 'left',
                             }}
                           >
@@ -493,10 +493,10 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                     disabled={installing || checkingTools}
                     style={{
                       padding: '9px 18px',
-                      background: installing ? '#1a2a44' : '#2563eb',
+                      background: installing ? 'color-mix(in srgb, var(--accent) 22%, var(--bg-card))' : 'var(--accent)',
                       border: 'none',
                       borderRadius: 8,
-                      color: '#fff',
+                      color: 'var(--text-inverse)',
                       cursor: installing ? 'not-allowed' : 'pointer',
                       fontSize: 13,
                       fontWeight: 500,
@@ -523,16 +523,16 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                   marginBottom: 8,
                 }}
               >
-                <span style={{ fontSize: 13, color: '#cbd5e1', fontWeight: 500 }}>
+                <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
                   {currentText || t('in_progress', 'En cours…')}
                 </span>
-                <span style={{ fontSize: 12, color: '#64748b' }}>
+                <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
                   {isBuilding && `${Math.round(progress)}%`}
                   {isDone && '100%'}
                 </span>
               </div>
               <div
-                style={{ height: 8, background: '#1f2937', borderRadius: 999, overflow: 'hidden' }}
+                style={{ height: 8, background: 'var(--bg-muted)', borderRadius: 999, overflow: 'hidden' }}
               >
                 <div
                   style={{
@@ -551,7 +551,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                     justifyContent: 'space-between',
                     marginTop: 7,
                     fontSize: 11,
-                    color: '#475569',
+                    color: 'var(--text-tertiary)',
                   }}
                 >
                   <span><AiOutlineClockCircle style={{ verticalAlign: 'middle', marginRight: 4 }} /> Écoulé : {formatTime(elapsedMs)}</span>
@@ -569,9 +569,9 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                 style={{
                   padding: '6px 14px',
                   background: 'transparent',
-                  border: '1px solid #24303a',
+                  border: '1px solid var(--border-soft)',
                   borderRadius: 7,
-                  color: '#64748b',
+                  color: 'var(--text-tertiary)',
                   cursor: 'pointer',
                   fontSize: 12,
                   display: 'flex',
@@ -587,32 +587,32 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                 <div
                   className="hide-scrollbar"
                   style={{
-                    background: '#080e14',
-                    border: '1px solid #1f2937',
+                    background: 'var(--bg-surface-3)',
+                    border: '1px solid var(--bg-muted)',
                     borderRadius: 8,
                     padding: '8px 10px',
                     maxHeight: 220,
                     overflowY: 'auto',
                     fontFamily: 'Consolas, monospace',
                     fontSize: 11,
-                    color: '#64748b',
+                    color: 'var(--text-tertiary)',
                     lineHeight: 1.65,
                   }}
                 >
                   {logLines.length === 0 ? (
-                    <span style={{ color: '#374151' }}>{t('no_logs', 'Aucun log…')}</span>
+                    <span style={{ color: 'var(--bg-muted)' }}>{t('no_logs', 'Aucun log…')}</span>
                   ) : (
                     logLines.map((l, i) => (
                       <div
                         key={i}
                         style={{
                           color: l.toLowerCase().includes('error') || l.includes('ERREUR')
-                            ? '#f87171'
+                            ? 'var(--text-danger)'
                             : l.includes('DONE') || l.toLowerCase().includes('terminé')
-                            ? '#86efac'
+                            ? 'var(--text-success)'
                             : l.startsWith('BL_CLONE:PROGRESS') || l.startsWith('BL_CLONE:START')
-                            ? '#60a5fa'
-                            : '#64748b',
+                            ? 'var(--accent-hover)'
+                            : 'var(--text-tertiary)',
                           wordBreak: 'break-all',
                         }}
                       >
@@ -630,12 +630,12 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
           {isDone && (
             <div
               style={{
-                background: '#0a1a0f',
-                border: '1px solid #1a3a24',
+                background: 'color-mix(in srgb, var(--success) 18%, var(--bg-card))',
+                border: '1px solid color-mix(in srgb, var(--success) 32%, var(--bg-card))',
                 borderRadius: 10,
                 padding: '12px 16px',
                 fontSize: 13,
-                color: '#86efac',
+                color: 'var(--text-success)',
               }}
             >
               <AiOutlineCheckCircle style={{ verticalAlign: 'middle', marginRight: 6 }} /> {t('compile.success_banner', 'Blender compilé avec succès ! L\'exécutable a été ajouté à votre liste d\'applications.')}
@@ -646,18 +646,18 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
           {isError && (
             <div
               style={{
-                background: '#1a0a0a',
-                border: '1px solid #3a1a1a',
+                background: 'color-mix(in srgb, var(--danger) 18%, var(--bg-card))',
+                border: '1px solid color-mix(in srgb, var(--danger) 28%, var(--bg-card))',
                 borderRadius: 10,
                 padding: '12px 16px',
                 fontSize: 13,
-                color: '#fca5a5',
+                color: 'var(--text-danger)',
                 lineHeight: 1.55,
               }}
             >
               <AiOutlineCloseCircle style={{ verticalAlign: 'middle', marginRight: 6 }} /> {errorMsg || t('compile.error_banner', 'Erreur lors de la compilation')}
               <br />
-              <span style={{ fontSize: 11, color: '#64748b' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
                 {t('logs.more_details', 'Consultez les logs pour plus de détails.')}
               </span>
             </div>
@@ -668,7 +668,7 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
         <div
           style={{
             padding: '13px 22px',
-            borderTop: '1px solid #1f2932',
+            borderTop: '1px solid var(--border-color)',
             display: 'flex',
             gap: 10,
             justifyContent: 'flex-end',
@@ -684,9 +684,9 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
                 marginRight: 'auto',
                 padding: '8px 14px',
                 background: 'transparent',
-                border: '1px solid #3a1a1a',
+                border: '1px solid color-mix(in srgb, var(--danger) 28%, var(--bg-card))',
                 borderRadius: 8,
-                color: '#ef4444',
+                color: 'var(--danger)',
                 cursor: 'pointer',
                 fontSize: 13,
                 opacity: 0.75,
@@ -704,10 +704,10 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
               disabled={!allToolsOk || checkingTools || installing}
               style={{
                 padding: '9px 20px',
-                background: allToolsOk && !checkingTools && !installing ? '#2563eb' : '#1a2a44',
+                background: allToolsOk && !checkingTools && !installing ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 22%, var(--bg-card))',
                 border: 'none',
                 borderRadius: 8,
-                color: '#fff',
+                color: 'var(--text-inverse)',
                 cursor: allToolsOk && !checkingTools && !installing ? 'pointer' : 'not-allowed',
                 fontSize: 14,
                 fontWeight: 600,
@@ -728,10 +728,10 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
               onClick={() => onStartBuild(id)}
               style={{
                 padding: '9px 18px',
-                background: '#2563eb',
+                background: 'var(--accent)',
                 border: 'none',
                 borderRadius: 8,
-                color: '#fff',
+                color: 'var(--text-inverse)',
                 cursor: 'pointer',
                 fontSize: 13,
                 fontWeight: 500,
@@ -747,9 +747,9 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
             style={{
               padding: '9px 18px',
               background: 'transparent',
-              border: '1px solid #24303a',
+              border: '1px solid var(--border-soft)',
               borderRadius: 8,
-              color: '#94a3b8',
+              color: 'var(--text-secondary)',
               cursor: 'pointer',
               fontSize: 13,
             }}
@@ -763,3 +763,6 @@ const ViewBuildManager: React.FC<ViewBuildManagerProps> = ({
 };
 
 export default ViewBuildManager;
+
+
+

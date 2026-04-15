@@ -341,6 +341,13 @@ const App: React.FC = () => {
           if (savedLanguage) {
             try { window.localStorage.setItem('bl-language', savedLanguage); } catch {}
           }
+          const validThemes = ['dark-blue', 'black', 'grey', 'light'];
+          const savedTheme = validThemes.includes(general?.theme) ? general.theme : 'dark-blue';
+          if (savedTheme && savedTheme !== 'dark-blue') {
+            document.documentElement.setAttribute('data-theme', savedTheme);
+          } else {
+            document.documentElement.removeAttribute('data-theme');
+          }
         } catch {}
 
         setBootStatus(t('boot.loading_recent_files', 'Récupération des fichiers récents…'));
@@ -566,8 +573,9 @@ const App: React.FC = () => {
     <div style={{
       minHeight: '100vh',
       height: '100vh',
-      background: 'linear-gradient(135deg, #23272F 0%, #181A20 100%)',
-      color: '#fff',
+      background: 'var(--bg-body, linear-gradient(135deg, var(--bg-card) 0%, var(--bg-primary) 100%))',
+      color: 'var(--text-primary, var(--text-primary))',
+      transition: 'background 0.3s, color 0.3s',
       fontFamily: 'Segoe UI, Arial, sans-serif',
       display: 'flex',
       flexDirection: 'column',
@@ -591,13 +599,13 @@ const App: React.FC = () => {
           position: 'fixed',
           top: 70,
           right: 24,
-          background: toast.type === 'error' ? '#dc2626' : '#2563eb',
-          color: '#fff',
+          background: toast.type === 'error' ? 'var(--danger)' : 'var(--accent)',
+          color: 'var(--text-inverse)',
           padding: '12px 18px',
           borderRadius: 8,
           fontSize: 14,
           fontWeight: 500,
-          boxShadow: '0 4px 18px rgba(0,0,0,0.35)',
+          boxShadow: '0 4px 18px var(--shadow-soft)',
           zIndex: 5000,
           transition: 'opacity .2s'
         }}>
@@ -650,7 +658,7 @@ const App: React.FC = () => {
                     onCanGo={(state) => setWebCanGo({ back: !!state.canGoBack, forward: !!state.canGoForward })}
                   />
                 ) : (
-                  <div style={{ color: '#94a3b8', padding: 24 }}>{t('no_page', 'Aucune page')}</div>
+                  <div style={{ color: 'var(--text-secondary)', padding: 24 }}>{t('no_page', 'Aucune page')}</div>
                 )}
               </div>
             )
@@ -661,16 +669,16 @@ const App: React.FC = () => {
       </div>
       {/* Bottom clone/download/build progress bar */}
       {cloneState && (
-        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '8px 14px', background: '#0b1016', borderTop: '1px solid #1f2937', zIndex: 4000 }}>
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '8px 14px', background: 'var(--bg-surface-3)', borderTop: '1px solid var(--bg-muted)', zIndex: 4000 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ flex: 1, height: 8, background: '#1f2937', borderRadius: 6, overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min(100, cloneState.progress)}%`, height: '100%', background: cloneState.isBuilding ? '#22c55e' : '#3b82f6', transition: 'width .25s ease' }} />
+            <div style={{ flex: 1, height: 8, background: 'var(--bg-muted)', borderRadius: 6, overflow: 'hidden' }}>
+              <div style={{ width: `${Math.min(100, cloneState.progress)}%`, height: '100%', background: cloneState.isBuilding ? 'var(--success)' : 'var(--accent-hover)', transition: 'width .25s ease' }} />
             </div>
-            <div style={{ color: '#cbd5e1', fontSize: 12, minWidth: 50, textAlign: 'right' }}>
+            <div style={{ color: 'var(--text-primary)', fontSize: 12, minWidth: 50, textAlign: 'right' }}>
               {Math.min(100, cloneState.progress).toFixed(0)}%
             </div>
             {cloneState.startTime && (
-              <div style={{ color: '#94a3b8', fontSize: 11, minWidth: 50, textAlign: 'right' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 11, minWidth: 50, textAlign: 'right' }}>
                 {String(Math.floor(elapsedSec / 60)).padStart(2, '0')}:{String(elapsedSec % 60).padStart(2, '0')}
               </div>
             )}
@@ -681,20 +689,20 @@ const App: React.FC = () => {
                   (window as any).electronAPI?.invoke?.('cancel-job', { jobId: cloneState.jobId }).catch(() => {});
                   setCloneState(null);
                 }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 16, padding: '0 4px', lineHeight: 1 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontSize: 16, padding: '0 4px', lineHeight: 1 }}
               >
                 ✕
               </button>
             )}
           </div>
           <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ color: '#94a3b8', fontSize: 11 }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
               {cloneState.isBuilding && <AiOutlineBuild style={{ verticalAlign: 'middle', marginRight: 4 }} />}
               {cloneState.isCloning && <AiOutlineInbox style={{ verticalAlign: 'middle', marginRight: 4 }} />}
               {cloneState.repoName && `${cloneState.repoName}`}
               {cloneState.version && `Blender ${cloneState.version}`}
             </div>
-            <div style={{ color: '#cbd5e1', fontSize: 12, fontWeight: 500 }}>
+            <div style={{ color: 'var(--text-primary)', fontSize: 12, fontWeight: 500 }}>
               {cloneState.text}
             </div>
           </div>
@@ -702,17 +710,17 @@ const App: React.FC = () => {
       )}
       {/* Bottom render progress bar */}
       {renderState && (
-        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '8px 14px', background: '#0b1016', borderTop: '1px solid #1f2937', zIndex: 4000 }}>
+        <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, padding: '8px 14px', background: 'var(--bg-surface-3)', borderTop: '1px solid var(--bg-muted)', zIndex: 4000 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ flex: 1, height: 8, background: '#1f2937', borderRadius: 6, overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min(100, Math.round((renderState.done/renderState.total)*100))}%`, height: '100%', background: '#22c55e', transition: 'width .25s ease' }} />
+            <div style={{ flex: 1, height: 8, background: 'var(--bg-muted)', borderRadius: 6, overflow: 'hidden' }}>
+              <div style={{ width: `${Math.min(100, Math.round((renderState.done/renderState.total)*100))}%`, height: '100%', background: 'var(--success)', transition: 'width .25s ease' }} />
             </div>
-            <div style={{ color: '#cbd5e1', fontSize: 12, minWidth: 120, textAlign: 'right' }}>
+            <div style={{ color: 'var(--text-primary)', fontSize: 12, minWidth: 120, textAlign: 'right' }}>
               {renderState.label || t('render.in_progress', 'Rendu en cours…')}
             </div>
           </div>
           {renderState.stats && (
-            <div style={{ marginTop: 6, color: '#94a3b8', fontSize: 11, textAlign: 'right' }}>
+            <div style={{ marginTop: 6, color: 'var(--text-secondary)', fontSize: 11, textAlign: 'right' }}>
               {renderState.stats}
             </div>
           )}
@@ -751,3 +759,5 @@ const App: React.FC = () => {
 };
 
 export default App;
+
+

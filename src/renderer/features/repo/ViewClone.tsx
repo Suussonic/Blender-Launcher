@@ -115,53 +115,53 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 
 	return (
 		<>
-			<div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-				<div style={{ background: '#11181f', border: '1px solid #24303a', borderRadius: 16, width: 520, maxWidth: '90vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px -4px rgba(0,0,0,0.6)' }}>
-					<div style={{ padding: '20px 24px', borderBottom: '1px solid #1f2932', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-						<h3 style={{ margin: 0, fontSize: 18, color: '#e2e8f0', fontWeight: 600 }}>{t('clone.repo', 'Cloner le dépôt')}</h3>
+			<div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'var(--shadow-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+				<div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: 16, width: 520, maxWidth: '90vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 32px -4px var(--shadow-color)' }}>
+					<div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+						<h3 style={{ margin: 0, fontSize: 18, color: 'var(--text-primary)', fontWeight: 600 }}>{t('clone.repo', 'Cloner le dépôt')}</h3>
 						<ModalCloseButton onClick={onClose} title={t('close', 'Fermer')} />
 					</div>
 					<div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-						<div style={{ fontSize: 14, color: '#94a3b8' }}><strong style={{ color: '#e2e8f0' }}>{owner}/{repoName}</strong></div>
+						<div style={{ fontSize: 14, color: 'var(--text-secondary)' }}><strong style={{ color: 'var(--text-primary)' }}>{owner}/{repoName}</strong></div>
 						<div>
-							<label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#e2e8f0', marginBottom: 8 }}>{t('clone.branch', 'Branche à cloner')}</label>
-							<select value={selectedBranch} onChange={(e)=> setSelectedBranch(e.target.value)} disabled={loading} style={{ width: '100%', padding: '10px 12px', background: '#1a232b', border: '1px solid #24303a', borderRadius: 8, color: '#e2e8f0', fontSize: 14 }}>
+							<label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 8 }}>{t('clone.branch', 'Branche à cloner')}</label>
+							<select value={selectedBranch} onChange={(e)=> setSelectedBranch(e.target.value)} disabled={loading} style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-soft)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14 }}>
 								{branches.map((b)=> <option key={b} value={b}>{b}</option>)}
 							</select>
-							{loading && <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>{t('clone.loading_branches', 'Chargement des branches...')}</div>}
+							{loading && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>{t('clone.loading_branches', 'Chargement des branches...')}</div>}
 						</div>
 						<div>
-							<label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#e2e8f0', marginBottom: 8 }}>{t('destination.location', 'Emplacement de destination')}</label>
+							<label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 8 }}>{t('destination.location', 'Emplacement de destination')}</label>
 							<div style={{ display: 'flex', gap: 8 }}>
-								<input type="text" value={targetLocation} onChange={(e)=> setTargetLocation(e.target.value)} placeholder={t('select_folder_path', 'Sélectionnez un dossier ou tapez le chemin...')} style={{ flex:1, padding:'10px 12px', background:'#1a232b', border:'1px solid #24303a', borderRadius:8, color:'#e2e8f0', fontSize:14 }} />
-								<button onClick={handleSelectFolder} style={{ padding: '10px 12px', background: '#1e2530', border: '1px solid #24303a', borderRadius: 8, color: '#94a3b8', cursor: 'pointer' }} title={t('select_folder', 'Sélectionner un dossier')}>
+								<input type="text" value={targetLocation} onChange={(e)=> setTargetLocation(e.target.value)} placeholder={t('select_folder_path', 'Sélectionnez un dossier ou tapez le chemin...')} style={{ flex:1, padding:'10px 12px', background:'var(--bg-surface-2)', border:'1px solid var(--border-soft)', borderRadius:8, color:'var(--text-primary)', fontSize:14 }} />
+								<button onClick={handleSelectFolder} style={{ padding: '10px 12px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-soft)', borderRadius: 8, color: 'var(--text-secondary)', cursor: 'pointer' }} title={t('select_folder', 'Sélectionner un dossier')}>
 									<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v3"/><path d="M3 7h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
 								</button>
 							</div>
 						</div>
 						{targetLocation && (
 							<div>
-								<label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#e2e8f0', marginBottom: 8 }}>{t('folder_name_created', 'Nom du dossier créé')}</label>
-								<input type="text" value={folderName} onChange={(e)=> setFolderName(e.target.value)} placeholder={t('folder_name_placeholder', 'Nom du dossier...')} style={{ width: '100%', padding:'10px 12px', background:'#1a232b', border:'1px solid #24303a', borderRadius:8, color:'#e2e8f0', fontSize:14, fontFamily:'monospace' }} />
+								<label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 8 }}>{t('folder_name_created', 'Nom du dossier créé')}</label>
+								<input type="text" value={folderName} onChange={(e)=> setFolderName(e.target.value)} placeholder={t('folder_name_placeholder', 'Nom du dossier...')} style={{ width: '100%', padding:'10px 12px', background:'var(--bg-surface-2)', border:'1px solid var(--border-soft)', borderRadius:8, color:'var(--text-primary)', fontSize:14, fontFamily:'monospace' }} />
 							</div>
 						)}
 					</div>
 				{/* Build is intentionally separated from clone to let users validate source first. */}
 				{targetLocation && folderName.trim() && (
-					<div style={{ padding: '12px 16px', borderTop: '1px solid #1f2932', background:'#0f1518' }}>
-						<div style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.4 }}>
-							<AiOutlineBulb style={{ color: '#94a3b8', verticalAlign: 'middle', marginRight: 4, flexShrink: 0 }} /> Le dépôt sera cloné localement. Une fois cloné, cliquez sur l'entrée grisée dans la barre latérale pour lancer la compilation (30-90 min).
+					<div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-color)', background:'var(--bg-surface-3)' }}>
+						<div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+							<AiOutlineBulb style={{ color: 'var(--text-secondary)', verticalAlign: 'middle', marginRight: 4, flexShrink: 0 }} /> Le dépôt sera cloné localement. Une fois cloné, cliquez sur l'entrée grisée dans la barre latérale pour lancer la compilation (30-90 min).
 							</div>
 						</div>
 					)}
 					{error && (
-						<div style={{ padding: '16px 24px', borderTop: '1px solid #1f2932', borderBottom:'1px solid #1f2932', background:'#1a0f0f' }}>
-							<div style={{ fontSize: 14, color: '#ef4444', marginBottom: 8 }}><AiOutlineCloseCircle style={{ verticalAlign: 'middle', marginRight: 4 }} /> {t('clone.error', 'Erreur de clonage')}</div>
-							<div style={{ fontSize: 13, color: '#fca5a5', lineHeight: 1.4 }}>{error}</div>
+						<div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', borderBottom:'1px solid var(--border-color)', background:'color-mix(in srgb, var(--danger) 18%, var(--bg-card))' }}>
+							<div style={{ fontSize: 14, color: 'var(--danger)', marginBottom: 8 }}><AiOutlineCloseCircle style={{ verticalAlign: 'middle', marginRight: 4 }} /> {t('clone.error', 'Erreur de clonage')}</div>
+							<div style={{ fontSize: 13, color: 'var(--text-danger)', lineHeight: 1.4 }}>{error}</div>
 						</div>
 					)}
-					<div style={{ padding:'16px 24px', borderTop:'1px solid #1f2932', display:'flex', gap:12, justifyContent:'flex-end' }}>
-				<button onClick={handleClone} disabled={!targetLocation || !folderName.trim() || cloning} style={{ padding:'8px 16px', background:(!targetLocation || !folderName.trim() || cloning) ? '#1a232b' : '#2563eb', border:'none', borderRadius:8, color:(!targetLocation || !folderName.trim() || cloning) ? '#64748b' : '#fff', cursor:(!targetLocation || !folderName.trim() || cloning) ? 'not-allowed':'pointer', fontSize:14, fontWeight:500 }}>
+					<div style={{ padding:'16px 24px', borderTop:'1px solid var(--border-color)', display:'flex', gap:12, justifyContent:'flex-end' }}>
+				<button onClick={handleClone} disabled={!targetLocation || !folderName.trim() || cloning} style={{ padding:'8px 16px', background:(!targetLocation || !folderName.trim() || cloning) ? 'var(--bg-surface-2)' : 'var(--accent)', border:'none', borderRadius:8, color:(!targetLocation || !folderName.trim() || cloning) ? 'var(--text-tertiary)' : 'var(--text-inverse)', cursor:(!targetLocation || !folderName.trim() || cloning) ? 'not-allowed':'pointer', fontSize:14, fontWeight:500 }}>
 						{cloning ? t('starting', 'Démarrage…') : t('clone', 'Cloner')}
 						</button>
 					</div>
@@ -172,3 +172,5 @@ const ViewClone: React.FC<ViewCloneProps> = ({ isOpen, onClose, repoName, repoUr
 };
 
 export default ViewClone;
+
+

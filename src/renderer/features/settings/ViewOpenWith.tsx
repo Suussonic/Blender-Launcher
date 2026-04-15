@@ -52,19 +52,19 @@ const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose, 
 
 	if (!isOpen) return null;
 	return (
-		<div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-			<div style={{ width: 540, maxWidth: '100%', maxHeight: '80vh', background: '#11181f', border: '1px solid #24303a', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 8px 32px -4px rgba(0,0,0,0.6)' }}>
-				<div style={{ padding: '16px 20px', borderBottom: '1px solid #1f2932', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-					<h3 style={{ margin: 0, fontSize: 18, color: '#e2e8f0', fontWeight: 600 }}>{t('open_with', 'Ouvrir avec')}</h3>
+		<div style={{ position: 'fixed', inset: 0, background: 'var(--shadow-color)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }} onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+			<div style={{ width: 540, maxWidth: '100%', maxHeight: '80vh', background: 'var(--bg-card)', border: '1px solid var(--border-soft)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 8px 32px -4px var(--shadow-color)' }}>
+				<div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+					<h3 style={{ margin: 0, fontSize: 18, color: 'var(--text-primary)', fontWeight: 600 }}>{t('open_with', 'Ouvrir avec')}</h3>
 					<ModalCloseButton onClick={onClose} title={t('close', 'Fermer')} />
 				</div>
 				<div className="hide-scrollbar" style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
 					{filePath && (
-						<div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>{t('file', 'Fichier')}: {filePath}</div>
+						<div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>{t('file', 'Fichier')}: {filePath}</div>
 					)}
-					{loading && <div style={{ color: '#94a3b8', fontSize: 14 }}>{t('loading', 'Chargement...')}</div>}
-					{error && <div style={{ color: '#ef4444', fontSize: 14 }}>{t('error', 'Erreur')}: {error}</div>}
-					{!loading && !error && blenders.length === 0 && <div style={{ color: '#64748b', fontSize: 14 }}>{t('no_blender_saved', 'Aucun Blender enregistré.')}</div>}
+					{loading && <div style={{ color: 'var(--text-secondary)', fontSize: 14 }}>{t('loading', 'Chargement...')}</div>}
+					{error && <div style={{ color: 'var(--danger)', fontSize: 14 }}>{t('error', 'Erreur')}: {error}</div>}
+					{!loading && !error && blenders.length === 0 && <div style={{ color: 'var(--text-tertiary)', fontSize: 14 }}>{t('no_blender_saved', 'Aucun Blender enregistré.')}</div>}
 					{!loading && !error && blenders.map((b, idx) => (
 						<button
 							key={b.path + idx}
@@ -84,17 +84,17 @@ const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose, 
 								alignItems: 'center',
 								gap: 14,
 								width: '100%',
-								background: '#1a232b',
-								border: '1px solid #24303a',
-								color: '#e2e8f0',
+								background: 'var(--bg-surface-2)',
+								border: '1px solid var(--border-soft)',
+								color: 'var(--text-primary)',
 								padding: '10px 12px',
 								borderRadius: 10,
 								cursor: 'pointer',
 								textAlign: 'left',
 								transition: 'background 0.15s, border-color 0.15s'
 							}}
-							onMouseOver={(e) => { e.currentTarget.style.background = '#23313c'; e.currentTarget.style.borderColor = '#2f3e4a'; }}
-							onMouseOut={(e) => { e.currentTarget.style.background = '#1a232b'; e.currentTarget.style.borderColor = '#24303a'; }}
+							onMouseOver={(e) => { e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; }}
+							onMouseOut={(e) => { e.currentTarget.style.background = 'var(--bg-surface-2)'; e.currentTarget.style.borderColor = 'var(--border-soft)'; }}
 						>
 							<img
 								src={b.icon || require('../../../../public/logo/png/Blender-Launcher-64x64.png')}
@@ -103,7 +103,7 @@ const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose, 
 							/>
 							<div style={{ flex: 1, minWidth: 0 }}>
 								<div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.title || b.name}</div>
-								<div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.path}</div>
+								<div style={{ fontSize: 11, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.path}</div>
 							</div>
 							<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
 						</button>
@@ -115,3 +115,5 @@ const ViewOpenWith: React.FC<ViewOpenWithProps> = ({ isOpen, filePath, onClose, 
 };
 
 export default ViewOpenWith;
+
+

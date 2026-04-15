@@ -40,6 +40,13 @@ async function loadLocale(){
   try {
     const general = await window.trayAPI.invoke('get-general-config');
     currentLang = general?.language === 'en' ? 'en' : 'fr';
+    const validThemes = ['dark-blue', 'black', 'grey', 'light'];
+    const theme = validThemes.includes(general?.theme) ? general.theme : 'dark-blue';
+    if (theme === 'dark-blue') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
   } catch {
     currentLang = 'fr';
   }

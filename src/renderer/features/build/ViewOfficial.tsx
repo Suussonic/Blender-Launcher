@@ -182,9 +182,9 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
   if (!isOpen) return null;
 
   const versionTypeLabels = {
-    stable: { icon: FiPackage, label: 'Stable Releases', color: '#3b82f6' },
-    patch: { icon: FiZap, label: 'Patch Builds', color: '#f59e0b' },
-    daily: { icon: FiZap, label: 'Daily Builds', color: '#ef4444' },
+    stable: { icon: FiPackage, label: 'Stable Releases', color: 'var(--accent-hover)' },
+    patch: { icon: FiZap, label: 'Patch Builds', color: 'var(--text-warning)' },
+    daily: { icon: FiZap, label: 'Daily Builds', color: 'var(--danger)' },
   };
 
   return (
@@ -198,7 +198,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'rgba(0,0,0,0.6)',
+        background: 'var(--shadow-color)',
         zIndex: 10000,
       }}
       onClick={onClose}
@@ -209,11 +209,11 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
           position: 'relative',
           width: 560,
           maxWidth: '92vw',
-          background: '#1F2328',
-          border: '1px solid #30363d',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
           borderRadius: 24,
           padding: '40px 36px 36px',
-          boxShadow: '0 12px 36px -8px rgba(0,0,0,0.7), 0 6px 18px -6px rgba(0,0,0,0.5)',
+          boxShadow: '0 12px 36px -8px var(--shadow-color), 0 6px 18px -6px var(--shadow-soft)',
         }}
       >
         <button
@@ -225,7 +225,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
             right: 12,
             background: 'transparent',
             border: 'none',
-            color: '#d1d5db',
+            color: 'var(--text-primary)',
             width: 36,
             height: 36,
             display: 'flex',
@@ -236,7 +236,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
             transition: 'background 0.2s',
           }}
           onMouseOver={(e) => {
-            e.currentTarget.style.background = '#262c33';
+            e.currentTarget.style.background = 'var(--bg-card-hover)';
           }}
           onMouseOut={(e) => {
             e.currentTarget.style.background = 'transparent';
@@ -251,7 +251,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
             fontSize: 18,
             fontWeight: 700,
             letterSpacing: 0.8,
-            color: '#f1f5f9',
+            color: 'var(--text-primary)',
             textTransform: 'uppercase',
             textAlign: 'center',
           }}
@@ -266,7 +266,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 display: 'block',
                 fontSize: 13,
                 fontWeight: 600,
-                color: '#cbd5e1',
+                color: 'var(--text-primary)',
                 marginBottom: 10,
                 letterSpacing: 0.3,
               }}
@@ -278,9 +278,9 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 onClick={() => setVersionType('stable')}
                 style={{
                   width: '100%',
-                  background: versionType === 'stable' ? versionTypeLabels.stable.color : '#1a1f26',
-                  border: `1px solid ${versionType === 'stable' ? versionTypeLabels.stable.color : '#30363d'}`,
-                  color: '#fff',
+                  background: versionType === 'stable' ? versionTypeLabels.stable.color : 'var(--bg-surface-2)',
+                  border: `1px solid ${versionType === 'stable' ? versionTypeLabels.stable.color : 'var(--border-color)'}`,
+                  color: 'var(--text-inverse)',
                   fontSize: 12,
                   fontWeight: 600,
                   padding: '10px 12px',
@@ -295,14 +295,14 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 }}
                 onMouseOver={(e) => {
                   if (versionType !== 'stable') {
-                    e.currentTarget.style.background = '#242a32';
-                    e.currentTarget.style.borderColor = '#3d4650';
+                    e.currentTarget.style.background = 'var(--bg-card-hover)';
+                    e.currentTarget.style.borderColor = 'var(--border-strong)';
                   }
                 }}
                 onMouseOut={(e) => {
                   if (versionType !== 'stable') {
-                    e.currentTarget.style.background = '#1a1f26';
-                    e.currentTarget.style.borderColor = '#30363d';
+                    e.currentTarget.style.background = 'var(--bg-surface-2)';
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
                   }
                 }}
               >
@@ -321,9 +321,9 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                       style={{
                         flex: 1,
                         minWidth: 120,
-                        background: isActive ? versionTypeLabels[type].color : '#1a1f26',
-                        border: `1px solid ${isActive ? versionTypeLabels[type].color : '#30363d'}`,
-                        color: '#fff',
+                        background: isActive ? versionTypeLabels[type].color : 'var(--bg-surface-2)',
+                        border: `1px solid ${isActive ? versionTypeLabels[type].color : 'var(--border-color)'}`,
+                        color: 'var(--text-inverse)',
                         fontSize: 12,
                         fontWeight: 600,
                         padding: '10px 12px',
@@ -338,14 +338,14 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                       }}
                       onMouseOver={(e) => {
                         if (!isActive) {
-                          e.currentTarget.style.background = '#242a32';
-                          e.currentTarget.style.borderColor = '#3d4650';
+                          e.currentTarget.style.background = 'var(--bg-card-hover)';
+                          e.currentTarget.style.borderColor = 'var(--border-strong)';
                         }
                       }}
                       onMouseOut={(e) => {
                         if (!isActive) {
-                          e.currentTarget.style.background = '#1a1f26';
-                          e.currentTarget.style.borderColor = '#30363d';
+                          e.currentTarget.style.background = 'var(--bg-surface-2)';
+                          e.currentTarget.style.borderColor = 'var(--border-color)';
                         }
                       }}
                     >
@@ -364,7 +364,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 display: 'block',
                 fontSize: 13,
                 fontWeight: 600,
-                color: '#cbd5e1',
+                color: 'var(--text-primary)',
                 marginBottom: 8,
                 letterSpacing: 0.3,
               }}
@@ -372,20 +372,20 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
               Version
             </label>
             {loading ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
                 {t('official.loading_versions', 'Chargement des versions...')}
               </div>
             ) : versions.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
                 {t('official.no_versions', 'Aucune version disponible')}
               </div>
             ) : (
               <div style={{ 
                 maxHeight: 180, 
                 overflowY: 'auto', 
-                border: '1px solid #30363d', 
+                border: '1px solid var(--border-color)', 
                 borderRadius: 12, 
-                background: '#0f1419',
+                background: 'var(--bg-card)',
               }}>
                 {versions.map((v, idx) => {
                   const isSelected = selectedVersion?.version === v.version;
@@ -398,13 +398,13 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                       }}
                       style={{
                         padding: '12px 14px',
-                        background: isSelected ? '#1e3a5f' : 'transparent',
-                        borderBottom: idx < versions.length - 1 ? '1px solid #21262d' : 'none',
+                        background: isSelected ? 'color-mix(in srgb, var(--accent) 36%, var(--bg-card))' : 'transparent',
+                        borderBottom: idx < versions.length - 1 ? '1px solid var(--border-color)' : 'none',
                         cursor: 'pointer',
                         transition: 'background 0.15s',
                       }}
                       onMouseOver={(e) => {
-                        if (!isSelected) e.currentTarget.style.background = '#161b22';
+                        if (!isSelected) e.currentTarget.style.background = 'var(--bg-surface-1)';
                       }}
                       onMouseOut={(e) => {
                         if (!isSelected) e.currentTarget.style.background = 'transparent';
@@ -412,14 +412,14 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontWeight: 600, fontSize: 14, color: '#e2e8f0' }}>
+                          <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>
                             {v.version}
                           </span>
                           {v.architecture && versionType === 'daily' && (
                             <span style={{ 
                               fontSize: 10, 
-                              color: '#64748b', 
-                              background: '#1e293b', 
+                              color: 'var(--text-tertiary)', 
+                              background: 'var(--bg-surface-2)', 
                               padding: '2px 6px', 
                               borderRadius: 4,
                               fontWeight: 600
@@ -431,12 +431,12 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                         {v.date && (() => {
                           const dt = new Date(v.date as string);
                           if (isNaN(dt.getTime())) {
-                            return <span style={{ fontSize: 11, color: '#94a3b8' }}>{String(v.date)}</span>;
+                            return <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{String(v.date)}</span>;
                           }
                           return (
-                            <span style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 11, color: '#94a3b8' }}>
+                            <span style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 11, color: 'var(--text-secondary)' }}>
                               <span>{dt.toLocaleDateString('fr-FR')}</span>
-                              <span style={{ fontSize: 11, color: '#94a3b8', opacity: 0.95 }}>{dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span style={{ fontSize: 11, color: 'var(--text-secondary)', opacity: 0.95 }}>{dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                             </span>
                           );
                         })()}
@@ -454,7 +454,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 display: 'block',
                 fontSize: 13,
                 fontWeight: 600,
-                color: '#cbd5e1',
+                color: 'var(--text-primary)',
                 marginBottom: 8,
                 letterSpacing: 0.3,
               }}
@@ -473,9 +473,9 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 readOnly
                 style={{
                   flex: 1,
-                  background: '#0f1419',
-                  border: '1px solid #30363d',
-                  color: '#e2e8f0',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
                   fontSize: 14,
                   padding: '11px 14px',
                   borderRadius: 12,
@@ -488,9 +488,9 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
               <button
                 onClick={handleSelectFolder}
                 style={{
-                  background: '#374151',
-                  border: '1px solid #3d4650',
-                  color: '#fff',
+                  background: 'var(--bg-muted)',
+                  border: '1px solid var(--border-strong)',
+                  color: 'var(--text-inverse)',
                   width: 46,
                   height: 46,
                   borderRadius: 12,
@@ -502,10 +502,10 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                   flexShrink: 0,
                 }}
                 onMouseOver={(e) => {
-                  e.currentTarget.style.background = '#475569';
+                  e.currentTarget.style.background = 'var(--text-tertiary)';
                 }}
                 onMouseOut={(e) => {
-                  e.currentTarget.style.background = '#374151';
+                  e.currentTarget.style.background = 'var(--bg-muted)';
                 }}
               >
                 <FiFolder size={20} />
@@ -519,7 +519,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 display: 'block',
                 fontSize: 13,
                 fontWeight: 600,
-                color: '#cbd5e1',
+                color: 'var(--text-primary)',
                 marginBottom: 8,
                 letterSpacing: 0.3,
               }}
@@ -536,9 +536,9 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
               placeholder="blender-4.3.0"
               style={{
                 width: '100%',
-                background: '#0f1419',
-                border: '1px solid #30363d',
-                color: '#e2e8f0',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
                 fontSize: 14,
                 padding: '11px 14px',
                 borderRadius: 12,
@@ -547,12 +547,12 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 transition: 'border-color 0.2s, background 0.2s',
               }}
               onFocus={(e) => {
-                e.currentTarget.style.borderColor = '#3d4650';
-                e.currentTarget.style.background = '#0d1117';
+                e.currentTarget.style.borderColor = 'var(--border-strong)';
+                e.currentTarget.style.background = 'var(--bg-surface-3)';
               }}
               onBlur={(e) => {
-                e.currentTarget.style.borderColor = '#30363d';
-                e.currentTarget.style.background = '#0f1419';
+                e.currentTarget.style.borderColor = 'var(--border-color)';
+                e.currentTarget.style.background = 'var(--bg-card)';
               }}
             />
           </div>
@@ -560,13 +560,13 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
           {error && (
             <div
               style={{
-                color: '#ef4444',
+                color: 'var(--danger)',
                 fontSize: 13,
                 fontWeight: 500,
                 padding: '8px 12px',
-                background: 'rgba(239, 68, 68, 0.1)',
+                background: 'color-mix(in srgb, var(--danger) 10%, transparent)',
                 borderRadius: 8,
-                border: '1px solid rgba(239, 68, 68, 0.3)',
+                border: '1px solid color-mix(in srgb, var(--danger) 25%, transparent)',
               }}
             >
               {error}
@@ -578,9 +578,9 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
               onClick={onClose}
               style={{
                 flex: 1,
-                background: '#262c33',
-                border: '1px solid #30363d',
-                color: '#d1d5db',
+                background: 'var(--bg-card-hover)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
                 fontSize: 14,
                 fontWeight: 600,
                 letterSpacing: 0.4,
@@ -590,10 +590,10 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
                 transition: 'background 0.2s',
               }}
               onMouseOver={(e) => {
-                e.currentTarget.style.background = '#2d3541';
+                e.currentTarget.style.background = 'var(--bg-card-hover)';
               }}
               onMouseOut={(e) => {
-                e.currentTarget.style.background = '#262c33';
+                e.currentTarget.style.background = 'var(--bg-card-hover)';
               }}
             >
               {t('cancel', 'Annuler')}
@@ -602,24 +602,24 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
               onClick={handleDownload}
               style={{
                 flex: 1,
-                background: 'linear-gradient(90deg, #2563eb, #3b82f6)',
-                border: '1px solid #3b82f6',
-                color: '#fff',
+                background: 'linear-gradient(90deg, var(--accent), var(--accent-hover))',
+                border: '1px solid var(--accent-hover)',
+                color: 'var(--text-inverse)',
                 fontSize: 14,
                 fontWeight: 600,
                 letterSpacing: 0.4,
                 padding: '12px 0',
                 borderRadius: 14,
                 cursor: 'pointer',
-                boxShadow: '0 4px 14px -6px rgba(37, 99, 235, 0.5)',
+                boxShadow: '0 4px 14px -6px color-mix(in srgb, var(--accent) 40%, transparent)',
                 transition: 'background 0.2s, transform 0.15s',
               }}
               onMouseOver={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(90deg, #1d4ed8, #2563eb)';
+                e.currentTarget.style.background = 'linear-gradient(90deg, var(--accent-hover), var(--accent))';
                 e.currentTarget.style.transform = 'translateY(-1px)';
               }}
               onMouseOut={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(90deg, #2563eb, #3b82f6)';
+                e.currentTarget.style.background = 'linear-gradient(90deg, var(--accent), var(--accent-hover))';
                 e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
@@ -634,3 +634,7 @@ const ViewOfficial: React.FC<ViewOfficialProps> = ({ isOpen, onClose, onStartDow
 };
 
 export default ViewOfficial;
+
+
+
+

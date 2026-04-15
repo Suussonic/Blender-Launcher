@@ -29,12 +29,12 @@ const cardBase: React.CSSProperties = {
   width: '100%',
   height: '100%',
   borderRadius: 12,
-  background: 'linear-gradient(135deg, #0f1724, #0b111a)',
-  border: '1px solid #21303c',
+  background: 'var(--bg-home)',
+  border: '1px solid var(--border-color)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  color: '#cbd5e1',
+  color: 'var(--text-secondary)',
   fontWeight: 600,
   fontSize: 18
 };
@@ -52,13 +52,13 @@ const overlayLayer: React.CSSProperties = {
   inset: 0,
   backdropFilter: 'blur(2px)',
   WebkitBackdropFilter: 'blur(2px)',
-  background: 'linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.38))'
+  background: 'linear-gradient(180deg, var(--shadow-soft), var(--shadow-soft))'
 };
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div style={{ marginTop: 24 }}>
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '6px 4px 12px 4px' }}>
-      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#eef2ff' }}>{title}</h2>
+      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text-inverse)' }}>{title}</h2>
     </div>
     {children}
   </div>
@@ -107,7 +107,7 @@ const HomeCard: React.FC<{
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fff',
+        color: 'var(--text-inverse)',
         fontWeight: 600,
         fontSize: 16,
         textAlign: 'center',
@@ -247,3 +247,5 @@ const Home: React.FC<HomeProps> = ({ onOpenLink }) => {
 };
 
 export default Home;
+
+

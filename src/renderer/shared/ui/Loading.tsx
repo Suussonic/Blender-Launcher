@@ -10,8 +10,8 @@ const Loading: React.FC<Props> = ({ status }) => {
       position: 'relative',
       width: '100vw',
       height: '100vh',
-      background: 'linear-gradient(135deg, #1c2230 0%, #11151c 100%)',
-      color: '#e7edf5',
+      background: 'linear-gradient(135deg, var(--bg-surface-2) 0%, var(--bg-surface-1) 100%)',
+      color: 'var(--text-primary)',
       fontFamily: 'Segoe UI, Arial, sans-serif',
       userSelect: 'none'
     }}>
@@ -22,7 +22,7 @@ const Loading: React.FC<Props> = ({ status }) => {
             width: 200,
             height: 200,
             borderRadius: '50%',
-            background: 'conic-gradient(#6ee7ff 0deg, #3b82f6 90deg, rgba(255,255,255,0.15) 90deg, rgba(255,255,255,0.15) 360deg)',
+            background: 'conic-gradient(var(--text-link) 0deg, var(--accent-hover) 90deg, color-mix(in srgb, var(--text-inverse) 16%, transparent) 90deg, color-mix(in srgb, var(--text-inverse) 16%, transparent) 360deg)',
             mask: 'radial-gradient(circle 86px at 50% 50%, transparent 98%, black 100%)',
             WebkitMask: 'radial-gradient(circle 86px at 50% 50%, transparent 98%, black 100%)',
             animation: 'spin 1.2s linear infinite'
@@ -35,7 +35,7 @@ const Loading: React.FC<Props> = ({ status }) => {
             draggable={false}
           />
         </div>
-        <div style={{ marginTop: 8, fontSize: 15, color: '#cdd6e3', letterSpacing: 0.2 }}>
+        <div style={{ marginTop: 8, fontSize: 15, color: 'var(--text-primary)', letterSpacing: 0.2 }}>
           {status || 'Initialisation en cours…'}
         </div>
       </div>
@@ -47,3 +47,5 @@ const Loading: React.FC<Props> = ({ status }) => {
 };
 
 export default Loading;
+
+

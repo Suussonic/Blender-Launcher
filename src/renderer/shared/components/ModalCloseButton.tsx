@@ -11,7 +11,7 @@ const ModalCloseButton: React.FC<ModalCloseButtonProps> = ({
   onClick,
   title,
   disabled = false,
-  color = '#94a3b8',
+  color = 'var(--text-secondary)',
 }) => {
   return (
     <button
@@ -35,3 +35,4 @@ const ModalCloseButton: React.FC<ModalCloseButtonProps> = ({
 };
 
 export default ModalCloseButton;
+

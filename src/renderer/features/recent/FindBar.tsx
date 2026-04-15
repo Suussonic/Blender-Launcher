@@ -12,9 +12,9 @@ const FindBar: React.FC<Props> = ({ value, onChange, placeholder, rightSlot }) =
   const { t } = useTranslation();
   return (
     <div style={{ width: '100%', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0b1220', border: '1px solid #1f2937', padding: '6px 10px', borderRadius: 10, flex: 1, minWidth: 0, maxWidth: 900 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--chip-info-bg)', border: '1px solid var(--bg-muted)', padding: '6px 10px', borderRadius: 10, flex: 1, minWidth: 0, maxWidth: 900 }}>
         {/* Magnifying glass icon */}
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="11" cy="11" r="7"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
@@ -27,7 +27,7 @@ const FindBar: React.FC<Props> = ({ value, onChange, placeholder, rightSlot }) =
             background: 'transparent',
             border: 'none',
             outline: 'none',
-            color: '#d1d5db',
+            color: 'var(--text-primary)',
             fontSize: 13,
             width: '100%'
           }}
@@ -39,3 +39,5 @@ const FindBar: React.FC<Props> = ({ value, onChange, placeholder, rightSlot }) =
 };
 
 export default FindBar;
+
+

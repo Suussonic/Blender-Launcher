@@ -49,24 +49,24 @@ const defaultIcon = require('../../../../public/logo/png/Blender-Launcher-64x64.
 
 const segmentBase: React.CSSProperties = {
   display: 'inline-flex',
-  background: '#0e141b',
-  border: '1px solid #22303b',
+  background: 'var(--bg-surface-1)',
+  border: '1px solid var(--border-soft)',
   borderRadius: 14,
   padding: 6,
   gap: 6,
   height: 44,
   alignItems: 'center',
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 6px 14px rgba(0,0,0,0.28)'
+  boxShadow: 'inset 0 1px 0 var(--bg-glass), 0 6px 14px var(--shadow-soft)'
 };
 
 const segBtn = (active: boolean): React.CSSProperties => ({
   padding: '9px 14px',
   borderRadius: 12,
-  border: active ? '1px solid #3b82f6' : '1px solid transparent',
+  border: active ? '1px solid var(--accent-hover)' : '1px solid transparent',
   cursor: 'pointer',
-  color: active ? '#0b1220' : '#cbd5e1',
-  background: active ? 'linear-gradient(180deg, #5ea3f9 0%, #3f83f8 100%)' : 'transparent',
-  boxShadow: active ? '0 8px 18px rgba(63,131,248,0.28), inset 0 -1px 0 rgba(0,0,0,0.25)' : 'none',
+  color: active ? 'var(--chip-info-bg)' : 'var(--text-primary)',
+  background: active ? 'linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%)' : 'transparent',
+  boxShadow: active ? '0 8px 18px color-mix(in srgb, var(--accent-hover) 28%, transparent), inset 0 -1px 0 var(--shadow-soft)' : 'none',
   fontWeight: 700,
   fontSize: 13,
   height: 32,
@@ -74,8 +74,8 @@ const segBtn = (active: boolean): React.CSSProperties => ({
   transition: 'background .18s ease, color .18s ease, box-shadow .18s ease, border-color .18s ease'
 });
 
-const fieldLabel: React.CSSProperties = { fontSize: 12, color: '#a7b3c6', marginBottom: 6, fontWeight: 600 };
-const inputBase: React.CSSProperties = { background: '#0b1016', color: '#e5e7eb', border: '1px solid #1f2937', borderRadius: 8, padding: '8px 10px', boxSizing: 'border-box' };
+const fieldLabel: React.CSSProperties = { fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 600 };
+const inputBase: React.CSSProperties = { background: 'var(--bg-surface-3)', color: 'var(--text-primary)', border: '1px solid var(--bg-muted)', borderRadius: 8, padding: '8px 10px', boxSizing: 'border-box' };
 
 // Small styled checkbox for nicer visual
 const NiceCheckbox: React.FC<{ checked: boolean; onChange: (v: boolean) => void; label: string }>=({ checked, onChange, label })=>{
@@ -88,20 +88,20 @@ const NiceCheckbox: React.FC<{ checked: boolean; onChange: (v: boolean) => void;
       onKeyDown={(e)=>{ if(e.key===' '|| e.key==='Enter'){ e.preventDefault(); onChange(!checked);} }}
       style={{
         display:'inline-flex', alignItems:'center', gap:10, cursor:'pointer', userSelect:'none',
-        background:'#11161c', border:'1px solid #22303b', borderRadius:10, padding:'8px 12px',
+        background:'var(--bg-surface-1)', border:'1px solid var(--border-soft)', borderRadius:10, padding:'8px 12px',
         transition:'background .15s, border-color .15s',
       }}
-      onMouseOver={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = '#16202a'; (e.currentTarget as HTMLDivElement).style.borderColor = '#2a3a48'; }}
-      onMouseOut={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = '#11161c'; (e.currentTarget as HTMLDivElement).style.borderColor = '#22303b'; }}
+      onMouseOver={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-card-hover)'; (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border-strong)'; }}
+      onMouseOut={(e)=>{ (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-surface-1)'; (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border-soft)'; }}
     >
-      <div style={{ width:18, height:18, borderRadius:6, border: `2px solid ${checked ? '#22c55e' : '#3a4652'}`, background: checked ? '#22c55e' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ width:18, height:18, borderRadius:6, border: `2px solid ${checked ? 'var(--success)' : 'var(--border-strong)'}`, background: checked ? 'var(--success)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center' }}>
         {checked && (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0b1016" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--bg-surface-3)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
         )}
       </div>
-      <span style={{ color:'#e5e7eb', fontSize:14, fontWeight:600 }}>{label}</span>
+      <span style={{ color:'var(--text-primary)', fontSize:14, fontWeight:600 }}>{label}</span>
     </div>
   );
 };
@@ -147,18 +147,18 @@ const NiceSelect: React.FC<{
           padding: '8px 12px',
           borderRadius: 10,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          cursor: 'pointer', background: '#1a232b', border: '1px solid #24303a'
+          cursor: 'pointer', background: 'var(--bg-surface-2)', border: '1px solid var(--border-soft)'
         }}
-        onMouseOver={(e)=>{ (e.currentTarget as HTMLButtonElement).style.background = '#23313c'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#2f3e4a'; }}
-        onMouseOut={(e)=>{ (e.currentTarget as HTMLButtonElement).style.background = '#1a232b'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#24303a'; }}
+        onMouseOver={(e)=>{ (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-card-hover)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-strong)'; }}
+        onMouseOut={(e)=>{ (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-surface-2)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-soft)'; }}
       >
-        <span style={{ color:'#e2e8f0', fontWeight:600, fontSize:13 }}>{selected?.label}</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8ea0b5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>
+        <span style={{ color:'var(--text-primary)', fontWeight:600, fontSize:13 }}>{selected?.label}</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#0f172a', border: '1px solid #1f2937', borderRadius: 10, padding: 6, boxShadow: '0 12px 30px rgba(0,0,0,0.45)', zIndex: 50, maxHeight: 220, overflowY: 'auto' }}>
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: 'var(--bg-surface-2)', border: '1px solid var(--bg-muted)', borderRadius: 10, padding: 6, boxShadow: '0 12px 30px var(--shadow-soft)', zIndex: 50, maxHeight: 220, overflowY: 'auto' }}>
           {options.map((opt, idx) => {
             const active = value === opt.value;
             const hover = idx === hoverIdx;
@@ -169,13 +169,13 @@ const NiceSelect: React.FC<{
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '8px 10px', borderRadius: 8,
-                  background: hover ? '#182129' : 'transparent',
-                  color: active ? '#93c5fd' : '#e5e7eb', cursor: 'pointer', fontSize: 13, fontWeight: active ? 700 : 500
+                  background: hover ? 'var(--bg-card-hover)' : 'transparent',
+                  color: active ? 'var(--text-code)' : 'var(--text-primary)', cursor: 'pointer', fontSize: 13, fontWeight: active ? 700 : 500
                 }}
               >
                 <span>{opt.label}</span>
                 {active && (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-code)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 )}
@@ -379,26 +379,26 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
           onClick={doOpen}
           style={{
             width: '100%',
-            background: '#0b1016',
-            border: '1px solid #26303b',
+            background: 'var(--bg-surface-3)',
+            border: '1px solid var(--border-strong)',
             borderRadius: 12,
             padding: '10px 14px',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
             cursor: 'pointer',
-            color: '#e5e7eb',
+            color: 'var(--text-primary)',
           }}
           title={t('render.quick_configure', 'Configure a quick render')}
         >
           <img src={(chosen?.icon || defaultIcon)} alt="blender" width={28} height={28} style={{ borderRadius: 6 }} />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div style={{ fontWeight: 700 }}>{chosen?.title || chosen?.name || t('render.choose_blender', 'Choose a Blender')}</div>
-            <div style={{ fontSize: 12, color: '#8ea0b5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {chosen?.path || t('render.select_executable_to_render', 'Select an executable to render')}
             </div>
           </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#8ea0b5' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-secondary)' }}>
             <polyline points="9 18 15 12 9 6" />
           </svg>
         </button>
@@ -406,26 +406,26 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
 
       {/* Modal */}
       {isModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-          <div style={{ width: 'min(720px, 95vw)', maxWidth: '95vw', background: '#0F1419', border: '1px solid #26303b', borderRadius: 14, boxShadow: '0 10px 40px rgba(0,0,0,0.5)', padding: 20, overflow: 'hidden', position: 'relative' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--shadow-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ width: 'min(720px, 95vw)', maxWidth: '95vw', background: 'var(--bg-card)', border: '1px solid var(--border-strong)', borderRadius: 14, boxShadow: '0 10px 40px var(--shadow-soft)', padding: 20, overflow: 'hidden', position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <h2 style={{ margin: 0, color: '#e5e7eb' }}>{t('render.quick_title', 'Quick Render')}</h2>
-              <button onClick={doClose} style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: 20 }}>×</button>
+              <h2 style={{ margin: 0, color: 'var(--text-primary)' }}>{t('render.quick_title', 'Quick Render')}</h2>
+              <button onClick={doClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 20 }}>×</button>
             </div>
 
             {/* Loading overlay for metadata */}
             {metaLoading && (
-              <div style={{ position: 'absolute', inset: 0, background: 'rgba(15,20,25,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#cbd5e1', fontWeight: 600 }}>
-                  <div className="blender-spinner" style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #334155', borderTopColor: '#60a5fa', animation: 'spin 0.9s linear infinite' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'var(--bg-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--text-primary)', fontWeight: 600 }}>
+                  <div className="blender-spinner" style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--bg-muted)', borderTopColor: 'var(--accent-hover)', animation: 'spin 0.9s linear infinite' }} />
                   {t('render.loading_file_settings', 'Loading file settings...')}
                 </div>
               </div>
             )}
 
             {filePath && (
-              <div style={{ marginBottom: 12, color: '#9ca3af', fontSize: 12 }}>
-                {t('file', 'File')}: <span style={{ color: '#cbd5e1' }}>{filePath}</span>
+              <div style={{ marginBottom: 12, color: 'var(--text-secondary)', fontSize: 12 }}>
+                {t('file', 'File')}: <span style={{ color: 'var(--text-primary)' }}>{filePath}</span>
               </div>
             )}
 
@@ -442,9 +442,9 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
                   style={{
                     width: '100%',
                     display: 'flex', alignItems: 'center', gap: 10,
-                    background: '#1a232b',
-                    border: '1px solid #24303a',
-                    color: '#e2e8f0',
+                    background: 'var(--bg-surface-2)',
+                    border: '1px solid var(--border-soft)',
+                    color: 'var(--text-primary)',
                     padding: '10px 12px',
                     borderRadius: 10,
                     cursor: 'pointer',
@@ -456,9 +456,9 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
                   <img src={(chosen?.icon || defaultIcon)} alt="" style={{ width: 28, height: 28, borderRadius: 6 }} />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chosen?.title || chosen?.name || t('render.select', 'Select')}</div>
-                    <div style={{ fontSize: 10, color: '#8ea0b5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chosen?.path || ''}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chosen?.path || ''}</div>
                   </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#8ea0b5', transform: showVersionSwitcher ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-secondary)', transform: showVersionSwitcher ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
                     <polyline points="6 9 12 15 18 9" />
                   </svg>
                 </button>
@@ -470,11 +470,11 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
                     left: 0,
                     right: 0,
                     zIndex: 20,
-                    background: '#0f172a',
-                    border: '1px solid #1f2937',
+                    background: 'var(--bg-surface-2)',
+                    border: '1px solid var(--bg-muted)',
                     borderRadius: 10,
                     padding: 8,
-                    boxShadow: '0 12px 30px rgba(0,0,0,0.45)'
+                    boxShadow: '0 12px 30px var(--shadow-soft)'
                   }}>
                     <div className="hide-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
                       {blenderList.map((b) => (
@@ -484,9 +484,9 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
                           title={b.path}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 10,
-                            background: chosen?.path === b.path ? '#23313c' : '#1a232b',
-                            border: `1px solid ${chosen?.path === b.path ? '#2f3e4a' : '#24303a'}`,
-                            color: '#e2e8f0',
+                            background: chosen?.path === b.path ? 'var(--bg-card-hover)' : 'var(--bg-surface-2)',
+                            border: `1px solid ${chosen?.path === b.path ? 'var(--border-strong)' : 'var(--border-soft)'}`,
+                            color: 'var(--text-primary)',
                             padding: '10px 12px',
                             borderRadius: 10,
                             cursor: 'pointer',
@@ -495,16 +495,16 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
                             boxShadow: 'none',
                             textAlign: 'left'
                           }}
-                          onMouseOver={(e) => { e.currentTarget.style.background = '#23313c'; e.currentTarget.style.borderColor = '#2f3e4a'; }}
-                          onMouseOut={(e) => { if (chosen?.path !== b.path) { e.currentTarget.style.background = '#1a232b'; e.currentTarget.style.borderColor = '#24303a'; }}}
+                          onMouseOver={(e) => { e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; }}
+                          onMouseOut={(e) => { if (chosen?.path !== b.path) { e.currentTarget.style.background = 'var(--bg-surface-2)'; e.currentTarget.style.borderColor = 'var(--border-soft)'; }}}
                         >
                           <img src={b.icon || defaultIcon} alt="" style={{ width: 28, height: 28, borderRadius: 6 }} />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.title || b.name}</div>
-                            <div style={{ fontSize: 10, color: '#8ea0b5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.path}</div>
+                            <div style={{ fontSize: 10, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.path}</div>
                           </div>
                           {chosen?.path === b.path && (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#93c5fd' }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-code)' }}>
                               <polyline points="20 6 9 17 4 12" />
                             </svg>
                           )}
@@ -555,7 +555,7 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
             </div>
 
             {metaError && (
-              <div style={{ marginTop: -8, marginBottom: 8, color: '#f87171', fontSize: 12 }}>
+              <div style={{ marginTop: -8, marginBottom: 8, color: 'var(--text-danger)', fontSize: 12 }}>
                 {t('render.metadata_load_failed', 'Unable to load .blend settings')} ({metaError}).
               </div>
             )}
@@ -706,9 +706,9 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
                     transform: 'translateY(-50%)',
                     width: 36,
                     height: 30,
-                    background: '#1e2530',
-                    border: '1px solid #26303b',
-                    color: '#94a3b8',
+                    background: 'var(--bg-surface-2)',
+                    border: '1px solid var(--border-strong)',
+                    color: 'var(--text-secondary)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -731,7 +731,7 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
             </div>
             {/* Footer */}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={start} style={{ background: '#22c55e', color: 'white', border: 'none', borderRadius: 8, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}>{t('render.start_button', 'Start render')}</button>
+              <button onClick={start} style={{ background: 'var(--success)', color: 'white', border: 'none', borderRadius: 8, padding: '10px 16px', fontWeight: 700, cursor: 'pointer' }}>{t('render.start_button', 'Start render')}</button>
             </div>
           </div>
         </div>
@@ -741,3 +741,6 @@ const ViewRender: React.FC<ViewRenderProps> = ({ selected = null, blenders, onCh
 };
 
 export default ViewRender;
+
+
+

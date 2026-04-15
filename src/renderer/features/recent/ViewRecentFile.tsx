@@ -20,9 +20,9 @@ type Props = {
 };
 
 const actionButtonStyle = (enabled = true, danger = false, compact = false): React.CSSProperties => ({
-  background: danger ? '#31141b' : '#1e2530',
-  border: danger ? '1px solid #842b3b' : 'none',
-  color: danger ? '#f87171' : '#94a3b8',
+  background: danger ? 'var(--danger-bg)' : 'var(--bg-surface-2)',
+  border: danger ? '1px solid var(--danger-border)' : 'none',
+  color: danger ? 'var(--text-danger)' : 'var(--text-secondary)',
   width: compact ? 30 : 34,
   height: compact ? 30 : 34,
   display: 'flex',
@@ -140,13 +140,13 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
   };
 
   if (recentLoading) {
-    return <div style={{ color: '#94a3b8', fontSize: 14 }}>{t('loading', 'Loading...')}</div>;
+    return <div style={{ color: 'var(--text-secondary)', fontSize: 14 }}>{t('loading', 'Loading...')}</div>;
   }
   if (recentError) {
-    return <div style={{ color: '#ef4444', fontSize: 14 }}>{t('recent.error_prefix', 'Error:')} {recentError}</div>;
+    return <div style={{ color: 'var(--danger)', fontSize: 14 }}>{t('recent.error_prefix', 'Error:')} {recentError}</div>;
   }
   if (!recentLoading && !recentError && recentFiles.length === 0) {
-    return <div style={{ color: '#64748b', fontSize: 14 }}>{t('recent.none_for_build', 'No recent file available for this build.')}</div>;
+    return <div style={{ color: 'var(--text-tertiary)', fontSize: 14 }}>{t('recent.none_for_build', 'No recent file available for this build.')}</div>;
   }
 
   return (
@@ -163,8 +163,8 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
             onKeyDown={(e) => { if (f.exists && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openRecent(f.path); }}}
             onClick={() => { if (f.exists) openRecent(f.path); }}
             style={{
-              background: '#131a20',
-              border: '1px solid #1e2530',
+              background: 'var(--bg-surface-1)',
+              border: '1px solid var(--bg-surface-2)',
               borderRadius: 10,
               padding: '10px 14px',
               display: 'grid',
@@ -177,15 +177,15 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
               transition: 'background 0.15s, border-color 0.15s',
               minWidth: 0
             }}
-            onMouseOver={e => { if (f.exists) { e.currentTarget.style.background = '#182129'; e.currentTarget.style.borderColor = '#26303b'; }}}
-            onMouseOut={e => { e.currentTarget.style.background = '#131a20'; e.currentTarget.style.borderColor = '#1e2530'; }}
+            onMouseOver={e => { if (f.exists) { e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; }}}
+            onMouseOut={e => { e.currentTarget.style.background = 'var(--bg-surface-1)'; e.currentTarget.style.borderColor = 'var(--bg-surface-2)'; }}
           >
             <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span
                 style={{
                   fontSize: 15,
                   fontWeight: 500,
-                  color: f.exists ? '#e2e8f0' : '#f87171',
+                  color: f.exists ? 'var(--text-primary)' : 'var(--text-danger)',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis'
@@ -194,7 +194,7 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
               >
                 {f.name}{!f.exists && ` (${t('recent.missing', 'missing')})`}
               </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, color: '#64748b', fontSize: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, color: 'var(--text-tertiary)', fontSize: 12 }}>
                 <span
                   style={{
                     whiteSpace: 'nowrap',
@@ -211,9 +211,9 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
                 </span>
               </div>
             </div>
-            <div style={{ color: '#94a3b8', fontSize: 12 }}>{createdStr}</div>
-            <div style={{ color: '#94a3b8', fontSize: 12 }}>{usedStr}</div>
-            <div style={{ color: '#94a3b8', fontSize: 12 }}>{sizeStr}</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{createdStr}</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{usedStr}</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{sizeStr}</div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: 140, justifyContent: 'flex-end', flexShrink: 0 }}>
               <button
                 onClick={(e) => { e.stopPropagation(); if (f.exists) setRenderForFile(f.path); }}
@@ -283,8 +283,8 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
                 onKeyDown={(e) => { if (f.exists && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openRecent(f.path); } }}
                 onClick={() => { if (f.exists) openRecent(f.path); }}
                 style={{
-                  background: '#131a20',
-                  border: '1px solid #1e2530',
+                  background: 'var(--bg-surface-1)',
+                  border: '1px solid var(--bg-surface-2)',
                   borderRadius: 12,
                   overflow: 'hidden',
                   opacity: f.exists ? 1 : 0.55,
@@ -293,10 +293,10 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
                   flexDirection: 'column',
                   minWidth: 0
                 }}
-                onMouseOver={(e) => { if (f.exists) { e.currentTarget.style.background = '#182129'; e.currentTarget.style.borderColor = '#26303b'; } }}
-                onMouseOut={(e) => { e.currentTarget.style.background = '#131a20'; e.currentTarget.style.borderColor = '#1e2530'; }}
+                onMouseOver={(e) => { if (f.exists) { e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; } }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'var(--bg-surface-1)'; e.currentTarget.style.borderColor = 'var(--bg-surface-2)'; }}
               >
-                <div style={{ height: 126, background: '#0f1419', borderBottom: '1px solid #1e2530', position: 'relative' }}>
+                <div style={{ height: 126, background: 'var(--bg-card)', borderBottom: '1px solid var(--bg-surface-2)', position: 'relative' }}>
                   {thumb ? (
                     <img
                       src={thumb}
@@ -305,22 +305,22 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
                       loading="lazy"
                     />
                   ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: 12 }}>
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)', fontSize: 12 }}>
                       {loading ? t('loading', 'Chargement...') : t('recent.no_preview', 'Aperçu indisponible')}
                     </div>
                   )}
                 </div>
                 <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: f.exists ? '#e2e8f0' : '#f87171', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={f.path}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: f.exists ? 'var(--text-primary)' : 'var(--text-danger)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={f.path}>
                       {f.name}{!f.exists && ` (${t('recent.missing', 'missing')})`}
                     </div>
-                    <div style={{ color: '#64748b', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={f.path}>
+                    <div style={{ color: 'var(--text-tertiary)', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={f.path}>
                       {f.path}
                     </div>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: '#94a3b8', fontSize: 11 }}>{sizeStr}</span>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{sizeStr}</span>
                     <div style={{ display: 'flex', gap: 5 }}>
                       <button
                         onClick={(e) => { e.stopPropagation(); if (f.exists) setRenderForFile(f.path); }}
@@ -380,3 +380,6 @@ const ViewRecentFile: React.FC<Props> = ({ selectedBlender, recentLoading, recen
 };
 
 export default ViewRecentFile;
+
+
+

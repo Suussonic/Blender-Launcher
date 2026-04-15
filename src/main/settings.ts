@@ -109,12 +109,14 @@ export function initSettings(opts: {
     try {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
       const cfg = JSON.parse(raw || '{}');
-  if (!cfg.general || typeof cfg.general !== 'object') return { scanOnStartup: false, exitOnClose: false, launchOnStartup: false, language: 'fr' };
+  if (!cfg.general || typeof cfg.general !== 'object') return { scanOnStartup: false, exitOnClose: false, launchOnStartup: false, language: 'fr', theme: 'dark-blue' };
+  const validThemes = ['dark-blue', 'black', 'grey', 'light'];
   return {
     scanOnStartup: cfg.general.scanOnStartup === true,
     exitOnClose: cfg.general.exitOnClose === true,
     launchOnStartup: cfg.general.launchOnStartup === true,
     language: cfg.general.language === 'en' ? 'en' : 'fr',
+    theme: validThemes.includes(cfg.general.theme) ? cfg.general.theme : 'dark-blue',
   };
     } catch (e) {
       console.error('[General] get-general-config erreur:', e);
@@ -242,13 +244,15 @@ except Exception:
     try {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
       const cfg = JSON.parse(raw || '{}');
-      if (!cfg.general || typeof cfg.general !== 'object') cfg.general = { scanOnStartup: false, exitOnClose: false, launchOnStartup: false, language: 'fr' };
+      if (!cfg.general || typeof cfg.general !== 'object') cfg.general = { scanOnStartup: false, exitOnClose: false, launchOnStartup: false, language: 'fr', theme: 'dark-blue' };
       const prevLaunch = cfg.general.launchOnStartup === true;
       cfg.general = { ...cfg.general, ...(partial || {}) };
       cfg.general.scanOnStartup = cfg.general.scanOnStartup === true; // normalize boolean
       cfg.general.exitOnClose = cfg.general.exitOnClose === true;
       cfg.general.launchOnStartup = cfg.general.launchOnStartup === true;
       cfg.general.language = cfg.general.language === 'en' ? 'en' : 'fr';
+      const validThemes = ['dark-blue', 'black', 'grey', 'light'];
+      cfg.general.theme = validThemes.includes(cfg.general.theme) ? cfg.general.theme : 'dark-blue';
       fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf-8');
 
       // If launchOnStartup changed, attempt to apply to OS using Electron API

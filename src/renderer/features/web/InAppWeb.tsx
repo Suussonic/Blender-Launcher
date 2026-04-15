@@ -115,7 +115,7 @@ const InAppWeb = React.forwardRef<InAppWebHandle, InAppWebProps>(({ url, onNavig
   }));
 
   return (
-    <div key={String(reloadKey || 0)} style={{ position: 'relative', width: '100%', height: '100%', background: '#0b1016' }}>
+    <div key={String(reloadKey || 0)} style={{ position: 'relative', width: '100%', height: '100%', background: 'var(--bg-surface-3)' }}>
       {/* Use Electron webview for better site compatibility inside the launcher */}
       {/* @ts-ignore */}
       <webview
@@ -129,3 +129,4 @@ const InAppWeb = React.forwardRef<InAppWebHandle, InAppWebProps>(({ url, onNavig
 });
 
 export default InAppWeb;
+

@@ -36,9 +36,9 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
   const recentLoadTokenRef = useRef(0);
 
   const panelButtonStyle = (active: boolean): React.CSSProperties => ({
-    background: active ? '#1f2937' : 'transparent',
-    border: active ? '1px solid #374151' : '1px solid transparent',
-    color: '#fff',
+    background: active ? 'var(--bg-muted)' : 'transparent',
+    border: active ? '1px solid var(--bg-muted)' : '1px solid transparent',
+    color: 'var(--text-inverse)',
     padding: '8px 14px',
     borderRadius: 8,
     fontWeight: active ? 700 : 500
@@ -49,8 +49,8 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
     height: 30,
     borderRadius: 8,
     border: 'none',
-    background: active ? '#334155' : 'transparent',
-    color: active ? '#e2e8f0' : '#cbd5e1',
+    background: active ? 'var(--bg-muted)' : 'transparent',
+    color: active ? 'var(--text-primary)' : 'var(--text-primary)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -187,15 +187,15 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        background: '#0F1419'
+        background: 'var(--bg-card)'
       }}>
         <div style={{
           display: 'flex',
           alignItems: 'center',
           gap: '24px',
           padding: '20px 32px 14px 32px',
-          background: '#0F1419',
-          boxShadow: '0 4px 8px -4px rgba(0,0,0,0.55)',
+          background: 'var(--bg-card)',
+          boxShadow: '0 4px 8px -4px var(--shadow-color)',
           minWidth: 0
         }}>
             <img
@@ -216,7 +216,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                 fontSize: 32,
                 fontWeight: 700,
                 margin: '0 0 6px 0',
-                color: '#fff',
+                color: 'var(--text-inverse)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
@@ -237,8 +237,8 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                   <span style={{
                     fontSize: 14,
                     fontWeight: 600,
-                    color: '#93c5fd',
-                    background: 'rgba(59,130,246,0.15)',
+                    color: 'var(--text-code)',
+                    background: 'color-mix(in srgb, var(--accent) 22%, transparent)',
                     padding: '2px 8px',
                     borderRadius: 6,
                     flexShrink: 0,
@@ -253,7 +253,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
               </h1>
               <p style={{
                 fontSize: 14,
-                color: '#888',
+                color: 'var(--text-secondary)',
                 margin: '0 0 12px 0',
                 overflow: 'hidden',
                 display: '-webkit-box',
@@ -270,19 +270,19 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
               <button
                 onClick={handleLaunch}
                 style={{
-                  background: '#10271d',
-                  border: '1px solid #22c55e',
+                  background: 'color-mix(in srgb, var(--success) 20%, var(--bg-card))',
+                  border: '1px solid var(--success)',
                   borderRadius: 10,
-                  color: '#dcfce7',
+                  color: 'var(--text-success)',
                   fontSize: 16,
                   fontWeight: 600,
                   padding: '10px 20px',
                   cursor: 'pointer',
                   transition: 'background 0.2s, border-color 0.2s',
-                  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.04)',
+                  boxShadow: 'inset 0 0 0 1px var(--bg-glass)',
                 }}
-                onMouseOver={(e) => { e.currentTarget.style.background = '#163927'; e.currentTarget.style.borderColor = '#4ade80'; }}
-                onMouseOut={(e) => { e.currentTarget.style.background = '#10271d'; e.currentTarget.style.borderColor = '#22c55e'; }}
+                onMouseOver={(e) => { e.currentTarget.style.background = 'color-mix(in srgb, var(--success) 32%, var(--bg-card))'; e.currentTarget.style.borderColor = 'var(--success)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'color-mix(in srgb, var(--success) 20%, var(--bg-card))'; e.currentTarget.style.borderColor = 'var(--success)'; }}
               >
                 {t('launch', 'Lancer')}
               </button>
@@ -292,7 +292,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                   background: 'transparent',
                   border: 'none',
                   borderRadius: 8,
-                  color: '#9ca3af',
+                  color: 'var(--text-secondary)',
                   fontSize: 16,
                   padding: '8px',
                   cursor: 'pointer',
@@ -301,8 +301,8 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
-                onMouseOver={(e) => e.currentTarget.style.color = '#ffffff'}
-                onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
+                onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-inverse)'}
+                onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
                 title={t('change_executable', 'Changer l\'exécutable')}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -312,7 +312,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
               </button>
             </div>
           </div>
-        <div style={{ height: 2, background: 'linear-gradient(90deg, #374151 0%, #6b7280 50%, #374151 100%)' }} />
+        <div style={{ height: 2, background: 'linear-gradient(90deg, var(--bg-muted) 0%, var(--text-tertiary) 50%, var(--bg-muted) 100%)' }} />
   <div className="hide-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24, padding: '24px 32px 32px 32px', overflowY: 'auto', overflowX: 'hidden', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', marginBottom: 8 }}>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -335,7 +335,7 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
             onChange={setSearchQuery}
             placeholder={t('search', 'Rechercher...')}
             rightSlot={panel === 'recent' ? (
-              <div style={{ display: 'inline-flex', gap: 4, padding: 2, borderRadius: 10, background: '#1a222b', border: '1px solid #2a3642', flexShrink: 0 }}>
+              <div style={{ display: 'inline-flex', gap: 4, padding: 2, borderRadius: 10, background: 'var(--bg-surface-1)', border: '1px solid var(--border-soft)', flexShrink: 0 }}>
                 <button
                   onClick={() => setRecentViewMode('list')}
                   style={viewModeButtonStyle(recentViewMode === 'list')}
@@ -357,13 +357,13 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
           {panel === 'recent' ? (
             <>
               {recentLoading && (
-                <div style={{ color: '#94a3b8', fontSize: 14 }}>{t('loading', 'Chargement...')}</div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: 14 }}>{t('loading', 'Chargement...')}</div>
               )}
               {recentError && (
-                <div style={{ color: '#ef4444', fontSize: 14 }}>{t('error', 'Erreur')}: {recentError}</div>
+                <div style={{ color: 'var(--danger)', fontSize: 14 }}>{t('error', 'Erreur')}: {recentError}</div>
               )}
               {!recentLoading && !recentError && recentFiles.length === 0 && (
-                <div style={{ color: '#64748b', fontSize: 14 }}>{t('recent.none_for_build', 'Aucun fichier récent disponible pour ce build.')}</div>
+                <div style={{ color: 'var(--text-tertiary)', fontSize: 14 }}>{t('recent.none_for_build', 'Aucun fichier récent disponible pour ce build.')}</div>
               )}
               <div style={{ display: recentViewMode === 'list' ? 'block' : 'none' }}>
                 <Filter files={recentFiles} query={searchQuery} onSorted={(sorted) => { setDisplayFiles(sorted); }} />
@@ -438,3 +438,6 @@ const ViewPages: React.FC<ViewPagesProps> = ({ selectedBlender, onLaunch }) => {
 };
 
 export default ViewPages;
+
+
+

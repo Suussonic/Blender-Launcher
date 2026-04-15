@@ -28,6 +28,9 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
   const [launchOnStartup, setLaunchOnStartup] = useState<boolean>(false);
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
   const languageMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+  const themeMenuRef = useRef<HTMLDivElement | null>(null);
+  const [activeTheme, setActiveTheme] = useState<string>('dark-blue');
 
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState<string | null>(null);
@@ -38,18 +41,18 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
     width: 20,
     height: 20,
     borderRadius: 6,
-    border: '2px solid #3b4454',
-    background: '#121722',
+    border: '2px solid var(--border-strong)',
+    background: 'var(--bg-surface-1)',
     display: 'inline-block',
     cursor: 'pointer',
     transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s',
-    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.03)',
+    boxShadow: 'inset 0 0 0 1px var(--bg-glass)',
   };
 
   const checkboxCheckedStyle: React.CSSProperties = {
-    background: 'linear-gradient(180deg, #1d4f83 0%, #173a5f 100%)',
-    borderColor: '#60a5fa',
-    boxShadow: 'inset 0 0 0 3px #0f2238, 0 0 0 1px rgba(96,165,250,0.45)',
+    background: 'linear-gradient(180deg, color-mix(in srgb, var(--accent) 55%, var(--bg-card)) 0%, color-mix(in srgb, var(--accent) 42%, var(--bg-card)) 100%)',
+    borderColor: 'var(--accent-hover)',
+    boxShadow: 'inset 0 0 0 3px color-mix(in srgb, var(--accent) 20%, var(--bg-card)), 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent)',
   };
 
   const checkboxSmallStyle: React.CSSProperties = {
@@ -84,6 +87,8 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
           setScanOnStartup(!!general?.scanOnStartup);
           setExitOnClose(!!general?.exitOnClose);
           setLaunchOnStartup(!!general?.launchOnStartup);
+          const validThemes = ['dark-blue', 'black', 'grey', 'light'];
+          if (validThemes.includes(general?.theme)) setActiveTheme(general.theme);
         } catch {}
 
         const steamCfg = await window.electronAPI?.invoke?.('get-steam-config');
@@ -144,12 +149,44 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
     return () => document.removeEventListener('mousedown', onDocumentMouseDown);
   }, []);
 
+  useEffect(() => {
+    const onDocumentMouseDown = (event: MouseEvent) => {
+      if (!themeMenuRef.current) return;
+      if (!themeMenuRef.current.contains(event.target as Node)) {
+        setIsThemeMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    return () => document.removeEventListener('mousedown', onDocumentMouseDown);
+  }, []);
+
   const activeLanguageCode = i18n.language.toLowerCase().startsWith('fr') ? 'fr' : 'en';
   const languageOptions = [
     { code: 'fr', label: t('language.french') },
     { code: 'en', label: t('language.english') },
   ];
   const activeLanguageLabel = languageOptions.find(opt => opt.code === activeLanguageCode)?.label || activeLanguageCode.toUpperCase();
+
+  const themeOptions = [
+    { code: 'dark-blue', label: 'Dark Blue' },
+    { code: 'black',     label: 'Black' },
+    { code: 'grey',      label: 'Gris' },
+    { code: 'light',     label: 'Clair' },
+  ];
+  const activeThemeLabel = themeOptions.find(opt => opt.code === activeTheme)?.label || 'Dark Blue';
+
+  const applyTheme = async (themeCode: string) => {
+    setActiveTheme(themeCode);
+    if (themeCode === 'dark-blue') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', themeCode);
+    }
+    try {
+      await window.electronAPI?.invoke?.('update-general-config', { theme: themeCode });
+    } catch {}
+    setIsThemeMenuOpen(false);
+  };
 
   const runScanNow = async () => {
     if (!window.electronAPI?.invoke || scanning) return;
@@ -197,7 +234,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
     >
       <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <h2 style={{ fontWeight: 700, fontSize: 32, margin: '0 0 8px 0' }}>Général</h2>
-        <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
+        <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid var(--bg-card)', margin: '24px 0 32px 0' }} />
         <div style={{ width: '100%', maxWidth: 520 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', userSelect: 'none' }}>
             <input
@@ -211,7 +248,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
             />
             <span style={{ fontSize: 16, fontWeight: 500 }}>Scanner au démarrage</span>
           </label>
-          <div style={{ marginTop: 10, fontSize: 12, color: '#94a3b8' }}>
+          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-secondary)' }}>
             Lance automatiquement un scan des installations Blender au lancement.
           </div>
 
@@ -222,23 +259,23 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
               disabled={scanning}
               style={{
                 padding: '10px 16px',
-                background: scanning ? '#141821' : '#0f2238',
-                border: scanning ? '1px solid #334155' : '1px solid #3b82f6',
-                color: scanning ? '#94a3b8' : '#dbeafe',
+                background: scanning ? 'var(--bg-surface-1)' : 'color-mix(in srgb, var(--accent) 20%, var(--bg-card))',
+                border: scanning ? '1px solid var(--bg-muted)' : '1px solid var(--accent-hover)',
+                color: scanning ? 'var(--text-secondary)' : 'var(--text-inverse)',
                 borderRadius: 10,
                 cursor: scanning ? 'not-allowed' : 'pointer',
                 fontSize: 14,
                 fontWeight: 600,
                 transition: 'background 0.2s, border-color 0.2s',
-                boxShadow: scanning ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,0.04)',
+                boxShadow: scanning ? 'none' : 'inset 0 0 0 1px var(--bg-glass)',
               }}
-              onMouseOver={(e) => { if (!scanning) { e.currentTarget.style.background = '#143054'; e.currentTarget.style.borderColor = '#60a5fa'; } }}
-              onMouseOut={(e) => { if (!scanning) { e.currentTarget.style.background = '#0f2238'; e.currentTarget.style.borderColor = '#3b82f6'; } }}
+              onMouseOver={(e) => { if (!scanning) { e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 30%, var(--bg-card))'; e.currentTarget.style.borderColor = 'var(--accent-hover)'; } }}
+              onMouseOut={(e) => { if (!scanning) { e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 20%, var(--bg-card))'; e.currentTarget.style.borderColor = 'var(--accent-hover)'; } }}
               title="Scanner immédiatement vos installations Blender"
             >
               {scanning ? 'Scan en cours…' : 'Scanner maintenant'}
             </button>
-            {scanMsg && <span style={{ fontSize: 12, color: '#94a3b8' }}>{scanMsg}</span>}
+            {scanMsg && <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{scanMsg}</span>}
           </div>
           <div style={{ height: 14 }} />
 
@@ -260,7 +297,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
             />
             <span style={{ fontSize: 16, fontWeight: 500 }}>Quitter l’application à la fermeture</span>
           </label>
-          <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
             Si désactivé, la fenêtre sera masquée dans la zone de notification.
           </div>
           <div style={{ height: 12 }} />
@@ -282,7 +319,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
             />
             <span style={{ fontSize: 16, fontWeight: 500 }}>Lancer au démarrage</span>
           </label>
-          <div style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
             Démarre automatiquement Blender Launcher au démarrage de la session.
           </div>
         </div>
@@ -290,7 +327,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
 
       <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <h2 style={{ fontWeight: 700, fontSize: 32, margin: '0 0 8px 0' }}>{t('display')}</h2>
-        <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
+        <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid var(--bg-card)', margin: '24px 0 32px 0' }} />
         <div style={{ width: '100%', maxWidth: 520, display: 'flex', alignItems: 'center', gap: 24 }}>
           <span style={{ fontSize: 20, fontWeight: 500 }}>{t('change_language')} :</span>
           <div ref={languageMenuRef} style={{ position: 'relative', minWidth: 200, marginLeft: 8 }}>
@@ -302,20 +339,20 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
                 fontSize: 18,
                 padding: '8px 12px',
                 borderRadius: 10,
-                border: isLanguageMenuOpen ? '1px solid #60a5fa' : '1px solid #334155',
-                background: '#0f1724',
-                color: '#e2e8f0',
+                border: isLanguageMenuOpen ? '1px solid var(--accent-hover)' : '1px solid var(--bg-muted)',
+                background: 'var(--bg-card)',
+                color: 'var(--text-primary)',
                 outline: 'none',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                boxShadow: isLanguageMenuOpen ? '0 0 0 1px rgba(96,165,250,0.3)' : 'inset 0 0 0 1px rgba(255,255,255,0.03)',
+                boxShadow: isLanguageMenuOpen ? '0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent)' : 'inset 0 0 0 1px var(--bg-glass)',
               }}
               title={t('change_language')}
             >
               <span>{activeLanguageLabel}</span>
-              <span style={{ fontSize: 12, color: '#94a3b8' }}>{isLanguageMenuOpen ? '▲' : '▼'}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{isLanguageMenuOpen ? '▲' : '▼'}</span>
             </button>
 
             {isLanguageMenuOpen && (
@@ -326,9 +363,9 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
                   left: 0,
                   right: 0,
                   borderRadius: 10,
-                  border: '1px solid #334155',
-                  background: '#0b1320',
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
+                  border: '1px solid var(--bg-muted)',
+                  background: 'var(--bg-surface-3)',
+                  boxShadow: '0 10px 30px var(--shadow-soft)',
                   overflow: 'hidden',
                   zIndex: 30,
                 }}
@@ -350,9 +387,9 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
                       style={{
                         width: '100%',
                         border: 'none',
-                        borderTop: option.code === languageOptions[0].code ? 'none' : '1px solid rgba(148,163,184,0.15)',
-                        background: isActive ? '#153253' : '#0b1320',
-                        color: isActive ? '#dbeafe' : '#cbd5e1',
+                        borderTop: option.code === languageOptions[0].code ? 'none' : '1px solid color-mix(in srgb, var(--text-secondary) 28%, transparent)',
+                        background: isActive ? 'color-mix(in srgb, var(--accent) 34%, var(--bg-card))' : 'var(--bg-surface-3)',
+                        color: isActive ? 'var(--text-inverse)' : 'var(--text-primary)',
                         textAlign: 'left',
                         padding: '10px 12px',
                         fontSize: 16,
@@ -360,13 +397,85 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
                         cursor: 'pointer',
                       }}
                       onMouseOver={e => {
-                        if (!isActive) e.currentTarget.style.background = '#142033';
+                        if (!isActive) e.currentTarget.style.background = 'var(--bg-surface-2)';
                       }}
                       onMouseOut={e => {
-                        if (!isActive) e.currentTarget.style.background = '#0b1320';
+                        if (!isActive) e.currentTarget.style.background = 'var(--bg-surface-3)';
                       }}
                     >
                       {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Theme dropdown */}
+        <div style={{ width: '100%', maxWidth: 520, display: 'flex', alignItems: 'center', gap: 24, marginTop: 24 }}>
+          <span style={{ fontSize: 20, fontWeight: 500 }}>Thème :</span>
+          <div ref={themeMenuRef} style={{ position: 'relative', minWidth: 200, marginLeft: 8 }}>
+            <button
+              type="button"
+              onClick={() => setIsThemeMenuOpen(v => !v)}
+              style={{
+                width: '100%',
+                fontSize: 18,
+                padding: '8px 12px',
+                borderRadius: 10,
+                border: isThemeMenuOpen ? '1px solid var(--accent-hover)' : '1px solid var(--bg-muted)',
+                background: 'var(--bg-card)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: isThemeMenuOpen ? '0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent)' : 'inset 0 0 0 1px var(--bg-glass)',
+              }}
+            >
+              <span>{activeThemeLabel}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{isThemeMenuOpen ? '▲' : '▼'}</span>
+            </button>
+            {isThemeMenuOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  left: 0,
+                  right: 0,
+                  borderRadius: 10,
+                  border: '1px solid var(--bg-muted)',
+                  background: 'var(--bg-surface-3)',
+                  boxShadow: '0 10px 30px var(--shadow-soft)',
+                  overflow: 'hidden',
+                  zIndex: 30,
+                }}
+              >
+                {themeOptions.map((opt, idx) => {
+                  const isActive = opt.code === activeTheme;
+                  return (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      onClick={() => applyTheme(opt.code)}
+                      style={{
+                        width: '100%',
+                        border: 'none',
+                        borderTop: idx === 0 ? 'none' : '1px solid color-mix(in srgb, var(--text-secondary) 28%, transparent)',
+                        background: isActive ? 'color-mix(in srgb, var(--accent) 34%, var(--bg-card))' : 'var(--bg-surface-3)',
+                        color: isActive ? 'var(--text-inverse)' : 'var(--text-primary)',
+                        textAlign: 'left',
+                        padding: '10px 12px',
+                        fontSize: 16,
+                        fontWeight: isActive ? 700 : 500,
+                        cursor: 'pointer',
+                      }}
+                      onMouseOver={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-surface-2)'; }}
+                      onMouseOut={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-surface-3)'; }}
+                    >
+                      {opt.label}
                     </button>
                   );
                 })}
@@ -378,7 +487,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
 
       <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <h2 style={{ fontWeight: 700, fontSize: 32, margin: '0 0 8px 0' }}>Discord</h2>
-        <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
+        <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid var(--bg-card)', margin: '24px 0 32px 0' }} />
         <div style={{ width: '100%', maxWidth: 520, display: 'flex', flexDirection: 'column', gap: 18 }}>
           <label
             style={{
@@ -403,7 +512,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
             />
             <span style={{ fontSize: 16, fontWeight: 500 }}>Afficher l'activité</span>
             {lastLaunched && (
-              <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#94a3b8' }}>
+              <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
                 <img
                   src={lastLaunched.icon || require('../../../../public/logo/png/Blender-Launcher-64x64.png')}
                   alt="icon"
@@ -414,7 +523,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
             )}
           </label>
           {discordAvailable === false && (
-            <div style={{ marginTop: 8, color: '#ef4444', fontSize: 13 }}>
+            <div style={{ marginTop: 8, color: 'var(--danger)', fontSize: 13 }}>
               Discord Rich Presence indisponible (Discord non installé ou configuration invalide).
             </div>
           )}
@@ -453,7 +562,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
 
       <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <h2 style={{ fontWeight: 700, fontSize: 32, margin: '0 0 8px 0' }}>Steam</h2>
-        <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid #23272F', margin: '24px 0 32px 0' }} />
+        <div style={{ width: '100%', maxWidth: 520, borderBottom: '2px solid var(--bg-card)', margin: '24px 0 32px 0' }} />
         <div style={{ width: '100%', maxWidth: 520 }}>
           <label
             style={{
@@ -478,7 +587,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
             />
             <span style={{ fontSize: 16, fontWeight: 500 }}>Lancer via Steam</span>
             {lastLaunched && (
-              <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#94a3b8' }}>
+              <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
                 <img
                   src={lastLaunched.icon || require('../../../../public/logo/png/Blender-Launcher-64x64.png')}
                   alt="icon"
@@ -489,7 +598,7 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
             )}
           </label>
           {steamAvailable === false && (
-            <div style={{ marginTop: 8, color: '#ef4444', fontSize: 13 }}>
+            <div style={{ marginTop: 8, color: 'var(--danger)', fontSize: 13 }}>
               La version de Blender via Steam est introuvable. Installez Blender dans Steam pour activer cette option.
             </div>
           )}
@@ -502,3 +611,6 @@ const SettingsPage: React.FC<Props> = ({ lastLaunched, renderActive, notify }) =
 };
 
 export default SettingsPage;
+
+
+

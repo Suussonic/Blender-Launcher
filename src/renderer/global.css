@@ -1,3 +1,236 @@
+/* ============================================================
+   Theme CSS custom properties
+   ============================================================ */
+:root {
+  /* Default: Dark Blue */
+  --bg-body: linear-gradient(135deg, #23272F 0%, #181A20 100%);
+  --bg-primary: #181A20;
+  --bg-card: #0f1724;
+  --bg-card-hover: #182129;
+  --bg-surface-1: #131a20;
+  --bg-surface-2: #1e2530;
+  --bg-surface-3: #0b1016;
+  --bg-muted: #1f2937;
+  --bg-elevated: #071018;
+  --bg-home: linear-gradient(135deg, #0f1724, #0b111a);
+  --bg-input: #0f1724;
+  --bg-overlay: rgba(0, 0, 0, 0.50);
+  --bg-glass: rgba(255, 255, 255, 0.02);
+  --border-color: #23272F;
+  --border-soft: #1e2530;
+  --border-strong: #26303b;
+  --border-muted: #17202a;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-inverse: #ffffff;
+  --text-success: #9fe7b2;
+  --text-danger: #f87171;
+  --text-warning: #fbbf24;
+  --text-link: #38bdf8;
+  --text-code: #93c5fd;
+  --accent: #2563eb;
+  --accent-hover: #3b82f6;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --danger-bg: #31141b;
+  --danger-border: #842b3b;
+  --chip-info-bg: #0b1220;
+  --chip-info-text: #9ccfd8;
+  --chip-alt-text: #d6c9f9;
+  --code-bg: #1d252d;
+  --table-head-bg: #182028;
+  --table-row-alt-bg: #141c23;
+  --blockquote-bg: #182028;
+  --blockquote-border: #33404c;
+  --shadow-color: rgba(0, 0, 0, 0.55);
+  --shadow-soft: rgba(0, 0, 0, 0.35);
+  --range-track-start: #93c5fd;
+  --range-track-end: #60a5fa;
+  --range-thumb-bg: #0b1220;
+  --range-thumb-border: #93c5fd;
+  --range-thumb-ring: rgba(147, 197, 253, 0.25);
+  --focus-ring: rgba(59, 130, 246, 0.35);
+  --scrollbar-thumb: #2c343c;
+  --scrollbar-thumb-border: #1e252b;
+  --scrollbar-thumb-hover: #364049;
+}
+
+[data-theme="black"] {
+  --bg-body: linear-gradient(135deg, #1a1a1a 0%, #050505 100%);
+  --bg-primary: #0a0a0a;
+  --bg-card: #111111;
+  --bg-card-hover: #181818;
+  --bg-surface-1: #121212;
+  --bg-surface-2: #1b1b1b;
+  --bg-surface-3: #090909;
+  --bg-muted: #1f1f1f;
+  --bg-elevated: #101010;
+  --bg-home: linear-gradient(135deg, #141414, #080808);
+  --bg-input: #111111;
+  --bg-overlay: rgba(0, 0, 0, 0.62);
+  --bg-glass: rgba(255, 255, 255, 0.03);
+  --border-color: #1f1f1f;
+  --border-soft: #252525;
+  --border-strong: #323232;
+  --border-muted: #212121;
+  --text-primary: #f0f0f0;
+  --text-secondary: #888888;
+  --text-tertiary: #7a7a7a;
+  --text-inverse: #ffffff;
+  --text-success: #9fd8b0;
+  --text-danger: #ff8f8f;
+  --text-warning: #f6cf70;
+  --text-link: #7cc5ff;
+  --text-code: #8ec6ff;
+  --accent: #3a77e5;
+  --accent-hover: #4a8af8;
+  --success: #2ebf68;
+  --danger: #e85b5b;
+  --danger-bg: #2a1418;
+  --danger-border: #6f2a35;
+  --chip-info-bg: #10131a;
+  --chip-info-text: #8fc3d1;
+  --chip-alt-text: #cdb9eb;
+  --code-bg: #191919;
+  --table-head-bg: #161616;
+  --table-row-alt-bg: #121212;
+  --blockquote-bg: #151515;
+  --blockquote-border: #2e2e2e;
+  --shadow-color: rgba(0, 0, 0, 0.68);
+  --shadow-soft: rgba(0, 0, 0, 0.45);
+  --range-track-start: #7eb3f8;
+  --range-track-end: #5f93db;
+  --range-thumb-bg: #0b0b0b;
+  --range-thumb-border: #8fbef9;
+  --range-thumb-ring: rgba(143, 190, 249, 0.22);
+  --focus-ring: rgba(74, 138, 248, 0.34);
+  --scrollbar-thumb: #222222;
+  --scrollbar-thumb-border: #111111;
+  --scrollbar-thumb-hover: #333333;
+}
+
+[data-theme="grey"] {
+  --bg-body: linear-gradient(135deg, #343840 0%, #2a2d35 100%);
+  --bg-primary: #2a2d35;
+  --bg-card: #222630;
+  --bg-card-hover: #2d3340;
+  --bg-surface-1: #252b35;
+  --bg-surface-2: #303744;
+  --bg-surface-3: #202530;
+  --bg-muted: #383d47;
+  --bg-elevated: #1f2530;
+  --bg-home: linear-gradient(135deg, #272b33, #1e2128);
+  --bg-input: #222630;
+  --bg-overlay: rgba(18, 20, 26, 0.52);
+  --bg-glass: rgba(255, 255, 255, 0.035);
+  --border-color: #383d47;
+  --border-soft: #2f3542;
+  --border-strong: #485061;
+  --border-muted: #353c49;
+  --text-primary: #e2e8f0;
+  --text-secondary: #9ca3af;
+  --text-tertiary: #8a93a3;
+  --text-inverse: #ffffff;
+  --text-success: #9bdcb1;
+  --text-danger: #f38f98;
+  --text-warning: #f1cf75;
+  --text-link: #6dc4f6;
+  --text-code: #9fc9ff;
+  --accent: #3f77d8;
+  --accent-hover: #4b87ed;
+  --success: #33b86c;
+  --danger: #df5668;
+  --danger-bg: #3a1f28;
+  --danger-border: #75404d;
+  --chip-info-bg: #252c39;
+  --chip-info-text: #9bc9d1;
+  --chip-alt-text: #c9c1e8;
+  --code-bg: #262d38;
+  --table-head-bg: #222936;
+  --table-row-alt-bg: #202734;
+  --blockquote-bg: #242c37;
+  --blockquote-border: #465062;
+  --shadow-color: rgba(8, 10, 16, 0.52);
+  --shadow-soft: rgba(10, 12, 18, 0.33);
+  --range-track-start: #8dbef7;
+  --range-track-end: #5e9ee9;
+  --range-thumb-bg: #1d2430;
+  --range-thumb-border: #8dbef7;
+  --range-thumb-ring: rgba(141, 190, 247, 0.24);
+  --focus-ring: rgba(75, 135, 237, 0.32);
+  --scrollbar-thumb: #404550;
+  --scrollbar-thumb-border: #2e3340;
+  --scrollbar-thumb-hover: #515869;
+}
+
+[data-theme="light"] {
+  --bg-body: linear-gradient(135deg, #dce3ec 0%, #f0f2f5 100%);
+  --bg-primary: #e8edf4;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f2f6fc;
+  --bg-surface-1: #f1f5fb;
+  --bg-surface-2: #e5ecf5;
+  --bg-surface-3: #dbe5f1;
+  --bg-muted: #cbd5e1;
+  --bg-elevated: #f7f9fc;
+  --bg-home: linear-gradient(135deg, #e2e8f0, #f8fafc);
+  --bg-input: #f8fafc;
+  --bg-overlay: rgba(29, 36, 46, 0.22);
+  --bg-glass: rgba(15, 23, 42, 0.04);
+  --border-color: #cbd5e1;
+  --border-soft: #d4deeb;
+  --border-strong: #9fb0c6;
+  --border-muted: #d7e0ed;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-tertiary: #506078;
+  --text-inverse: #111111;
+  --text-success: #2f7e47;
+  --text-danger: #b83e4f;
+  --text-warning: #9d6f19;
+  --text-link: #0369a1;
+  --text-code: #1d4ed8;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --danger-bg: #fde8ee;
+  --danger-border: #f3b7c5;
+  --chip-info-bg: #dce9f8;
+  --chip-info-text: #0f4f73;
+  --chip-alt-text: #6b4ca3;
+  --code-bg: #eef3f9;
+  --table-head-bg: #e5edf7;
+  --table-row-alt-bg: #f2f6fb;
+  --blockquote-bg: #eaf1fa;
+  --blockquote-border: #9ab0c9;
+  --shadow-color: rgba(15, 23, 42, 0.18);
+  --shadow-soft: rgba(15, 23, 42, 0.16);
+  --range-track-start: #60a5fa;
+  --range-track-end: #3b82f6;
+  --range-thumb-bg: #ffffff;
+  --range-thumb-border: #60a5fa;
+  --range-thumb-ring: rgba(59, 130, 246, 0.20);
+  --focus-ring: rgba(37, 99, 235, 0.30);
+  --scrollbar-thumb: #b0bcc8;
+  --scrollbar-thumb-border: #c8d4df;
+  --scrollbar-thumb-hover: #94a3b8;
+}
+
+/* Apply theme scrollbar colors globally */
+[data-theme="black"] *::-webkit-scrollbar-thumb,
+[data-theme="grey"] *::-webkit-scrollbar-thumb,
+[data-theme="light"] *::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-color: var(--scrollbar-thumb-border);
+}
+[data-theme="black"] *::-webkit-scrollbar-thumb:hover,
+[data-theme="grey"] *::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] *::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
 /* Masque les scrollbars mais garde le scroll */
 .scroll-hide {
   scrollbar-width: none; /* Firefox */
@@ -33,7 +266,7 @@ input[type=number] {
 .modal-shell {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.50);
+  background: var(--bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -43,10 +276,10 @@ input[type=number] {
 .modal-card {
   width: min(880px, 96vw);
   max-height: min(92vh, 980px);
-  background: #0F1419;
-  border: 1px solid #25303b;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
   border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+  box-shadow: 0 20px 60px var(--shadow-color);
   display: grid;
   grid-template-rows: auto 1fr auto;
   overflow: hidden;
@@ -54,20 +287,20 @@ input[type=number] {
 .modal-card.full { width: 96vw; max-height: 96vh; }
 .modal-header, .modal-footer {
   padding: 14px 16px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0) 60%);
+  background: linear-gradient(180deg, var(--bg-glass), rgba(0,0,0,0) 60%);
 }
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.modal-title { margin: 0; color: #e5e7eb; font-size: 18px; font-weight: 800; }
+.modal-title { margin: 0; color: var(--text-primary); font-size: 18px; font-weight: 800; }
 .modal-body {
   padding: 16px;
   overflow: auto;
 }
 .modal-close {
-  background: transparent; border: none; color: #9ca3af; cursor: pointer; font-size: 20px;
+  background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 20px;
 }
 
 /* Fancy segmented switch hover */
@@ -80,13 +313,13 @@ input[type=number] {
   width: 240px;
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #93c5fd, #60a5fa);
+  background: linear-gradient(90deg, var(--range-track-start), var(--range-track-end));
   outline: none;
 }
 .range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px; height: 18px; border-radius: 50%; background: #0b1220; border: 2px solid #93c5fd; box-shadow: 0 0 0 4px rgba(147,197,253,0.25);
+  width: 18px; height: 18px; border-radius: 50%; background: var(--range-thumb-bg); border: 2px solid var(--range-thumb-border); box-shadow: 0 0 0 4px var(--range-thumb-ring);
 }
-.range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #0b1220; border: 2px solid #93c5fd; box-shadow: 0 0 0 4px rgba(147,197,253,0.25); }
-.range:focus-visible { box-shadow: 0 0 0 3px rgba(59,130,246,0.35); }
+.range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--range-thumb-bg); border: 2px solid var(--range-thumb-border); box-shadow: 0 0 0 4px var(--range-thumb-ring); }
+.range:focus-visible { box-shadow: 0 0 0 3px var(--focus-ring); }

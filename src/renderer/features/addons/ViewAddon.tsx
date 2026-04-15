@@ -80,9 +80,9 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 24 }}>
       <TableHeader variant="addons" activeField={activeField} activeDir={activeDir} onToggle={(f) => toggle(f)} />
-      {addonsLoading && <div style={{ color: '#94a3b8' }}>{t('addons.scanning', 'Scanning...')}</div>}
-      {addonsError && <div style={{ color: '#f87171' }}>{t('addons.error_prefix', 'Error:')} {addonsError}</div>}
-      {!addonsLoading && addons.length === 0 && <div style={{ color: '#64748b' }}>{t('addons.none_detected', 'No add-on detected')}</div>}
+      {addonsLoading && <div style={{ color: 'var(--text-secondary)' }}>{t('addons.scanning', 'Scanning...')}</div>}
+      {addonsError && <div style={{ color: 'var(--text-danger)' }}>{t('addons.error_prefix', 'Error:')} {addonsError}</div>}
+      {!addonsLoading && addons.length === 0 && <div style={{ color: 'var(--text-tertiary)' }}>{t('addons.none_detected', 'No add-on detected')}</div>}
       
         {addons.slice().sort((a,b) => {
           if (!activeField) return 0;
@@ -142,8 +142,8 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
               tabIndex={exists ? 0 : -1}
               onKeyDown={(e) => { if (exists && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); } }}
               style={{
-                background: '#131a20',
-                border: '1px solid #1e2530',
+                background: 'var(--bg-surface-1)',
+                border: '1px solid var(--bg-surface-2)',
                 borderRadius: 10,
                 padding: '10px 14px',
                 display: 'grid',
@@ -156,16 +156,16 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
                 transition: 'background 0.15s, border-color 0.15s',
                 minWidth: 0
               }}
-              onMouseOver={e => { if (exists) { e.currentTarget.style.background = '#182129'; e.currentTarget.style.borderColor = '#26303b'; } }
+              onMouseOver={e => { if (exists) { e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; } }
               }
-              onMouseOut={e => { e.currentTarget.style.background = '#131a20'; e.currentTarget.style.borderColor = '#1e2530'; }}
+              onMouseOut={e => { e.currentTarget.style.background = 'var(--bg-surface-1)'; e.currentTarget.style.borderColor = 'var(--bg-surface-2)'; }}
             >
             <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span
                 style={{
                   fontSize: 15,
                   fontWeight: 500,
-                  color: '#e2e8f0',
+                  color: 'var(--text-primary)',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis'
@@ -176,13 +176,13 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
               </span>
               <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', opacity: 0.7, display: 'inline-block' }} title={a.path}>{a.path ? a.path : ''}</span>
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#64748b', fontSize: 12 }}>
-              {bl.version ? <span style={{ background: '#0b1220', color: '#9ccfd8', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.version)}</span> : <span style={{ opacity: 0.6 }}>—</span>}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: 'var(--text-tertiary)', fontSize: 12 }}>
+              {bl.version ? <span style={{ background: 'var(--chip-info-bg)', color: 'var(--chip-info-text)', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.version)}</span> : <span style={{ opacity: 0.6 }}>—</span>}
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#64748b', fontSize: 12, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={String(bl.author || '')}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: 'var(--text-tertiary)', fontSize: 12, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={String(bl.author || '')}>
               {bl.author ? <span style={{ opacity: 0.9 }}>{String(bl.author)}</span> : <span style={{ opacity: 0.6 }}>—</span>}
             </div>
-            <div style={{ color: '#64748b', fontSize: 12 }}>{bl.category ? <span style={{ background: '#0b1220', color: '#d6c9f9', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.category)}</span> : <span style={{ opacity: 0.6 }}>—</span>}</div>
+            <div style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>{bl.category ? <span style={{ background: 'var(--chip-info-bg)', color: 'var(--chip-alt-text)', padding: '2px 6px', borderRadius: 6, fontSize: 12 }}>{String(bl.category)}</span> : <span style={{ opacity: 0.6 }}>—</span>}</div>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', width: 140, justifyContent: 'flex-end', flexShrink: 0 }}>
               <div style={{ marginRight: 6 }}>
                 <button
@@ -190,9 +190,9 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
                   disabled={!a.module || !!updating[a.module]}
                   title={a.enabled ? t('addons.disable', 'Disable') : t('addons.enable', 'Enable')}
                   style={{
-                    background: a.enabled ? '#16221b' : '#14161a',
-                    border: a.enabled ? '1px solid #234d2f' : '1px solid #2a2f36',
-                    color: a.enabled ? '#9fe7b2' : '#94a3b8',
+                    background: a.enabled ? 'color-mix(in srgb, var(--success) 22%, var(--bg-card))' : 'var(--bg-card)',
+                    border: a.enabled ? '1px solid color-mix(in srgb, var(--success) 45%, var(--border-color))' : '1px solid var(--border-color)',
+                    color: a.enabled ? 'var(--text-success)' : 'var(--text-secondary)',
                     padding: '6px 10px',
                     borderRadius: 8,
                     fontSize: 12,
@@ -206,9 +206,9 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
                 onClick={(e) => { e.stopPropagation(); if (a.path) { (window as any).electronAPI?.send?.('reveal-in-folder', { path: a.path }); } }}
                 title={t('addons.open_folder', 'Open folder')}
                 style={{
-                  background: '#1e2530',
+                  background: 'var(--bg-surface-2)',
                   border: 'none',
-                  color: '#94a3b8',
+                  color: 'var(--text-secondary)',
                   width: 34,
                   height: 34,
                   display: 'flex',
@@ -226,17 +226,17 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
               </button>
             </div>
             {errMsg && (
-              <div style={{ color: '#f87171', fontSize: 12, marginTop: 6, gridColumn: '1 / -1' }} title={errMsg}>
+              <div style={{ color: 'var(--text-danger)', fontSize: 12, marginTop: 6, gridColumn: '1 / -1' }} title={errMsg}>
                 {errMsg.split('\n').slice(0,3).join(' ')}{errMsg.split('\n').length > 3 ? '…' : ''}
               </div>
             )}
             </div>
             {isExpanded && (
-            <div style={{ marginTop: 8, marginBottom: 8, padding: 12, background: '#071018', border: '1px solid #17202a', borderRadius: 8 }}>
+            <div style={{ marginTop: 8, marginBottom: 8, padding: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border-muted)', borderRadius: 8 }}>
               {bl.description && (
-                <div style={{ color: '#cbd5e1', marginBottom: 8 }}><strong>{t('addons.description', 'Description')}:</strong> <span style={{ color: '#9fb0c6' }}>{bl.description}</span></div>
+                <div style={{ color: 'var(--text-primary)', marginBottom: 8 }}><strong>{t('addons.description', 'Description')}:</strong> <span style={{ color: 'var(--text-secondary)' }}>{bl.description}</span></div>
               )}
-              <div style={{ color: '#9fb0c6', fontSize: 13, overflowX: 'auto' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 13, overflowX: 'auto' }}>
                 <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, margin: 0 }}>{JSON.stringify(bl, null, 2)}</pre>
               </div>
             </div>
@@ -245,15 +245,15 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
           );
         })}
       {debugOpen && (
-        <div style={{ marginTop: 12, background: '#071018', border: '1px solid #17202a', padding: 12, borderRadius: 8 }}>
-          <h4 style={{ margin: '0 0 8px 0', color: '#e6eef8' }}>{t('addons.debug_output', 'Debug output')}</h4>
-          <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 8 }}>
+        <div style={{ marginTop: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border-muted)', padding: 12, borderRadius: 8 }}>
+          <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>{t('addons.debug_output', 'Debug output')}</h4>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 8 }}>
             <strong>{t('addons.stdout', 'Stdout')}:</strong>
-            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#c7f9d4', background: 'transparent', marginTop: 6 }}>{lastProbeStdout || t('addons.empty', '(empty)')}</pre>
+            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: 'var(--text-success)', background: 'transparent', marginTop: 6 }}>{lastProbeStdout || t('addons.empty', '(empty)')}</pre>
           </div>
-          <div style={{ color: '#94a3b8', fontSize: 13 }}>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
             <strong>{t('addons.stderr', 'Stderr')}:</strong>
-            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#f9c7c7', background: 'transparent', marginTop: 6 }}>{lastProbeStderr || t('addons.empty', '(empty)')}</pre>
+            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: 'var(--text-danger)', background: 'transparent', marginTop: 6 }}>{lastProbeStderr || t('addons.empty', '(empty)')}</pre>
           </div>
         </div>
       )}
@@ -262,3 +262,4 @@ const ViewAddon: React.FC<Props> = ({ selectedBlender, query }) => {
 };
 
 export default ViewAddon;
+

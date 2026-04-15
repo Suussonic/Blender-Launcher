@@ -59,7 +59,7 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        backgroundColor: 'var(--shadow-color)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -68,13 +68,13 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
       onClick={handleOverlayClick}
     >
       <div style={{
-        backgroundColor: '#181A20',
+        backgroundColor: 'var(--bg-primary)',
         borderRadius: 14,
         padding: '32px',
         minWidth: '420px',
         maxWidth: '520px',
-        border: '1px solid #23272F',
-        boxShadow: '0 24px 64px -8px rgba(0,0,0,0.55)',
+        border: '1px solid var(--bg-card)',
+        boxShadow: '0 24px 64px -8px var(--shadow-color)',
       }}>
         <div style={{
           display: 'flex',
@@ -99,13 +99,13 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
               fontSize: 20,
               fontWeight: 600,
               margin: 0,
-              color: '#fff',
+              color: 'var(--text-inverse)',
             }}>
               Paramètres de l'exécutable
             </h2>
             <p style={{
               fontSize: 12,
-              color: '#888',
+              color: 'var(--text-secondary)',
               margin: '4px 0 0 0',
               wordBreak: 'break-all',
             }}>
@@ -123,18 +123,18 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
             style={{
               width: '100%',
               padding: '12px 16px',
-              backgroundColor: '#20242B',
-              border: '1px solid #2d3239',
+              backgroundColor: 'var(--bg-card)',
+              border: '1px solid var(--bg-surface-2)',
               borderRadius: 10,
-              color: '#fff',
+              color: 'var(--text-inverse)',
               fontSize: 14,
               outline: 'none',
               transition: 'border-color 0.2s, background-color 0.2s',
               boxSizing: 'border-box',
               height: '44px',
             }}
-            onFocus={(e) => { e.target.style.borderColor = '#3d4752'; e.target.style.backgroundColor = '#242a32'; }}
-            onBlur={(e) => { e.target.style.borderColor = '#2d3239'; e.target.style.backgroundColor = '#20242B'; }}
+            onFocus={(e) => { e.target.style.borderColor = 'var(--border-strong)'; e.target.style.backgroundColor = 'var(--bg-card-hover)'; }}
+            onBlur={(e) => { e.target.style.borderColor = 'var(--bg-surface-2)'; e.target.style.backgroundColor = 'var(--bg-card)'; }}
           />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <button
@@ -143,10 +143,10 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
               style={{
                 width: '100%',
                 padding: '12px 16px',
-                backgroundColor: '#303842',
-                border: '1px solid #3d4752',
+                backgroundColor: 'var(--border-color)',
+                border: '1px solid var(--border-strong)',
                 borderRadius: 10,
-                color: '#fff',
+                color: 'var(--text-inverse)',
                 fontSize: 14,
                 cursor: isRelocating ? 'not-allowed' : 'pointer',
                 transition: 'background-color 0.2s',
@@ -157,10 +157,10 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
                 height: '44px',
               }}
               onMouseOver={(e) => {
-                if (!isRelocating) e.currentTarget.style.backgroundColor = '#3b4652';
+                if (!isRelocating) e.currentTarget.style.backgroundColor = 'var(--border-strong)';
               }}
               onMouseOut={(e) => {
-                if (!isRelocating) e.currentTarget.style.backgroundColor = '#303842';
+                if (!isRelocating) e.currentTarget.style.backgroundColor = 'var(--border-color)';
               }}
             >
               <svg 
@@ -184,10 +184,10 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
               style={{
                 width: '100%',
                 padding: '12px 16px',
-                background: 'linear-gradient(135deg,#7a2323,#b02c2c)',
-                border: '1px solid #8c2424',
+                background: 'linear-gradient(135deg,color-mix(in srgb, var(--danger) 45%, var(--bg-card)),color-mix(in srgb, var(--danger) 70%, var(--bg-card)))',
+                border: '1px solid color-mix(in srgb, var(--danger) 55%, var(--bg-card))',
                 borderRadius: 10,
-                color: '#fff',
+                color: 'var(--text-inverse)',
                 fontSize: 14,
                 cursor: 'pointer',
                 transition: 'filter 0.2s',
@@ -222,20 +222,20 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
             style={{
               padding: '10px 20px',
               backgroundColor: 'transparent',
-              border: '1px solid #666',
+              border: '1px solid var(--text-tertiary)',
               borderRadius: 8,
-              color: '#ccc',
+              color: 'var(--text-secondary)',
               fontSize: 14,
               cursor: 'pointer',
               transition: 'all 0.2s',
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.backgroundColor = '#333';
-              e.currentTarget.style.borderColor = '#777';
+              e.currentTarget.style.backgroundColor = 'var(--text-secondary)';
+              e.currentTarget.style.borderColor = 'var(--text-secondary)';
             }}
             onMouseOut={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.borderColor = '#666';
+              e.currentTarget.style.borderColor = 'var(--text-tertiary)';
             }}
           >
             Annuler
@@ -244,17 +244,17 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
             onClick={handleSave}
             style={{
               padding: '10px 20px',
-              backgroundColor: '#22c55e',
+              backgroundColor: 'var(--success)',
               border: 'none',
               borderRadius: 8,
-              color: '#fff',
+              color: 'var(--text-inverse)',
               fontSize: 14,
               fontWeight: 600,
               cursor: 'pointer',
               transition: 'background-color 0.2s',
             }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#16a34a'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#22c55e'}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--success)'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--success)'}
           >
             Enregistrer
           </button>
@@ -267,7 +267,7 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0,0,0,0.55)',
+          background: 'var(--shadow-color)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -277,8 +277,8 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
         >
           <div
             style={{
-              background: '#1f242b',
-              border: '1px solid #2f343b',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--bg-surface-2)',
               borderRadius: 14,
               width: 380,
               maxWidth: '90%',
@@ -286,12 +286,12 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
               display: 'flex',
               flexDirection: 'column',
               gap: 20,
-              boxShadow: '0 18px 48px -12px rgba(0,0,0,0.55)'
+              boxShadow: '0 18px 48px -12px var(--shadow-color)'
             }}
             onClick={e => e.stopPropagation()}
           >
-            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: '#fff' }}>Confirmer la suppression</h3>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: '#cbd5e1' }}>
+            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: 'var(--text-inverse)' }}>Confirmer la suppression</h3>
+            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: 'var(--text-primary)' }}>
               Êtes-vous sûr de vouloir supprimer cet exécutable ? Cette action retirera seulement l'entrée de la liste (le fichier sur le disque n'est pas effacé).
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
@@ -300,13 +300,13 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
                 style={{
                   padding: '10px 18px',
                   background: 'transparent',
-                  border: '1px solid #475569',
-                  color: '#e2e8f0',
+                  border: '1px solid var(--text-tertiary)',
+                  color: 'var(--text-primary)',
                   borderRadius: 8,
                   cursor: 'pointer',
                   fontSize: 14,
                 }}
-                onMouseOver={(e) => { e.currentTarget.style.background = '#334155'; }}
+                onMouseOver={(e) => { e.currentTarget.style.background = 'var(--bg-muted)'; }}
                 onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
               >
                 Annuler
@@ -321,9 +321,9 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
                 }}
                 style={{
                   padding: '10px 18px',
-                  background: 'linear-gradient(135deg,#dc2626,#b91c1c)',
-                  border: '1px solid #991b1b',
-                  color: '#fff',
+                  background: 'linear-gradient(135deg,var(--danger),var(--danger))',
+                  border: '1px solid color-mix(in srgb, var(--danger) 62%, var(--bg-card))',
+                  color: 'var(--text-inverse)',
                   borderRadius: 8,
                   cursor: 'pointer',
                   fontSize: 14,
@@ -343,3 +343,6 @@ const ViewSettings: React.FC<ViewSettingsProps> = ({ isOpen, onClose, selectedBl
 };
 
 export default ViewSettings;
+
+
+

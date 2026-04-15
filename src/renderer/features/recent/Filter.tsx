@@ -25,13 +25,13 @@ const headerStyle: React.CSSProperties = {
   gap: 12,
   alignItems: 'center',
   padding: '8px 14px',
-  background: '#10171d',
-  border: '1px solid #1e2530',
+  background: 'var(--bg-surface-1)',
+  border: '1px solid var(--bg-surface-2)',
   borderRadius: 10,
   fontSize: 12,
   fontWeight: 600,
   letterSpacing: 0.5,
-  color: '#94a3b8',
+  color: 'var(--text-secondary)',
   userSelect: 'none'
 };
 
@@ -94,16 +94,16 @@ const Filter: React.FC<FilterProps> = ({ files, onSorted, query }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={headerStyle}>
-        <div style={{...cellBase, color: active('name') ? '#e2e8f0' : '#94a3b8'}} onClick={() => toggle('name')}>
+        <div style={{...cellBase, color: active('name') ? 'var(--text-primary)' : 'var(--text-secondary)'}} onClick={() => toggle('name')}>
           <span style={{flexShrink:0}}>Nom</span>{arrow(active('name'), sortDir)}
         </div>
-        <div style={{...cellBase, color: active('ctime') ? '#e2e8f0' : '#94a3b8'}} onClick={() => toggle('ctime')}>
+        <div style={{...cellBase, color: active('ctime') ? 'var(--text-primary)' : 'var(--text-secondary)'}} onClick={() => toggle('ctime')}>
           <span>Date de création</span>{arrow(active('ctime'), sortDir)}
         </div>
-        <div style={{...cellBase, color: active('order') ? '#e2e8f0' : '#94a3b8'}} onClick={() => toggle('order')}>
+        <div style={{...cellBase, color: active('order') ? 'var(--text-primary)' : 'var(--text-secondary)'}} onClick={() => toggle('order')}>
           <span>Date d'utilisation</span>{arrow(active('order'), sortDir)}
         </div>
-        <div style={{...cellBase, color: active('size') ? '#e2e8f0' : '#94a3b8'}} onClick={() => toggle('size')}>
+        <div style={{...cellBase, color: active('size') ? 'var(--text-primary)' : 'var(--text-secondary)'}} onClick={() => toggle('size')}>
           <span>Taille</span>{arrow(active('size'), sortDir)}
         </div>
         <div />
@@ -119,19 +119,19 @@ export const TableHeader: React.FC<{ activeField?: string | null, activeDir?: So
     const addonHeaderStyle: React.CSSProperties = { ...headerStyle, gridTemplateColumns: 'minmax(160px, 1fr) 170px 170px 110px 140px' };
     return (
       <div style={addonHeaderStyle}>
-        <div style={{...cellBase, color: active('name') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('name')}>
+        <div style={{...cellBase, color: active('name') ? 'var(--text-primary)' : 'var(--text-secondary)'}} onClick={() => onToggle?.('name')}>
           <span style={{flexShrink:0}}>Nom</span>{active('name') ? arrow(true, activeDir) : null}
         </div>
-        <div style={{...cellBase, color: active('version') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('version')}>
+        <div style={{...cellBase, color: active('version') ? 'var(--text-primary)' : 'var(--text-secondary)'}} onClick={() => onToggle?.('version')}>
           <span>Version</span>{active('version') ? arrow(true, activeDir) : null}
         </div>
-        <div style={{...cellBase, color: active('author') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('author')}>
+        <div style={{...cellBase, color: active('author') ? 'var(--text-primary)' : 'var(--text-secondary)'}} onClick={() => onToggle?.('author')}>
           <span>Auteur</span>{active('author') ? arrow(true, activeDir) : null}
         </div>
-        <div style={{...cellBase, color: active('category') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('category')}>
+        <div style={{...cellBase, color: active('category') ? 'var(--text-primary)' : 'var(--text-secondary)'}} onClick={() => onToggle?.('category')}>
           <span>Catégorie</span>{active('category') ? arrow(true, activeDir) : null}
         </div>
-        <div style={{...cellBase, justifyContent: 'flex-end', color: active('status') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('status')}>
+        <div style={{...cellBase, justifyContent: 'flex-end', color: active('status') ? 'var(--text-primary)' : 'var(--text-secondary)'}} onClick={() => onToggle?.('status')}>
           <span>Statut</span>{active('status') ? arrow(true, activeDir) : null}
         </div>
       </div>
@@ -139,16 +139,16 @@ export const TableHeader: React.FC<{ activeField?: string | null, activeDir?: So
   }
   return (
     <div style={headerStyle}>
-      <div style={{...cellBase, color: active('name') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('name')}>
+      <div style={{...cellBase, color: active('name') ? 'var(--text-primary)' : 'var(--text-secondary)'}} onClick={() => onToggle?.('name')}>
         <span style={{flexShrink:0}}>Nom</span>{active('name') ? arrow(true, activeDir) : null}
       </div>
-      <div style={{...cellBase, color: active('ctime') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('ctime')}>
+      <div style={{...cellBase, color: active('ctime') ? 'var(--text-primary)' : 'var(--text-secondary)'}} onClick={() => onToggle?.('ctime')}>
         <span>Date de création</span>{active('ctime') ? arrow(true, activeDir) : null}
       </div>
-      <div style={{...cellBase, color: active('order') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('order')}>
+      <div style={{...cellBase, color: active('order') ? 'var(--text-primary)' : 'var(--text-secondary)'}} onClick={() => onToggle?.('order')}>
         <span>Date d'utilisation</span>{active('order') ? arrow(true, activeDir) : null}
       </div>
-      <div style={{...cellBase, color: active('size') ? '#e2e8f0' : '#94a3b8'}} onClick={() => onToggle?.('size')}>
+      <div style={{...cellBase, color: active('size') ? 'var(--text-primary)' : 'var(--text-secondary)'}} onClick={() => onToggle?.('size')}>
         <span>Taille</span>{active('size') ? arrow(true, activeDir) : null}
       </div>
       <div />
@@ -157,3 +157,5 @@ export const TableHeader: React.FC<{ activeField?: string | null, activeDir?: So
 };
 
 export default Filter;
+
+

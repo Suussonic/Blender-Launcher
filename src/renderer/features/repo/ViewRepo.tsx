@@ -168,27 +168,27 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
   }, [repo.link]);
 
   return (
-    <div style={{ flex:1, display:'flex', flexDirection:'column', background:'#0F1419', height:'100%' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:28, padding:'20px 32px 0 32px', background:'#0F1419' }}>
-        {meta && <img src={meta.owner.avatar_url} alt="avatar" style={{ width:84, height:84, borderRadius:'50%', flexShrink:0, boxShadow:'0 0 0 2px #1e242a' }} />}
+    <div style={{ flex:1, display:'flex', flexDirection:'column', background:'var(--bg-card)', height:'100%' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:28, padding:'20px 32px 0 32px', background:'var(--bg-card)' }}>
+        {meta && <img src={meta.owner.avatar_url} alt="avatar" style={{ width:84, height:84, borderRadius:'50%', flexShrink:0, boxShadow:'0 0 0 2px var(--border-soft)' }} />}
         <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:6 }}>
-          <h1 style={{ fontSize:34, fontWeight:700, margin:0, color:'#fff', wordBreak:'break-word' }}>{ meta?.full_name || repo.link.split('/').slice(-2).join('/') }</h1>
-          <p style={{ fontSize:14, color:'#94a3b8', margin:0, lineHeight:1.5 }}>{ meta?.description || t('repo.no_description', 'Aucune description.') }</p>
+          <h1 style={{ fontSize:34, fontWeight:700, margin:0, color:'var(--text-inverse)', wordBreak:'break-word' }}>{ meta?.full_name || repo.link.split('/').slice(-2).join('/') }</h1>
+          <p style={{ fontSize:14, color:'var(--text-secondary)', margin:0, lineHeight:1.5 }}>{ meta?.description || t('repo.no_description', 'Aucune description.') }</p>
           {meta && (
-            <div style={{ display:'flex', flexWrap:'wrap', gap:18, fontSize:12, color:'#94a3b8', alignItems:'center' }}>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:18, fontSize:12, color:'var(--text-secondary)', alignItems:'center' }}>
               <span>★ {meta.stargazers_count}</span>
               <span>⑂ {meta.forks_count}</span>
               <span>👁 {meta.subscribers_count ?? meta.watchers_count ?? 0}</span>
               {extraStats && <span>Branches {extraStats.branches}</span>}
               {extraStats && <span>Commits ~{extraStats.commits}</span>}
               {extraStats && <span>Tags {extraStats.tags}</span>}
-              <a href={meta.html_url} style={{ color:'#38bdf8', textDecoration:'none' }} onMouseOver={e=>e.currentTarget.style.textDecoration='underline'} onMouseOut={e=>e.currentTarget.style.textDecoration='none'}>GitHub</a>
+              <a href={meta.html_url} style={{ color:'var(--text-link)', textDecoration:'none' }} onMouseOver={e=>e.currentTarget.style.textDecoration='underline'} onMouseOut={e=>e.currentTarget.style.textDecoration='none'}>GitHub</a>
               <button
                 onClick={() => setShowCloneModal(true)}
                 style={{
-                  background: '#16a34a',
+                  background: 'var(--success)',
                   border: 'none',
-                  color: '#fff',
+                  color: 'var(--text-inverse)',
                   padding: '6px 12px',
                   borderRadius: 6,
                   fontSize: 12,
@@ -199,8 +199,8 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
                   gap: 6,
                   transition: 'background 0.15s'
                 }}
-                onMouseOver={e => e.currentTarget.style.background = '#15803d'}
-                onMouseOut={e => e.currentTarget.style.background = '#16a34a'}
+                onMouseOver={e => e.currentTarget.style.background = 'color-mix(in srgb, var(--success) 70%, var(--bg-card))'}
+                onMouseOut={e => e.currentTarget.style.background = 'var(--success)'}
                 title={t('repo.clone_build_title', 'Cloner une branche et construire Blender depuis l\'application')}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -210,12 +210,12 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
                 </svg>
                 {t('repo.clone_build', 'Cloner & Build')}
               </button>
-              <div style={{ display:'flex', marginLeft:'auto', gap:0, border:'1px solid #2f3740', borderRadius:8, overflow:'hidden', background:'#161c22' }}>
+              <div style={{ display:'flex', marginLeft:'auto', gap:0, border:'1px solid var(--border-soft)', borderRadius:8, overflow:'hidden', background:'var(--bg-surface-1)' }}>
                 {['readme','license'].map(tab=> (
                   <button key={tab} onClick={()=> setActiveTab(tab as any)}
                     style={{
-                      background: activeTab===tab ? '#1e2730' : 'transparent',
-                      color: activeTab===tab ? '#f1f5f9' : '#94a3b8',
+                      background: activeTab===tab ? 'var(--bg-surface-2)' : 'transparent',
+                      color: activeTab===tab ? 'var(--text-primary)' : 'var(--text-secondary)',
                       border:'none',
                       padding:'6px 14px',
                       fontSize:12,
@@ -224,7 +224,7 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
                       letterSpacing:0.5,
                       transition:'background 0.15s, color 0.15s'
                     }}
-                    onMouseOver={e=>{ if(activeTab!==tab) e.currentTarget.style.background='#1b2229'; }}
+                    onMouseOver={e=>{ if(activeTab!==tab) e.currentTarget.style.background='var(--bg-card-hover)'; }}
                     onMouseOut={e=>{ if(activeTab!==tab) e.currentTarget.style.background='transparent'; }}
                   >{tab==='readme'?'README':'LICENSE'}</button>
                 ))}
@@ -233,10 +233,10 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
           )}
         </div>
       </div>
-      <div style={{ height:1, background:'#202830', marginTop:18 }} />
-      <div className="hide-scrollbar" style={{ flex:1, overflowY:'auto', padding:'24px 32px 48px 32px', color:'#e2e8f0' }}>
-        {loading && <div style={{ color:'#94a3b8' }}>{t('loading_with_ellipsis', 'Chargement…')}</div>}
-        {error && <div style={{ color:'#ef4444' }}>{t('error', 'Erreur')} : {error}</div>}
+      <div style={{ height:1, background:'var(--border-color)', marginTop:18 }} />
+      <div className="hide-scrollbar" style={{ flex:1, overflowY:'auto', padding:'24px 32px 48px 32px', color:'var(--text-primary)' }}>
+        {loading && <div style={{ color:'var(--text-secondary)' }}>{t('loading_with_ellipsis', 'Chargement…')}</div>}
+        {error && <div style={{ color:'var(--danger)' }}>{t('error', 'Erreur')} : {error}</div>}
         {!loading && !error && activeTab==='readme' && (
           <div style={{ maxWidth:900 }}
             className='markdown-body'
@@ -268,3 +268,6 @@ const ViewRepo: React.FC<ViewRepoProps> = ({ repo, onCloneStateChange }) => {
 };
 
 export default ViewRepo;
+
+
+
