@@ -55,6 +55,7 @@ const api = {
       , 'enable-addon'
       , 'remove-addon'
       , 'install-addon-on'
+      , 'install-extension-from-url'
       // Installer
       , 'install-from-download'
       , 'build-from-source'

@@ -481,6 +481,124 @@ export function initSettings(opts: {
     }
   });
 
+  // Helper: download a URL to a local file path (handles HTTP redirects)
+  function downloadFile(url: string, dest: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const protocol: any = url.startsWith('https:') ? require('https') : require('http');
+      const file = fs.createWriteStream(dest);
+      const timer = setTimeout(() => {
+        try { file.destroy(); } catch {}
+        reject(new Error('Download timeout'));
+      }, 120000);
+
+      const req = protocol.get(url, (res: any) => {
+        // Follow redirects
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          clearTimeout(timer);
+          file.close();
+          try { fs.unlinkSync(dest); } catch {}
+          downloadFile(res.headers.location, dest).then(resolve).catch(reject);
+          return;
+        }
+        if (res.statusCode !== 200) {
+          clearTimeout(timer);
+          file.close();
+          reject(new Error('HTTP ' + res.statusCode));
+          return;
+        }
+        res.pipe(file);
+        file.on('finish', () => {
+          clearTimeout(timer);
+          file.close(() => resolve());
+        });
+      });
+      req.on('error', (err: Error) => {
+        clearTimeout(timer);
+        try { file.close(); } catch {}
+        try { fs.unlinkSync(dest); } catch {}
+        reject(err);
+      });
+    });
+  }
+
+  ipcMain.handle('install-extension-from-url', async (_event, params: { blenderExePath?: string; downloadUrl?: string; extensionTitle?: string }) => {
+    const exePath = params?.blenderExePath;
+    const downloadUrl = params?.downloadUrl;
+
+    if (!exePath || !fs.existsSync(exePath)) return { success: false, error: 'exe-not-found' };
+    if (!downloadUrl) return { success: false, error: 'download-url-manquant' };
+
+    const tmpFile = path.join(app.getPath('temp'), `bl_ext_${Date.now()}.zip`);
+    try {
+      // 1. Download
+      console.log('[install-extension] downloading', downloadUrl);
+      try {
+        await downloadFile(downloadUrl, tmpFile);
+      } catch (dlErr) {
+        return { success: false, error: 'Téléchargement échoué: ' + String(dlErr) };
+      }
+
+      // 2. Vérification zip valide
+      let isZip = false;
+      try {
+        const fd = fs.openSync(tmpFile, 'r');
+        const buf = Buffer.alloc(4);
+        fs.readSync(fd, buf, 0, 4, 0);
+        fs.closeSync(fd);
+        // Signature ZIP : 0x50 0x4B 0x03 0x04
+        isZip = buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04;
+      } catch {}
+      if (!isZip) {
+        return { success: false, error: 'Le fichier téléchargé n\'est pas un fichier ZIP valide.\nVérifiez l\'URL ou le serveur distant.', tmpFile };
+      }
+
+      // 3. Run install script inside Blender
+      const out = await runBlenderBackendScript(
+        exePath,
+        path.join('backend', 'addons', 'install_extension.py'),
+        [tmpFile],
+        90000
+      );
+      const stdout = out.stdout || '';
+      const stderr = out.stderr || '';
+      console.log('[install-extension] script stdout', stdout.slice(0, 500));
+
+      const okMarker   = '@@INSTALL_OK@@';
+      const failMarker = '@@INSTALL_FAIL@@';
+      const okIdx   = stdout.indexOf(okMarker);
+      const failIdx = stdout.indexOf(failMarker);
+
+      if (okIdx >= 0) {
+        const moduleName = stdout.substring(okIdx + okMarker.length).split('\n')[0].trim();
+        if (!moduleName) {
+          return { success: false, error: 'Module activé introuvable', stdout, stderr };
+        }
+
+        // Invalidate addons cache
+        try {
+          const cache = readAddonsCache();
+          if (cache[exePath]) { delete cache[exePath]; writeAddonsCache(cache); }
+        } catch {}
+        setTimeout(() => { void refreshAddonsCacheForExe(exePath); }, 300);
+        return { success: true, module: moduleName };
+      }
+
+      if (failIdx >= 0) {
+        const reason = stdout.substring(failIdx + failMarker.length).split('\n')[0].trim();
+        // Ajout du détail stdout/stderr pour aider au debug
+        return { success: false, error: reason + '\n--- stdout ---\n' + stdout + '\n--- stderr ---\n' + stderr, stdout, stderr };
+      }
+
+      // Si le script ne retourne rien d'exploitable, afficher tout le stdout/stderr
+      return { success: false, error: 'Script sans résultat\n--- stdout ---\n' + stdout + '\n--- stderr ---\n' + stderr, stdout, stderr };
+    } catch (e) {
+      console.error('[install-extension-from-url] erreur', e);
+      return { success: false, error: String(e) };
+    } finally {
+      try { fs.unlinkSync(tmpFile); } catch {}
+    }
+  });
+
   // --- Icônes d'exécutables ---
   ipcMain.handle('get-exe-icon', async (_event, exePath: string) => {
     try {

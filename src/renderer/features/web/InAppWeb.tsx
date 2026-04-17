@@ -1,9 +1,16 @@
 import React from 'react';
 
+export type InstallRequestInfo = {
+  downloadUrl: string;
+  title: string;
+  pageUrl: string;
+};
+
 type InAppWebProps = {
   url: string;
   onNavigated?: (url: string, kind?: 'in-page' | 'full' | 'new-window') => void;
   onCanGo?: (state: { canGoBack: boolean; canGoForward: boolean }) => void;
+  onInstallRequest?: (info: InstallRequestInfo) => void;
   reloadKey?: number;
 };
 
@@ -12,7 +19,65 @@ export type InAppWebHandle = {
   goForward: () => void;
 };
 
-const InAppWeb = React.forwardRef<InAppWebHandle, InAppWebProps>(({ url, onNavigated, onCanGo, reloadKey }, forwardedRef) => {
+/** JavaScript injected into extensions.blender.org pages to intercept "Get Add-on" clicks. */
+const INSTALL_INJECT_SCRIPT = `(function() {
+  if (window.__blInstallPatched) return;
+  window.__blInstallPatched = true;
+
+  function patch() {
+    var els = Array.from(document.querySelectorAll('a, button'));
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (el.__blPatched) continue;
+      var text = (el.textContent || '').trim();
+      var href = el.getAttribute('href') || '';
+      var isInstall = text === 'Get Add-on' || (href && href.startsWith('blender+extension://'));
+      if (!isInstall) continue;
+      el.__blPatched = true;
+
+      // Change visible text
+      var nodes = el.childNodes;
+      var replaced = false;
+      for (var j = 0; j < nodes.length; j++) {
+        if (nodes[j].nodeType === 3 && (nodes[j].nodeValue || '').trim() === 'Get Add-on') {
+          nodes[j].nodeValue = 'Installer';
+          replaced = true;
+          break;
+        }
+      }
+      if (!replaced && text === 'Get Add-on') el.textContent = 'Installer';
+
+      // Capture download URL from the sibling "download" link
+      var dlLink = document.querySelector('a[href*="/download/"]');
+      var downloadUrl = dlLink ? (dlLink.href || '') : '';
+
+      // Capture extension title
+      var titleEl = document.querySelector('h1, .extension-name, [class*="title"]');
+      var title = titleEl ? titleEl.textContent.trim() : document.title;
+
+      el.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('BLENDER_INSTALL:' + JSON.stringify({
+          downloadUrl: downloadUrl,
+          title: title,
+          pageUrl: window.location.href
+        }));
+      }, true);
+    }
+  }
+
+  patch();
+  var tries = 0;
+  var timer = setInterval(function() {
+    patch();
+    tries++;
+    if (tries > 30) clearInterval(timer);
+  }, 500);
+})();
+`;
+
+const InAppWeb = React.forwardRef<InAppWebHandle, InAppWebProps>(({ url, onNavigated, onCanGo, onInstallRequest, reloadKey }, forwardedRef) => {
   const webviewRef = React.useRef<any>(null);
   const ignoreNextRef = React.useRef<boolean>(false);
 
@@ -61,9 +126,32 @@ const InAppWeb = React.forwardRef<InAppWebHandle, InAppWebProps>(({ url, onNavig
       } catch {}
     };
 
+    const tryInjectInstallScript = () => {
+      try {
+        const currentUrl: string = (typeof v.getURL === 'function' ? v.getURL() : '') || v.src || '';
+        if (currentUrl.includes('extensions.blender.org')) {
+          v.executeJavaScript(INSTALL_INJECT_SCRIPT).catch(() => {});
+        }
+      } catch {}
+    };
+
+    const onConsoleMessage = (e: any) => {
+      const msg = String(e.message || '');
+      if (!msg.startsWith('BLENDER_INSTALL:')) return;
+      try {
+        const data = JSON.parse(msg.substring('BLENDER_INSTALL:'.length));
+        onInstallRequest && onInstallRequest({
+          downloadUrl: String(data.downloadUrl || ''),
+          title: String(data.title || ''),
+          pageUrl: String(data.pageUrl || ''),
+        });
+      } catch {}
+    };
+
     const onDidNavigateAny = (e:any) => {
       onDidNavigate(e);
       updateCanGo();
+      tryInjectInstallScript();
     };
     v.addEventListener('did-navigate', onDidNavigateAny);
     v.addEventListener('did-navigate-in-page', onDidNavigateInPage);
@@ -71,11 +159,13 @@ const InAppWeb = React.forwardRef<InAppWebHandle, InAppWebProps>(({ url, onNavig
     v.addEventListener('new-window', onNewWindow);
     const onDomReady = () => { 
       try { (window as any).__bl_webview = v; } catch {}
-      updateCanGo(); 
+      updateCanGo();
+      tryInjectInstallScript();
     };
     v.addEventListener('dom-ready', onDomReady);
     v.addEventListener('did-start-loading', updateCanGo);
     v.addEventListener('did-stop-loading', updateCanGo);
+    v.addEventListener('console-message', onConsoleMessage);
     return () => {
       try {
         v.removeEventListener('did-navigate', onDidNavigateAny);
@@ -85,9 +175,10 @@ const InAppWeb = React.forwardRef<InAppWebHandle, InAppWebProps>(({ url, onNavig
         v.removeEventListener('dom-ready', onDomReady);
         v.removeEventListener('did-start-loading', updateCanGo);
         v.removeEventListener('did-stop-loading', updateCanGo);
+        v.removeEventListener('console-message', onConsoleMessage);
       } catch {}
     };
-  }, [onNavigated, onCanGo]);
+  }, [onNavigated, onCanGo, onInstallRequest]);
 
   React.useImperativeHandle(forwardedRef, () => ({
     goBack: () => {

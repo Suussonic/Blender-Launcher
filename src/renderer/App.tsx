@@ -5,9 +5,10 @@ import Navbar from './layout/Navbar';
 import Sidebar from './layout/Sidebar';
 import ViewPages from './features/recent/ViewPages';
 import Home from './pages/Home';
-import InAppWeb, { InAppWebHandle } from './features/web/InAppWeb';
+import InAppWeb, { InAppWebHandle, InstallRequestInfo } from './features/web/InAppWeb';
 import ViewRepo, { SimpleRepoRef } from './features/repo/ViewRepo';
 import ViewExtensions from './features/extensions/ViewExtensions';
+import InstallExtensionModal from './features/extensions/InstallExtensionModal';
 import ViewOfficial from './features/build/ViewOfficial';
 import Loading from './shared/ui/Loading';
 import SettingsPage from './features/settings/SettingsPage';
@@ -48,6 +49,8 @@ const App: React.FC = () => {
   
   // Modal state for official download / clone-build workflow.
   const [showCloneBuildPopup, setShowCloneBuildPopup] = useState(false);
+  // Modal state for installing an extension from extensions.blender.org
+  const [installModal, setInstallModal] = useState<InstallRequestInfo | null>(null);
 
   // Jobs are persisted in config and restored on startup.
   const [pendingBuilds, setPendingBuilds] = useState<PendingBuild[]>([]);
@@ -672,6 +675,7 @@ const App: React.FC = () => {
                       });
                     }}
                     onCanGo={(state) => setWebCanGo({ back: !!state.canGoBack, forward: !!state.canGoForward })}
+                    onInstallRequest={(info) => setInstallModal(info)}
                   />
                 ) : (
                   <div style={{ color: 'var(--text-secondary)', padding: 24 }}>{t('no_page', 'Aucune page')}</div>
@@ -741,6 +745,15 @@ const App: React.FC = () => {
             </div>
           )}
         </div>
+      )}
+      {/* Install Extension from Hub Modal */}
+      {installModal && (
+        <InstallExtensionModal
+          downloadUrl={installModal.downloadUrl}
+          extensionTitle={installModal.title}
+          pageUrl={installModal.pageUrl}
+          onClose={() => setInstallModal(null)}
+        />
       )}
       {/* Clone & Build Popup */}
       <ViewOfficial
